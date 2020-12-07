@@ -1,5 +1,6 @@
 # grabdoc
 Blender GrabDoc is a trim &amp; tileable baker.
 
+For video examples: https://www.artstation.com/artwork/WKmwzG
 
-![alt-text](https://github.com/oRazeD/grabdoc/blob/main/img/GrabDocMarmosetExample.mp4)
+Product page: https://gumroad.com/l/grabdoc
