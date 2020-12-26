@@ -2,13 +2,13 @@ import mset
 import os
 import json
 
-model_dir = mset.getPluginPath()
+temps_path = os.path.join(os.path.dirname(mset.getPluginPath()), "Temp")
 
 def refresh_scene():
-    if os.path.exists(os.path.join(os.path.dirname(model_dir), "marmo_vars.json")):
+    if os.path.exists(os.path.join(temps_path, "marmo_vars.json")):
         mset.newScene()
 
-        with open(os.path.join(os.path.dirname(model_dir), "marmo_vars.json"), 'r') as openfile:
+        with open(os.path.join(temps_path, "marmo_vars.json"), 'r') as openfile:
             marmo_json = json.load(openfile)
 
         # Create baker object
@@ -59,13 +59,16 @@ def refresh_scene():
         matIDMap.enabled = marmo_json["export_matid"]
 
         # Import the models
-        baker.importModel(marmo_json["grab_doc_import"])
+        baker.importModel(os.path.join(temps_path, "grabdoc_temp_model.fbx"))
 
         # Set cage offset
         mset.findObject('Low').maxOffset = marmo_json["cage_height"] + .01
 
+        tb_version = mset.getToolbagVersion()
+
         # Change skybox to Evening Clouds
-        mset.findObject('Sky').loadSky(marmo_json["marmo_sky_path"])
+        if tb_version < 4000:
+            mset.findObject('Sky').loadSky(marmo_json["marmo_sky_path"])
 
         # Rotate all models 90 degrees
         bakeGroup = mset.findObject('GrabDoc')
@@ -73,7 +76,7 @@ def refresh_scene():
 
         # Make a folder for Mat ID materials
         for mat in mset.getAllMaterials():
-            if mat.name.startswith("GrabDoc_ID"):
+            if mat.name.startswith("GD_"):
                 mat.setGroup('Mat ID')
 
         # Baker
@@ -92,7 +95,7 @@ def refresh_scene():
             mset.findObject('High').visible = False
             
             # Scale up the high poly plane
-            mset.findObject('GrabDoc_high BG Plane').scale = [300, 300, 300]
+            mset.findObject('GrabDoc_high GD_Background Plane').scale = [300, 300, 300]
 
             findDefault = mset.findMaterial("Default")
 
@@ -107,9 +110,7 @@ def refresh_scene():
             # Rename bake material
             findDefault.name = 'Bake Material'
 
-        os.remove(os.path.join(os.path.dirname(model_dir), "marmo_vars.json"))
-
-        os.remove(os.path.join(marmo_json["grab_doc_import"])) 
+        os.remove(os.path.join(temps_path, "marmo_vars.json"))
 
 mset.callbacks.onRegainFocus = refresh_scene
 

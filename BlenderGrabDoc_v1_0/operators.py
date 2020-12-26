@@ -1,24 +1,45 @@
-import time
+
 import bpy
+import time
 import os
 import bgl
 import blf
 from bpy.types import Operator
-from bpy.props import StringProperty, EnumProperty
+from bpy.props import EnumProperty, BoolProperty
 import traceback
 from random import random, randint
 from mathutils import Vector, Color
 import subprocess
 import json
+import bmesh
 
 
-############################################################
-# OPERATORS
-############################################################
+################################################################################################################
+# GENERIC OPERATORS
+################################################################################################################
 
 
 class OpInfo:
-    bl_options = {'REGISTER'}
+    bl_options = {'REGISTER', 'UNDO'}
+
+
+class GRABDOC_OT_load_ref(OpInfo, Operator):
+    bl_idname = "grab_doc.load_ref"
+    bl_label = "Load Reference"
+    bl_description = "Loads a reference onto the background plane"
+
+    filepath: bpy.props.StringProperty(subtype="FILE_PATH")
+
+    def execute(self, context):
+        # Load a new image into the main database
+        bpy.data.images.load(self.filepath, check_existing=True)
+
+        context.scene.grabDoc.refSelection = bpy.data.images[os.path.basename(os.path.normpath(self.filepath))]
+        return{'FINISHED'}
+
+    def invoke(self, context, event):
+        context.window_manager.fileselect_add(self)
+        return {'RUNNING_MODAL'}
 
 
 class GRABDOC_OT_open_folder(OpInfo, Operator):
@@ -27,11 +48,10 @@ class GRABDOC_OT_open_folder(OpInfo, Operator):
     bl_description = "Opens up the File Explorer with the designated folder location"
 
     def execute(self, context):
-        if not os.path.exists(context.scene.grab_doc_filepath):
-            self.report({'ERROR'}, "There is no file path set")
-            return{'FINISHED'}
-        else:
-            bpy.ops.wm.path_open(filepath = context.scene.grab_doc_filepath)
+        try:
+            bpy.ops.wm.path_open(filepath = context.scene.grabDoc.exportPath)
+        except RuntimeError:
+            self.report({'ERROR'}, "No valid file path set")
         return{'FINISHED'}
 
 
@@ -40,474 +60,540 @@ class GRABDOC_OT_view_cam(OpInfo, Operator):
     bl_label = "View Trim Camera"
     bl_description = "View the scenes Trim Camera"
 
+    from_modal: BoolProperty(default = False, options={'HIDDEN'})
+
     def execute(self, context):
+        context.scene.camera = bpy.data.objects["GD_Trim Camera"]
+        
         try:
-            # Set active camera & view it
-            context.scene.camera = bpy.data.objects["Trim Camera"]
-            bpy.ops.view3d.view_camera()
+            if self.from_modal:
+                if [area.spaces.active.region_3d.view_perspective for area in context.screen.areas if area.type == 'VIEW_3D'] == ['CAMERA']:
+                    bpy.ops.view3d.view_camera()
+            else:
+                bpy.ops.view3d.view_camera()
         except:
             traceback.print_exc()
-            self.report({'ERROR'}, "Trim Camera not found, either you haven't set up the scene or you have excluded it from the View Layer.")
+            self.report({'ERROR'}, "Exit camera failed, please contact the developer with the error code listed in the console. ethan.simon.3d@gmail.com")
+
+        self.from_modal = False
         return{'FINISHED'}
 
 
-class GRABDOC_OT_leave_modal(OpInfo, Operator):
-    bl_idname = "grab_doc.leave_modal"
-    bl_label = "Leave Map Preview"
-    bl_description = "Leave Map Preview mode"
-
-    @classmethod
-    def poll(cls, context):
-        return(context.scene.grabDocPrefs.modalState)
-
-    def execute(self, context):
-        context.scene.grabDocPrefs.modalState = False
-        return{'FINISHED'}
-
-
-def find_tallest_object(self, context):
-    tallest_verts = []
-
-    for ob in context.view_layer.objects:
-        if ob.name in self.render_list:
-            if ob.name != "BG Plane":
-                # get the z-coordinates from each vertex and the maximum
-                z_coords = [v.co[2] for v in ob.data.vertices]
-                index = z_coords.index(max(z_coords))
-
-                vert = ob.data.vertices[index].co
-                mat = ob.matrix_world
-                loc = mat @ vert
-
-                tallest_verts.append(loc[2])
-
-    if tallest_verts:
-        context.scene.grabDocPrefs.heightGuide = max(tallest_verts)
-
-
-class GRABDOC_OT_send_to_marmo(OpInfo, Operator):
-    bl_idname = "grab_doc.bake_marmoset"
-    bl_label = "Open / Refresh in Marmoset"
-    bl_description = "Export your models, open and bake (if turned on) in Marmoset Toolbag utilizing the settings set within the 'View / Edit Maps' tab"
-    
-    send_type: EnumProperty(items=(('open',"Open",""),
-                                   ('refresh', "Refresh", "")))
-
-    @classmethod
-    def poll(cls, context):
-        return(os.path.exists(context.scene.marmoset_exe_filepath))
-
-    def execute(self, context):
-        grabDocPrefs = context.scene.grabDocPrefs
-
-        if not os.path.exists(context.scene.grab_doc_filepath):
-            self.report({'ERROR'}, "There is no file path set")
-            return{'FINISHED'}
-
-        if grabDocPrefs.image_type != "PNG":
-            self.report({'ERROR'}, "Non PNG formats are currently not supported in Blender GrabDoc for external baking")
-            return{'FINISHED'}
-
-        get_rendered_objects(self, context)
-
-        for ob in context.view_layer.objects:
-            if ob.name in self.render_list:
-                for mod in ob.modifiers:
-                    if mod.type == "DISPLACE":
-                        if context.scene.grabDocPrefs.manualHeightRange == 'AUTO':
-                            self.report({'ERROR'}, "While using Displace modifiers you must use the manual height range option for accuracy (0-1 range affects the clipping plane)")
-                            return{'FINISHED'}
-
-        # Add-on root path 
-        addon_path = os.path.dirname(__file__)
-        
-        # Temporary model path 
-        temp_models_path = os.path.join(addon_path, "Temp Models")
-
-        # Create the directory 
-        if not os.path.exists(temp_models_path):
-            os.mkdir(temp_models_path)
-
-        selectedCallback = context.view_layer.objects.selected.keys()
-
-        if context.active_object:
-            bpy.ops.object.mode_set(mode = 'OBJECT')
-
-        if grabDocPrefs.exportHeight:
-            if grabDocPrefs.manualHeightRange == 'AUTO':
-                find_tallest_object(self, context)
-
-        for ob in context.view_layer.objects:
-            ob.select_set(False)
-            if ob.type == 'MESH':
-                if not ob.hide_get():
-                    if ob.name in self.render_list:
-                        ob.select_set(True)
-                        if ob.name == 'BG Plane':
-                            obCopy = ob.copy()
-                            context.collection.objects.link(obCopy)
-                            obCopy.name = "GrabDoc_high BG Plane"
-
-                            ob.name = "GrabDoc_low " + ob.name
-                        else:
-                            ob.name = "GrabDoc_high " + ob.name
-
-        # Reselect BG Plane high poly
-        bpy.data.objects['GrabDoc_high BG Plane'].select_set(True)
-
-        # Parent Directory path 
-        addon_path = os.path.join(os.path.dirname(__file__))
-
-        # Path 
-        temp_models_path = os.path.join(addon_path, "Temp Models")
-
-        # Export models
-        bpy.ops.export_scene.fbx(filepath=temp_models_path + "\\" + grabDocPrefs.exportName + ".fbx",
-                                    use_selection=True,
-                                    path_mode='ABSOLUTE')
-
-        if "GrabDoc_high BG Plane" in bpy.data.objects:
-            bpy.data.objects.remove(bpy.data.objects["GrabDoc_high BG Plane"], do_unlink=True)
-
-        for ob in context.selected_objects:
-            if ob.name == "GrabDoc_low BG Plane":
-                ob.name = ob.name.lstrip("GrabDoc_low ")
-            else:
-                ob.name = ob.name.lstrip("GrabDoc_high ")
-            ob.select_set(False)
-            
-
-        for o in selectedCallback:
-            if not ob.hide_get():
-                ob = context.scene.objects.get(o)
-                ob.select_set(True)
-
-        # Create a dictionary of variables to transfer into Marmoset
-        marmo_vars = {'file_path': f'{context.scene.grab_doc_filepath}{grabDocPrefs.exportName}.{grabDocPrefs.image_type.lower()}',
-                      'file_path_no_ext': context.scene.grab_doc_filepath,
-                      'marmo_sky_path': f'{os.path.dirname(context.scene.marmoset_exe_filepath)}\\data\\sky\\Evening Clouds.tbsky',
-                      'grab_doc_import': f'{temp_models_path}\\{grabDocPrefs.exportName}.fbx',
-
-                      'resolution_x': grabDocPrefs.exportResX,
-                      'resolution_y': grabDocPrefs.exportResY,
-                      'bits_per_channel': int(grabDocPrefs.bitDepth),
-                      'samples': int(grabDocPrefs.samplesMarmoset),
-
-                      'auto_bake': grabDocPrefs.autoBake,
-                      'close_after_bake': grabDocPrefs.closeAfterBake,
-                      'open_folder': grabDocPrefs.openFolderOnExport,
-
-                      'export_normals': grabDocPrefs.exportNormals,
-                      'flipy_normals': grabDocPrefs.normalsFlipY,
-
-                      'export_curvature': grabDocPrefs.exportCurvature,
-
-                      'export_occlusion': grabDocPrefs.exportOcclusion,
-                      'ray_count_occlusion': grabDocPrefs.aoRayCount,
-
-                      'export_height': grabDocPrefs.exportHeight,
-                      'flat_height': grabDocPrefs.onlyFlatValues,
-                      'cage_height': grabDocPrefs.heightGuide * 100 * 2,
-
-                      'export_matid': grabDocPrefs.exportMatID}
-
-        # Flip the slashes of the first Dict value (It's gross but I don't know how to do it any other way without an error in Marmoset)
-        for key, value in marmo_vars.items():
-            marmo_vars[key] = value.replace("\\", "/")
-            break
-        
-        # Serializing
-        marmo_json = json.dumps(marmo_vars, indent = 4)
-
-        # Writing
-        with open(addon_path + "\\" + "marmo_vars.json", "w") as outfile:
-            outfile.write(marmo_json)
-        
-        path_ext_only = os.path.basename(os.path.normpath(context.scene.marmoset_exe_filepath)).encode()
-
-        if self.send_type == 'refresh':
-            subproc = subprocess.check_output('tasklist', shell=True)
-            if not path_ext_only in subproc:
-                subprocess.Popen([context.scene.marmoset_exe_filepath, os.path.join(addon_path, "grabdoc_marmo.py")])
-
-                self.report({'INFO'}, "Export completed! Opening Marmoset Toolbag...")
-            else:
-                if grabDocPrefs.autoBake:
-                    self.report({'INFO'}, "Models re-exported! Check Marmoset Toolbag.")
-                else:
-                    self.report({'INFO'}, "Models re-exported! Check Marmoset Toolbag. (Rebake required)")
-        else:
-            subprocess.Popen([context.scene.marmoset_exe_filepath, os.path.join(addon_path, "grabdoc_marmo.py")])
-
-            self.report({'INFO'}, "Export completed! Opening Marmoset Toolbag...")
-        return{'FINISHED'}
-
-
-def point_cloud(ob_name, cameraVectorsList, faces = [(0,1,2,3)]):
-    grabDocPrefs = bpy.context.scene.grabDocPrefs
-
-    # Make a tuple for the planes vertex positions
-    cameraVectorsList = tuple(tuple(vec) for vec in bpy.data.objects["Trim Camera"].data.view_frame(scene = bpy.context.scene))
-
-    if grabDocPrefs.exportHeight and grabDocPrefs.manualHeightRange == 'MANUAL':
-        edges = [(0,4), (1,5), (2,6), (3,7), (4,5), (5,6), (6,7), (7,4)]
-
-        # Make a new tuple for the height bounding box
-        def change_vector_z(tuple):
-            newVectorTuple = (tuple[0], tuple[1], grabDocPrefs.heightGuide - 1)
-            return newVectorTuple
-
-        extraVectorsList = tuple([change_vector_z(vec) for vec in cameraVectorsList])
-
-        # Combine both tuples
-        cameraVectorsList = cameraVectorsList + extraVectorsList
-    else:
-        edges = []
-
-    # Create new mesh & object data blocks
-    meNew = bpy.data.meshes.new(ob_name)
-    obNew = bpy.data.objects.new(ob_name, meNew)
-
-    # Make a mesh from a list of vertices / edges / faces
-    meNew.from_pydata(cameraVectorsList, edges, faces)
-
-    # Display name and update the mesh
-    meNew.update()
-    return obNew
-
-
-def scene_refresh(self, context):
-    grabDocPrefs = context.scene.grabDocPrefs
-
-    savedActiveColl = context.view_layer.active_layer_collection
-    selectedCallback = context.view_layer.objects.selected.keys()
-
-    modeCallback = None
-
-    if context.active_object:
-        modeCallback = context.object.mode
-        bpy.ops.object.mode_set(mode = 'OBJECT')
-
-    # Do some checks to see if the user wants to only render out the objects in a specific collection (for perf reasons)
-    objectsColl = "GrabDoc Objects (put objects here)"
-
-    if context.scene.grabDocPrefs.onlyRenderColl:
-        for collection in context.view_layer.layer_collection.children:
-            if collection.name == objectsColl:
-                break
-        else:
-            bpy.data.collections.new(name = objectsColl)
-            context.scene.collection.children.link(bpy.data.collections[objectsColl])
-            context.view_layer.active_layer_collection = context.view_layer.layer_collection.children[-1]
-    else:
-        # Move the objects from GrabDoc Objects to the master collection (rather than outright deleting them)
-        for coll in bpy.data.collections:
-            if coll.name == objectsColl:
-                for ob in coll.all_objects:
-                    context.scene.collection.objects.link(ob)
-                    bpy.data.collections[objectsColl].objects.unlink(ob)
-                break
-
-        # Delete the collection
-        for block in bpy.data.collections:
-            if block.name == objectsColl:
-                bpy.data.collections.remove(block)
-                break
-
-    # Make the GrabDoc collection the active one
-    for collection in context.view_layer.layer_collection.children:
-        if collection.name == "GrabDoc (do not touch)":
-            context.view_layer.active_layer_collection = collection
-
-    # If actively viewing a camera, set a variable to remind the script later on
-    if [area.spaces.active.region_3d.view_perspective for area in context.screen.areas if area.type == 'VIEW_3D'] == ['CAMERA']:
-        repositionCam = True
-        bpy.ops.view3d.view_camera()
-    else:
-        repositionCam = False
-
-    # Remove pre existing camera & related data blocks
-    camName = "Trim Camera"
-    
-    if camName in bpy.data.objects:
-        bpy.data.objects.remove(bpy.data.objects[camName], do_unlink=True)
-
-    for block in bpy.data.cameras:
-        if not block.users and block.name == camName:
-            bpy.data.cameras.remove(block)
-            break
-
-    # Add camera & change settings
-    bpy.ops.object.camera_add(location = (0, 0, grabDocPrefs.camHeight), rotation = (0, 0, 0))
-
-    if repositionCam:
-        bpy.ops.view3d.view_camera() # Needed to do twice or else Blender decides where the user camera is located when we exit
-
-    context.object.name = camName
-    context.object.data.name = camName
-    context.object.data.type = 'ORTHO'
-    context.object.data.display_size = .01
-    context.object.data.passepartout_alpha = 0.9
-    context.object.data.show_name = True
-
-    # Change the camera scaling based on user preferences
-    if grabDocPrefs.scalingType == "scaling_matchRes":
-        if grabDocPrefs.exportResX >= grabDocPrefs.exportResY:
-            context.object.data.ortho_scale = grabDocPrefs.exportResX / 1000
-        else:
-            context.object.data.ortho_scale = grabDocPrefs.exportResY / 1000
-    else:
-        context.object.data.ortho_scale = grabDocPrefs.scalingSet
-
-    # Remove pre existing BG Plane and all related data blocks 
-    planeName = "BG Plane"
-
-    hadMaterial = False
-
-    if planeName in bpy.data.objects:
-        if bpy.data.objects[planeName].active_material != None:
-            savedMat = bpy.data.objects[planeName].active_material
-            hadMaterial = True
-
-        bpy.data.objects.remove(bpy.data.objects[planeName], do_unlink=True)
-
-    for block in bpy.data.meshes:
-        if not block.users and block.name == planeName:
-            bpy.data.meshes.remove(block)
-            break
-
-    # Create object & link new object to the active collection
-    pc = point_cloud(planeName, [(.0, .0, .0)])
-    context.collection.objects.link(pc)
-
-    # Grab the newly made object and shift it to the grid
-    plane_ob = bpy.data.objects[planeName]
-    plane_ob.location[2] = 1
-
-    if hadMaterial:
-        plane_ob.active_material = savedMat
-
-    context.view_layer.objects.active = plane_ob
-    plane_ob.select_set(True)
-    bpy.ops.object.transform_apply(location=True)
-    plane_ob.select_set(False)
-
-    for ob in context.selected_objects:
-        ob.select_set(False)
-
-    bpy.ops.object.mode_set(mode = 'EDIT')
-
-    savedSelMode = tuple(context.scene.tool_settings.mesh_select_mode)
-
-    # Change twice incase in face mode already
-    context.tool_settings.mesh_select_mode = (False, True, False)
-    context.tool_settings.mesh_select_mode = (False, False, True)
-    bpy.ops.mesh.flip_normals()
-    bpy.ops.uv.unwrap(margin=0.00001)
-    plane_ob.rotation_euler[2] = 3.14159
-
-    if grabDocPrefs.creatingGrid:
-        plane_ob.show_wire = True
-        bpy.ops.mesh.subdivide(number_cuts = grabDocPrefs.creatingGridSubdivs)
-
-    # Refresh selection & context mode
-    context.scene.tool_settings.mesh_select_mode = savedSelMode
-    bpy.ops.object.mode_set(mode = 'OBJECT')
-
-    # Select original active collection & active object
-    if savedActiveColl:
-        context.view_layer.active_layer_collection = savedActiveColl
-
-    # Deselect all objects
-    for ob in context.selected_objects:
-        ob.select_set(False)
-
-    # Select original object(s)
-    for o in selectedCallback:
-        ob = context.scene.objects.get(o)
-        ob.select_set(True)
-
-    if modeCallback:
-        bpy.ops.object.mode_set(mode = modeCallback)
+################################################################################################################
+# SCENE SETUP
+################################################################################################################
 
 
 class GRABDOC_OT_setup_scene(Operator):
     bl_idname = "grab_doc.setup_scene"
     bl_label = "Setup / Refresh Scene"
     bl_description = "Setup/Refresh your current scene. Useful if you messed up something within the GrabDoc collections that you don't know how to perfectly revert" 
-    bl_options = {'UNDO'}
+    bl_options = {'REGISTER'}
 
     def execute(self, context):
-        grabDocPrefs = context.scene.grabDocPrefs
-
-        selectedCallback = context.view_layer.objects.selected.keys()
-
-        activeSelected = False
-        if context.active_object:
-            if context.object.type in {'MESH', 'CURVE', 'FONT', 'SURFACE', 'META', 'LATTICE', 'ARMATURE', 'CAMERA'}:
-                activeCallback = context.active_object.name
-                modeCallback = context.object.mode
-
-                bpy.ops.object.mode_set(mode = 'OBJECT')
-                activeSelected = True
-
-        # Set scene resolution
-        context.scene.render.resolution_x = grabDocPrefs.exportResX
-        context.scene.render.resolution_y = grabDocPrefs.exportResY
-
-        # Create, link & select collection
-        savedActiveColl = context.view_layer.active_layer_collection
-
-        for block in bpy.data.collections:
-            if block.name == "GrabDoc (do not touch)":
-                bpy.data.collections.remove(block)
-
-        bpy.data.collections.new(name = "GrabDoc (do not touch)")
-
-        grabDocCollection = bpy.data.collections["GrabDoc (do not touch)"]
-
-        context.scene.collection.children.link(grabDocCollection)
-
-        context.view_layer.active_layer_collection = context.view_layer.layer_collection.children[-1]
-
-        # Add plane & camera
         scene_refresh(self, context)
-        
-        # Make the new collection (un)selectable
-        grabDocCollection.hide_select = not grabDocPrefs.collSelectable
-
-        # Make the new collection hidden / visible
-        grabDocCollection.hide_viewport = grabDocPrefs.collHidden
-
-        # Select original active collection
-        context.view_layer.active_layer_collection = savedActiveColl
-
-        # De-select all objects
-        for ob in context.selected_objects:
-            ob.select_set(False)
-
-        # Re-Select original object(s)
-        for o in selectedCallback:
-            ob = context.scene.objects.get(o)
-            ob.select_set(True)
-
-        # Call for Original Context Mode (Use bpy.ops so that Blenders viewport refreshes)
-        if activeSelected:
-            context.view_layer.objects.active = bpy.data.objects[activeCallback]
-            bpy.ops.object.mode_set(mode = modeCallback)
         return{'FINISHED'}
 
 
-############################################################
-# SETUP & REFRESH
-############################################################
+class GRABDOC_OT_remove_setup(Operator):
+    bl_idname = "grab_doc.remove_setup"
+    bl_label = "Remove Setup"
+    bl_description = "Completely removes every element of GrabDoc from the scene, not including images reimported after bakes" 
+    bl_options = {'REGISTER'}
+
+    def execute(self, context):
+        # Remove Node Groups
+        if 'GD_Normals' in bpy.data.node_groups:
+            bpy.data.node_groups.remove(bpy.data.node_groups["GD_Normals"])
+
+        if 'GD_Height' in bpy.data.node_groups:
+            bpy.data.node_groups.remove(bpy.data.node_groups["GD_Height"])
+
+        if 'GD_Ambient Occlusion' in bpy.data.node_groups:
+            bpy.data.node_groups.remove(bpy.data.node_groups["GD_Ambient Occlusion"])
+
+        # Remove collections
+        if "GrabDoc (do not touch contents)" in bpy.data.collections:
+            bpy.data.collections.remove(bpy.data.collections["GrabDoc (do not touch contents)"])
+
+        if "GrabDoc Objects (put objects here)" in bpy.data.collections:
+            objectsColl = "GrabDoc Objects (put objects here)"
+
+            if "GrabDoc Objects (put objects here)" in bpy.data.collections:
+                for ob in bpy.data.collections[objectsColl].all_objects:
+                    # Move object to the master collection
+                    context.scene.collection.objects.link(ob)
+                    # Remove the objects from the grabdoc collection
+                    bpy.data.collections[objectsColl].objects.unlink(ob)
+
+            bpy.data.collections.remove(bpy.data.collections[objectsColl])
+        
+        # Remove image ref
+        if "GD_Reference" in bpy.data.materials:
+            bpy.data.materials.remove(bpy.data.materials["GD_Reference"])
+
+        # Remove bg plane
+        if "GD_Background Plane" in bpy.data.objects:
+            bpy.data.meshes.remove(bpy.data.objects["GD_Background Plane"].data)
+
+        # Remove camera
+        if "GD_Trim Camera" in bpy.data.cameras:
+            bpy.data.cameras.remove(bpy.data.cameras["GD_Trim Camera"])
+
+        # Remove height guide
+        if "GD_Height Guide" in bpy.data.objects:
+            bpy.data.meshes.remove(bpy.data.objects["GD_Height Guide"].data)
+
+        # Remove orient guide
+        if "GD_Orient Guide" in bpy.data.objects:
+            bpy.data.meshes.remove(bpy.data.objects["GD_Orient Guide"].data)
+        return{'FINISHED'}
+
+
+def scene_refresh(self, context):
+    # PRELIMINARY
+
+    grabDoc = context.scene.grabDoc
+
+    savedActiveColl = context.view_layer.active_layer_collection
+    selectedCallback = context.view_layer.objects.selected.keys()
+
+    if context.active_object:
+        if context.object.type in {'MESH', 'CURVE', 'FONT', 'SURFACE', 'META', 'LATTICE', 'ARMATURE', 'CAMERA'}:
+            activeCallback = context.active_object.name
+
+            modeCallback = context.object.mode
+            
+            bpy.ops.object.mode_set(mode = 'OBJECT')
+    else:
+        activeCallback = None
+
+    # Deselect all objects
+    for ob in context.selected_objects:
+        ob.select_set(False)
+
+    # Set - Scene resolution (Trying to avoid destructively changing values, but this is one that needs to be changed)
+    context.scene.render.resolution_x = grabDoc.exportResX
+    context.scene.render.resolution_y = grabDoc.exportResY
+    
+    # NODE GROUPS
+
+    ng_setup(self, context)
+
+    # COLLECTIONS
+
+    # Do some checks to see if the user wants to only render out the objects in a specific collection (for perf reasons)
+    objectsColl = "GrabDoc Objects (put objects here)"
+
+    if context.scene.grabDoc.onlyRenderColl:
+        if not objectsColl in bpy.data.collections:
+            bpy.data.collections.new(name = objectsColl)
+            context.scene.collection.children.link(bpy.data.collections[objectsColl])
+            context.view_layer.active_layer_collection = context.view_layer.layer_collection.children[-1]
+    else:
+        if objectsColl in bpy.data.collections:
+            for ob in bpy.data.collections[objectsColl].all_objects:
+                # Move object to the master collection
+                context.scene.collection.objects.link(ob)
+                # Remove the objects from the grabdoc collection
+                bpy.data.collections[objectsColl].objects.unlink(ob)
+
+            # Delete the collection
+            bpy.data.collections.remove(bpy.data.collections[objectsColl])
+
+    # Create main GrabDoc collection
+    if "GrabDoc (do not touch contents)" in bpy.data.collections:
+        bpy.data.collections.remove(bpy.data.collections["GrabDoc (do not touch contents)"])
+
+    grabDocColl = bpy.data.collections.new(name = "GrabDoc (do not touch contents)")
+    context.scene.collection.children.link(grabDocColl)
+    context.view_layer.active_layer_collection = context.view_layer.layer_collection.children[-1]
+
+    # Make the GrabDoc collection the active one
+    context.view_layer.active_layer_collection = context.view_layer.layer_collection.children[grabDocColl.name]
+
+    # BG PLANE
+
+    # Remove pre existing BG Plane & all related data blocks 
+    if "GD_Background Plane" in bpy.data.objects:
+        # Grab the existing plane_ob & mesh
+        plane_ob_old = bpy.data.objects["GD_Background Plane"]
+
+        # Save original location & rotation
+        plane_ob_old_loc = plane_ob_old.location
+        plane_ob_old_rot = plane_ob_old.rotation_euler
+
+        # Save plane_ob material
+        saved_mat = plane_ob_old.active_material
+    
+        bpy.data.meshes.remove(plane_ob_old.data)
+    else:
+        plane_ob_old_loc = plane_ob_old_rot = (0, 0, 0)
+    
+    bpy.ops.mesh.primitive_plane_add(size=grabDoc.scalingSet, enter_editmode=False, calc_uvs=True, align='WORLD', location=(plane_ob_old_loc), rotation=(plane_ob_old_rot))
+
+    # Rename newly made BG Plane & set a reference to it
+    context.object.name = context.object.data.name = "GD_Background Plane"
+    plane_ob = bpy.data.objects["GD_Background Plane"]
+
+    # Prepare proper plane scaling & create the new plane object
+    if grabDoc.exportResX != grabDoc.exportResY:
+        if grabDoc.exportResX > grabDoc.exportResY:
+            div_factor = grabDoc.exportResX / grabDoc.exportResY
+
+            plane_ob.scale[1] /= div_factor
+        else:
+            div_factor = grabDoc.exportResY / grabDoc.exportResX
+
+            plane_ob.scale[0] /= div_factor
+
+        bpy.ops.object.transform_apply(location=False, rotation=False)
+    
+    plane_ob.select_set(False)
+        
+    # Lock the BG Plane's scaling
+    plane_ob.lock_scale[0] = plane_ob.lock_scale[1] = plane_ob.lock_scale[2] = True
+
+    # Add reference to the plane if one exists
+    if grabDoc.refSelection and not grabDoc.modalState:
+        for mat in bpy.data.materials:
+            if mat.name == "GD_Reference":
+                mat.node_tree.nodes.get('Image Texture').image = grabDoc.refSelection
+                break
+        else:
+            # Create a new material & turn on node use
+            mat = bpy.data.materials.new("GD_Reference")
+            mat.use_nodes = True
+
+            # Get / load nodes
+            output_node = mat.node_tree.nodes.get('Material Output')
+            output_node.location = (0,0)
+
+            mat.node_tree.nodes.remove(mat.node_tree.nodes.get('Principled BSDF'))
+
+            image_node = mat.node_tree.nodes.new('ShaderNodeTexImage')
+            image_node.image = grabDoc.refSelection
+            image_node.location = (-300,0)
+
+            # Link materials
+            links = mat.node_tree.links
+
+            links.new(output_node.inputs["Surface"], image_node.outputs["Color"])
+            
+        plane_ob.active_material = bpy.data.materials["GD_Reference"]
+
+        for area in context.screen.areas:
+            if area.type == 'VIEW_3D':
+                for space in area.spaces:
+                    space.shading.color_type = 'TEXTURE'
+    else:
+        # Refresh original material
+        if 'saved_mat' in locals():
+            plane_ob.active_material = saved_mat
+
+        for mat in bpy.data.materials:
+            if mat.name == "GD_Reference":
+                bpy.data.materials.remove(mat)
+                break
+
+    plane_ob.show_wire = True
+
+    if grabDoc.gridSubdivisions and grabDoc.useGrid:
+        # Create & load new bmesh
+        bm = bmesh.new()
+        bm.from_mesh(plane_ob.data)
+
+        # Subdivide
+        bmesh.ops.subdivide_edges(bm, edges=bm.edges, cuts=grabDoc.gridSubdivisions, use_grid_fill=True)
+
+        # Write back to the mesh
+        bm.to_mesh(plane_ob.data)
+
+    # CAMERA
+
+    # If actively viewing a camera, set a variable to remind the script later on
+    if [area.spaces.active.region_3d.view_perspective for area in context.screen.areas if area.type == 'VIEW_3D'] == ['CAMERA']:
+        repositionCam = True
+        bpy.ops.view3d.view_camera()
+
+    # Remove pre existing camera & related data blocks
+    if "GD_Trim Camera" in bpy.data.cameras:
+        bpy.data.cameras.remove(bpy.data.cameras["GD_Trim Camera"])
+
+    # Add Trim Camera & change settings
+    trim_cam = bpy.data.cameras.new("GD_Trim Camera")
+    trim_cam_ob = bpy.data.objects.new("GD_Trim Camera", trim_cam)
+
+    trim_cam_ob.location = (0, 0, 5)
+    trim_cam_ob.data.type = 'ORTHO'
+    trim_cam_ob.data.display_size = .01
+    trim_cam_ob.data.passepartout_alpha = 1
+    trim_cam_ob.hide_viewport = trim_cam_ob.hide_select = True
+    trim_cam_ob.parent = plane_ob
+
+    grabDocColl.objects.link(trim_cam_ob)
+        
+    # Change the camera scaling based on user preference
+    trim_cam_ob.data.ortho_scale = grabDoc.scalingSet
+
+    if 'repositionCam' in locals():
+        bpy.ops.view3d.view_camera() # Needed to do twice or else Blender decides where the users personal camera is located when they exit
+
+    # HEIGHT GUIDE
+
+    # Remove pre existing Height Guide & all related data blocks 
+    if "GD_Height Guide" in bpy.data.objects:
+        bpy.data.meshes.remove(bpy.data.objects["GD_Height Guide"].data)
+    
+    # Create object & link new object to the active collection
+    if grabDoc.exportHeight and grabDoc.rangeTypeHeight == 'MANUAL':
+        pc_height_guide = manual_height_guide_pc("GD_Height Guide")
+        context.collection.objects.link(pc_height_guide)
+
+        # Parent the height guide to the BG Plane
+        pc_height_guide.parent = plane_ob
+        pc_height_guide.hide_select = True
+
+    # ORIENT GUIDE
+
+    # Remove pre existing orient guide & all related data blocks
+    if "GD_Orient Guide" in bpy.data.objects:
+        bpy.data.meshes.remove(bpy.data.objects["GD_Orient Guide"].data)
+
+    plane_y = plane_ob.dimensions.y / 2
+
+    pc_orient = uv_orient_pc("GD_Orient Guide", [(-.3, plane_y + .1, 0), (.3, plane_y + .1, 0), (0, plane_y + .35, 0)])
+    context.collection.objects.link(pc_orient)
+
+    # Parent the height guide to the BG Plane
+    pc_orient.parent = plane_ob
+    pc_orient.hide_select = True
+
+    # CLEANUP
+
+    # Select original object(s)
+    for o in selectedCallback:
+        ob = context.scene.objects.get(o)
+        ob.select_set(True)
+
+    # Select original active collection, active object & the context mode
+    if 'savedActiveColl' in locals():
+        context.view_layer.active_layer_collection = savedActiveColl
+
+    context.view_layer.objects.active = bpy.data.objects[activeCallback] if activeCallback else None
+
+    if 'modeCallback' in locals() and activeCallback:
+        bpy.ops.object.mode_set(mode = modeCallback)
+
+    # Hide collections & make unselectable if requested (runs after everything else)
+    grabDocColl.hide_select = not grabDoc.collSelectable
+    grabDocColl.hide_viewport = not grabDoc.collVisible
+
+
+def manual_height_guide_pc(ob_name, edges = [(0,4), (1,5), (2,6), (3,7), (4,5), (5,6), (6,7), (7,4)], faces = []):
+    grabDoc = bpy.context.scene.grabDoc
+
+    # Make a tuple for the planes vertex positions
+    cameraVectorsList = bpy.data.objects["GD_Trim Camera"].data.view_frame(scene = bpy.context.scene)
+
+    def change_stem_z(tuple):
+        newVectorTuple = (tuple[0], tuple[1], grabDoc.guideHeight)
+        return newVectorTuple
+
+    stemsVectorsList = tuple([change_stem_z(vec) for vec in cameraVectorsList])
+
+    def change_ring_z(tuple):
+        newVectorTuple = (tuple[0], tuple[1], tuple[2] + 1)
+        return newVectorTuple
+
+    ringVectorsList = tuple([change_ring_z(vec) for vec in cameraVectorsList])
+
+    # Combine both tuples
+    ringVectorsList += stemsVectorsList
+
+    # Create new mesh & object data blocks
+    meNew = bpy.data.meshes.new(ob_name)
+    obNew = bpy.data.objects.new(ob_name, meNew)
+
+    # Make a mesh from a list of vertices / edges / faces
+    meNew.from_pydata(ringVectorsList, edges, faces)
+
+    # Display name & update the mesh
+    meNew.update()
+    return obNew
+
+
+def uv_orient_pc(ob_name, vertices, edges = [(0,2), (0,1), (1,2)], faces = []):
+    # Create new mesh & object data blocks
+    meNew = bpy.data.meshes.new(ob_name)
+    obNew = bpy.data.objects.new(ob_name, meNew)
+
+    # Make a mesh from a list of vertices / edges / faces
+    meNew.from_pydata(vertices, edges, faces)
+
+    # Display name & update the mesh
+    meNew.update()
+    return obNew
+
+
+def ng_setup(self, context):
+    grabDoc = context.scene.grabDoc
+
+    # NORMALS
+
+    if not 'GD_Normals' in bpy.data.node_groups:
+        # Create node group
+        ng_normal = bpy.data.node_groups.new('GD_Normals', 'ShaderNodeTree')
+        ng_normal.use_fake_user = True
+
+        # Create group outputs
+        group_outputs = ng_normal.nodes.new('NodeGroupOutput')
+        ng_normal.outputs.new('NodeSocketShader','Output')
+        ng_normal.inputs.new('NodeSocketShader','Saved Input')
+
+        # Create group nodes
+        geo_node = ng_normal.nodes.new('ShaderNodeNewGeometry')
+        geo_node.location = (-800,0)
+
+        vec_transform_node = ng_normal.nodes.new('ShaderNodeVectorTransform')
+        vec_transform_node.vector_type = 'NORMAL'
+        vec_transform_node.convert_to = 'CAMERA'
+        vec_transform_node.location = (-600,0)
+
+        vec_multiply_node = ng_normal.nodes.new('ShaderNodeVectorMath')
+        vec_multiply_node.operation = 'MULTIPLY'
+        vec_multiply_node.inputs[1].default_value[0] = .5
+        vec_multiply_node.inputs[1].default_value[1] = -.5 if grabDoc.flipYNormals else .5
+        vec_multiply_node.inputs[1].default_value[2] = -.5
+        vec_multiply_node.location = (-400,0)
+
+        vec_add_node = ng_normal.nodes.new('ShaderNodeVectorMath')
+        vec_add_node.inputs[1].default_value[0] = vec_add_node.inputs[1].default_value[1] = vec_add_node.inputs[1].default_value[2] = 0.5
+        vec_add_node.location = (-200,0)
+
+        # Link nodes
+        link = ng_normal.links
+
+        link.new(vec_transform_node.inputs["Vector"], geo_node.outputs["Normal"])
+        link.new(vec_multiply_node.inputs["Vector"], vec_transform_node.outputs["Vector"])
+        link.new(vec_add_node.inputs["Vector"], vec_multiply_node.outputs["Vector"])
+        link.new(group_outputs.inputs["Output"], vec_add_node.outputs["Vector"])
+
+    # AMBIENT OCCLUSION
+
+    if not 'GD_Ambient Occlusion' in bpy.data.node_groups:
+        # Create node group
+        ng_ao = bpy.data.node_groups.new('GD_Ambient Occlusion', 'ShaderNodeTree')
+        ng_ao.use_fake_user = True
+
+        # Create group outputs
+        group_outputs = ng_ao.nodes.new('NodeGroupOutput')
+        ng_ao.outputs.new('NodeSocketShader','Output')
+        ng_ao.inputs.new('NodeSocketShader','Saved Input')
+
+        # Create group nodes
+        ao_node = ng_ao.nodes.new('ShaderNodeAmbientOcclusion')
+        ao_node.samples = 32
+        ao_node.location = (-600,0)
+
+        gamma_node = ng_ao.nodes.new('ShaderNodeGamma')
+        gamma_node.inputs[1].default_value = grabDoc.gammaOcclusion
+        gamma_node.location = (-400,0)
+
+        emission_node = ng_ao.nodes.new('ShaderNodeEmission')
+        emission_node.location = (-200,0)
+
+        # Link materials
+        link = ng_ao.links
+
+        link.new(gamma_node.inputs["Color"], ao_node.outputs["Color"])
+        link.new(emission_node.inputs["Color"], gamma_node.outputs["Color"])
+        link.new(group_outputs.inputs["Output"], emission_node.outputs["Emission"])
+
+    # HEIGHT
+
+    if not 'GD_Height' in bpy.data.node_groups:
+        # Create node group
+        ng_height = bpy.data.node_groups.new('GD_Height', 'ShaderNodeTree')
+        ng_height.use_fake_user = True
+    
+        # Create group outputs
+        group_outputs = ng_height.nodes.new('NodeGroupOutput')
+        ng_height.outputs.new('NodeSocketShader','Output')
+        ng_height.inputs.new('NodeSocketShader','Saved Input')
+
+        # Create group nodes
+        camera_data_node = ng_height.nodes.new('ShaderNodeCameraData')
+        camera_data_node.location = (-800,0)
+
+        map_range_node = ng_height.nodes.new('ShaderNodeMapRange')
+        map_range_node.inputs[1].default_value = -grabDoc.guideHeight + 5
+        map_range_node.inputs[2].default_value = 5
+        map_range_node.location = (-600,0)
+
+        invert_node = ng_height.nodes.new('ShaderNodeInvert')
+        invert_node.location = (-400,0)
+        
+        emission_node = ng_height.nodes.new('ShaderNodeEmission')
+        emission_node.location = (-200,0)
+
+        # Link materials
+        link = ng_height.links
+
+        link.new(map_range_node.inputs["Value"], camera_data_node.outputs["View Z Depth"])
+        link.new(invert_node.inputs["Color"], map_range_node.outputs["Result"])
+        link.new(emission_node.inputs["Color"], invert_node.outputs["Color"])
+        link.new(group_outputs.inputs["Output"], emission_node.outputs["Emission"])
+
+
+################################################################################################################
+# BAKER SETUP
+################################################################################################################
+
+
+def get_rendered_objects(self, context):
+    self.render_list = ['GD_Background Plane']
+
+    if context.scene.grabDoc.onlyRenderColl:  
+        for coll in bpy.data.collections:
+            if coll.name == "GrabDoc Objects (put objects here)" or coll.name == "GrabDoc (do not touch contents)":
+                for ob in coll.all_objects:
+                    if not ob.hide_render and ob.type == 'MESH' and len(ob.data.polygons) and not ob.name.startswith('GD_'):
+                        self.render_list.append(ob.name)
+    else:
+        for ob in context.view_layer.objects:
+            if not ob.hide_render and ob.type == 'MESH' and len(ob.data.polygons) and not ob.name.startswith('GD_'):
+                local_bbox_center = .125 * sum((Vector(b) for b in ob.bound_box), Vector())
+                global_bbox_center = ob.matrix_world @ local_bbox_center
+
+                if(is_in_bounding_vectors(global_bbox_center)):
+                    self.render_list.append(ob.name)
+
+
+def find_tallest_object(self, context):
+    tallest_vert = 0
+
+    for ob in context.view_layer.objects:
+        if ob.name in self.render_list:
+            if ob.name != "GD_Background Plane" and ob.name != 'GD_Orient Guide':
+                # Get global coordinates of vertices
+                global_vert_coords = [ob.matrix_world @ v.co for v in ob.data.vertices]
+
+                # Find the highest Z value amongst the object's verts
+                max_z_co = max([co.z for co in global_vert_coords])
+                
+                if max_z_co > tallest_vert:
+                    tallest_vert = max_z_co
+
+    if tallest_vert:
+        context.scene.grabDoc.guideHeight = tallest_vert
 
 
 def is_in_bounding_vectors(vec_check):
-    planeName = bpy.data.objects["BG Plane"]
+    planeName = bpy.data.objects["GD_Background Plane"]
 
-    vec1 = Vector((planeName.dimensions.x * -1.25, planeName.dimensions.y * -1.25, -100))
-    vec2 = Vector((planeName.dimensions.x * 1.25, planeName.dimensions.y * 1.25, 100))
+    vec1 = Vector((planeName.dimensions.x * -1.25 + planeName.location[0], planeName.dimensions.y * -1.25 + planeName.location[1], -100))
+    vec2 = Vector((planeName.dimensions.x * 1.25 + planeName.location[0], planeName.dimensions.y * 1.25 + planeName.location[1], 100))
 
     for i in range(0, 3):
         if (vec_check[i] < vec1[i] and vec_check[i] < vec2[i] or vec_check[i] > vec1[i] and vec_check[i] > vec2[i]):
@@ -515,184 +601,278 @@ def is_in_bounding_vectors(vec_check):
     return True
 
 
-def get_rendered_objects(self, context):
-    self.render_list = []
-    self.ob_hidden_render_list = []
-    self.ob_hidden_vp_list = []
+def proper_scene_setup(is_setup=False):
+    if "GrabDoc (do not touch contents)" in bpy.data.collections:
+        if "GD_Background Plane" in bpy.data.objects:
+            if "GD_Trim Camera" in bpy.data.objects:
+                is_setup = True
+    return is_setup
 
-    if context.scene.grabDocPrefs.onlyRenderColl:  
-        for coll in bpy.data.collections:
-            if coll.name == "GrabDoc Objects (put objects here)" or coll.name == "GrabDoc (do not touch)":
-                for ob in coll.all_objects:
-                    if not ob.hide_get():
-                        if ob.type == 'MESH':
-                            self.render_list.append(ob.name)
-    else:
-        for ob in context.view_layer.objects:
-            if not ob.hide_get():
-                if ob.type == 'MESH':
-                    local_bbox_center = 0.125 * sum((Vector(b) for b in ob.bound_box), Vector())
-                    global_bbox_center = ob.matrix_world @ local_bbox_center
 
-                    if(is_in_bounding_vectors(global_bbox_center)):
-                        self.render_list.append(ob.name)
+def bad_setup_check(self, context, active_export, report_value=False, report_string=""):
+    grabDoc = context.scene.grabDoc
 
-        
-def export_and_preview_setup(self, context):
-    # Look for Trim Camera (only thing required to render)
-    for ob in context.view_layer.objects:
-        if ob.name == "Trim Camera":
-            break
-    else:
-        self.report({'ERROR'}, "Trim Camera not found, either you haven't set up the scene or you have excluded it from the View Layer.")
-        return{'FINISHED'}
-
-    grabDocPrefs = context.scene.grabDocPrefs
-    render = context.scene.render
-    sceneShading = bpy.data.scenes[str(context.scene.name)].display.shading
-    
+    # Run this before other error checks as the following error checker contains dependencies
     get_rendered_objects(self, context)
 
+    # Look for Trim Camera (only thing required to render)
+    if not "GD_Trim Camera" in context.view_layer.objects and not report_value:
+        report_value = True
+        report_string = "Trim Camera not found, refresh the scene to set everything up properly."
+
+    # Check for no objects in manual collection
+    if grabDoc.onlyRenderColl and not report_value:
+        if not len(bpy.data.collections["GrabDoc Objects (put objects here)"].objects):
+            report_value = True
+            report_string = "You have 'Pick Baked Objects via Collection' turned on, but no objects are inside the collection."
+        
+    # Check for rendered objects that contain the Displace modifier
+    if grabDoc.exportHeight and not report_value:
+        for ob in context.view_layer.objects:
+            if ob.name in self.render_list and grabDoc.exportHeight and grabDoc.rangeTypeHeight == 'AUTO':
+                for mod in ob.modifiers:
+                    if mod.type == "DISPLACE":
+                        report_value = True
+                        report_string = "When using Displace modifiers & baking Height you must use the 'Manual' 0-1 Range option.\n\n 'Auto' 0-1 Range cannot account for modifier geometry, this goes for all modifiers but is only required for displacement."
+                        
+    if active_export:
+        # Check for export path
+        if not os.path.exists(grabDoc.exportPath) and not report_value:
+            report_value = True
+            report_string = "There is no export path set"
+
+        # Check if all bake maps are disabled
+        if not grabDoc.uiVisibilityNormals or not grabDoc.exportNormals:
+            if not grabDoc.uiVisibilityCurvature or not grabDoc.exportCurvature:
+                if not grabDoc.uiVisibilityOcclusion or not grabDoc.exportOcclusion:
+                    if not grabDoc.uiVisibilityHeight or not grabDoc.exportHeight:
+                        if not grabDoc.uiVisibilityMatID or not grabDoc.exportMatID:
+                            report_value = True
+                            report_string = "No bake maps are turned on."
+
+    return (report_value, report_string)
+
+
+def export_bg_plane(self, context):
+    # Save original selection
+    savedSelection = context.selected_objects
+
+    # Deselect all objects
+    bpy.ops.object.select_all(action='DESELECT')
+
+    # Select bg plane, export and deselect bg plane
+    bpy.data.objects["GD_Background Plane"].select_set(True)
+    bpy.ops.export_scene.fbx(filepath=f'{context.scene.grabDoc.exportPath}{context.scene.grabDoc.exportName}.fbx', use_selection=True)
+    bpy.data.objects["GD_Background Plane"].select_set(False)
+
+    # Refresh original selection
+    for ob in savedSelection:
+        ob.select_set(True)
+
+
+def export_and_preview_setup(self, context):
+    grabDoc = context.scene.grabDoc
+    render = context.scene.render
+
     # Set - Active camera
-    context.scene.camera = bpy.data.objects["Trim Camera"]
+    context.scene.camera = bpy.data.objects["GD_Trim Camera"]
 
-    # Save - View layer
-    self.currentViewLayer = context.window.view_layer.name
+        ## VIEW LAYER PROPERTIES ##
 
-    self.savedViewLayerUse = context.scene.view_layers[self.currentViewLayer].use
-    self.savedUseSingleLayer = context.scene.render.use_single_layer
+    # Save & Set - View layer
+    self.savedViewLayerUse = context.view_layer.use
+    self.savedUseSingleLayer = render.use_single_layer
 
-    # Set - View layer
-    context.scene.view_layers[self.currentViewLayer].use = True
-    context.scene.render.use_single_layer = True
+    context.view_layer.use = True
+    render.use_single_layer = True
 
-    # Set - Scene resolution
-    render.resolution_x = grabDocPrefs.exportResX
-    render.resolution_y = grabDocPrefs.exportResY
-    render.resolution_percentage = 100
+        ## RENDER PROPERTIES ##
 
-    # Save - Render Engine
+    eevee = context.scene.eevee
+
+    # Save - Render Engine (Set per bake map)
     self.savedRenderer = render.engine
 
-    # Save - Render sampling
+    # Save - Sampling (Set per bake map)
     self.savedWorkbenchSampling = context.scene.display.render_aa
-    self.savedEeveeSampling = context.scene.eevee.taa_render_samples
+    self.savedEeveeSampling = eevee.taa_render_samples
 
-    # Save - Post Processing
-    self.savedUseSequencer = render.use_sequencer
-    self.savedUseCompositer = render.use_compositing
+    # Save & Set - Bloom
+    self.savedUseBloom = eevee.use_bloom
 
-    self.savedDitherIntensity = render.dither_intensity
+    eevee.use_bloom = False
 
-    # Set - Post Processing
-    render.use_sequencer = False
-    render.use_compositing = False
+    # Save & Set - Ambient Occlusion
+    self.savedUseAO = eevee.use_gtao
+    self.savedAODistance = eevee.gtao_distance # Set per bake map
+    self.savedAOQuality = eevee.gtao_quality
 
-    render.dither_intensity = 0
+    eevee.use_gtao = False # Disable unless needed
 
-    if bpy.app.version >= (2, 82, 0):
-        # Save - Performance        
+    context.scene.use_nodes = False # Disable scene nodes unless needed (Prevents black render...?)
+
+    # Save & Set - Color Management
+    view_settings = context.scene.view_settings
+
+    self.savedDisplayDevice = context.scene.display_settings.display_device
+    self.savedViewTransform = view_settings.view_transform
+    self.savedContrastType = view_settings.look
+    self.savedExposure = view_settings.exposure
+    self.savedGamma = view_settings.gamma 
+
+    view_settings.view_transform = 'Standard'
+    view_settings.look = 'None'
+    view_settings.exposure = 0
+    view_settings.gamma = 1
+
+    # Save & Set - Performance 
+    if bpy.app.version >= (2, 83, 0):
         self.savedHQNormals = render.use_high_quality_normals
-
-        # Set - Performance
         render.use_high_quality_normals = True
 
-    # Save - Scene Shading (Some are context sensitive so will be saved individually when required)
-    self.savedLight = sceneShading.light
-    self.savedColorType = sceneShading.color_type
-    self.savedBackface = sceneShading.show_backface_culling
-    self.savedXray = sceneShading.show_xray
-    self.savedShadows = sceneShading.show_shadows
-    self.savedCavity = sceneShading.show_cavity
-    self.savedDOF = sceneShading.use_dof
-    self.savedOutline = sceneShading.show_object_outline
-    self.savedShowSpec = sceneShading.show_specular_highlight
+        ## OUTPUT PROPERTIES ##
 
-    # Save - Color Management
-    self.savedDisplayDevice = context.scene.display_settings.display_device
-    self.savedViewTransform = context.scene.view_settings.view_transform
-    self.savedContrastType = context.scene.view_settings.look
-    self.savedExposure = context.scene.view_settings.exposure
-    self.savedGamma = context.scene.view_settings.gamma
+    image_settings = render.image_settings
 
-    self.savedColorMode = render.image_settings.color_mode
-    self.savedFileFormat = render.image_settings.file_format
+    # Save & Set - Dimensions
+    self.savedResX = render.resolution_x
+    self.savedResY = render.resolution_y
 
-    render.image_settings.file_format = grabDocPrefs.image_type
+    render.resolution_x = grabDoc.exportResX
+    render.resolution_y = grabDoc.exportResY
+    render.resolution_percentage = 100 # Don't bother saving
 
-    # Set - Color Management
-    context.scene.view_settings.view_transform = 'Standard'
-    context.scene.view_settings.look = 'None'
-    context.scene.view_settings.exposure = 0
-    context.scene.view_settings.gamma = 1
+    # Save & Set - Output
+    self.savedColorMode = image_settings.color_mode
+    self.savedFileFormat = image_settings.file_format
 
-    # Set - General disabling
-    sceneShading.use_dof = False
-    sceneShading.show_shadows = False
-    sceneShading.show_xray = False
-    sceneShading.show_backface_culling = False
-    sceneShading.show_object_outline = False
-    sceneShading.show_specular_highlight = False
-    sceneShading.show_cavity = False
+    image_settings.file_format = grabDoc.imageType
 
-    # Save - Ambient Occlusion
-    self.savedUseAO = context.scene.eevee.use_gtao
-    self.savedAODistance = context.scene.eevee.gtao_distance
+    if grabDoc.imageType == 'PNG':
+        self.savedCompression = image_settings.compression
+        image_settings.compression = grabDoc.imageComp
 
-    context.scene.eevee.use_gtao = False # Ambient Occlusion
+    if grabDoc.imageType == 'TIFF':
+        self.savedCompression = image_settings.tiff_codec
+        image_settings.tiff_codec = grabDoc.imageCompTIFF
 
-    context.scene.use_nodes = False # Disable scene nodes unless needed (Prevents black render)
+    if grabDoc.imageType != 'TARGA':
+        self.savedColorDepth = image_settings.color_depth
+        image_settings.color_depth = grabDoc.colorDepth
+
+    # Save & Set - Post Processing
+    self.savedUseSequencer = render.use_sequencer
+    self.savedUseCompositer = render.use_compositing
+    self.savedDitherIntensity = render.dither_intensity
+
+    render.use_sequencer = False
+    render.use_compositing = False
+    render.dither_intensity = 0
+
+        ## VIEWPORT SHADING ##
+
+    scene_shading = bpy.data.scenes[str(context.scene.name)].display.shading
+
+    # Save & Set
+    self.savedLight = scene_shading.light
+    self.savedColorType = scene_shading.color_type
+    self.savedBackface = scene_shading.show_backface_culling
+    self.savedXray = scene_shading.show_xray
+    self.savedShadows = scene_shading.show_shadows
+    self.savedCavity = scene_shading.show_cavity
+    self.savedDOF = scene_shading.use_dof
+    self.savedOutline = scene_shading.show_object_outline
+    self.savedShowSpec = scene_shading.show_specular_highlight
+
+    scene_shading.show_backface_culling = False
+    scene_shading.show_xray = False
+    scene_shading.show_shadows = False
+    scene_shading.show_cavity = False
+    scene_shading.use_dof = False
+    scene_shading.show_object_outline = False
+    scene_shading.show_specular_highlight = False
+
+        ## PLANE REFERENCE ##
+
+    if grabDoc.refSelection:
+        self.savedRefSelection = grabDoc.refSelection.name
+    else:
+        self.savedRefSelection = None
     
-    # Add non-rendered objects to a list and hide them from the render & viewport
-    for ob in context.view_layer.objects:
-        if not ob.name in self.render_list and ob.name != "Trim Camera":
-            # Hide in render
-            if not ob.hide_render:
-                self.ob_hidden_render_list.append(ob.name)
-            ob.hide_render = True
+        ## OBJECT VISIBILITY ##
 
-            # Hide in viewport
-            if not ob.hide_viewport:
-                self.ob_hidden_vp_list.append(ob.name)
-            ob.hide_viewport = True
+    bg_plane = bpy.data.objects["GD_Background Plane"]
+   
+    bg_plane.hide_viewport = False
+    bg_plane.hide_set(False)
+    bg_plane.hide_render = False
+
+    self.ob_hidden_render_list = []
+    self.ob_hidden_vp_list = []
+    
+    # Save & Set - Non-rendered objects visibility (self.render_list defined in bad_setup_check)
+    for ob in context.view_layer.objects:
+        if ob.type == 'MESH':
+            if not ob.name in self.render_list:
+                # Hide in render
+                if not ob.hide_render:
+                    self.ob_hidden_render_list.append(ob.name)
+                ob.hide_render = True
+
+                # Hide in viewport
+                if not ob.hide_viewport:
+                    self.ob_hidden_vp_list.append(ob.name)
+                ob.hide_viewport = True
 
 
 def export_refresh(self, context):
+    grabDoc = context.scene.grabDoc
     render = context.scene.render
-    sceneShading = bpy.data.scenes[str(context.scene.name)].display.shading
-    viewSettings = context.scene.view_settings
 
-    # Refresh - View layer settings
-    context.scene.view_layers[self.currentViewLayer].use = self.savedViewLayerUse
+        ## VIEW LAYER PROPERTIES ##
+
+    # Refresh - View layer
+    context.view_layer.use = self.savedViewLayerUse
     context.scene.render.use_single_layer = self.savedUseSingleLayer
 
-    # Refresh - Scene Shading 
-    sceneShading.show_cavity = self.savedCavity
-    sceneShading.color_type = self.savedColorType
-    sceneShading.show_backface_culling = self.savedBackface
-    sceneShading.show_xray = self.savedXray
-    sceneShading.show_shadows = self.savedShadows
-    sceneShading.use_dof = self.savedDOF
-    sceneShading.show_object_outline = self.savedOutline
-    sceneShading.show_specular_highlight = self.savedShowSpec
-    sceneShading.light = self.savedLight
-
-    # Refresh - Color Management
-    viewSettings.look = self.savedContrastType
-    context.scene.display_settings.display_device = self.savedDisplayDevice
-    viewSettings.view_transform = self.savedViewTransform
-    viewSettings.exposure = self.savedExposure
-    viewSettings.gamma = self.savedGamma
-
-    render.image_settings.color_mode = self.savedColorMode
-    render.image_settings.file_format = self.savedFileFormat
-
-    # Refresh - Render sampling
-    context.scene.display.render_aa = self.savedWorkbenchSampling
-    context.scene.eevee.taa_render_samples = self.savedEeveeSampling
+        ## RENDER PROPERTIES ##
 
     # Refresh - Render Engine
     render.engine = self.savedRenderer
+
+    # Refresh - Sampling
+    context.scene.display.render_aa = self.savedWorkbenchSampling
+    context.scene.eevee.taa_render_samples = self.savedEeveeSampling
+
+    # Refresh - Bloom
+    context.scene.eevee.use_bloom = self.savedUseBloom
+
+    # Refresh - Color Management
+    view_settings = context.scene.view_settings
+
+    view_settings.look = self.savedContrastType
+    context.scene.display_settings.display_device = self.savedDisplayDevice
+    view_settings.view_transform = self.savedViewTransform
+    view_settings.exposure = self.savedExposure
+    view_settings.gamma = self.savedGamma
+
+    # Refresh - Performance
+    if bpy.app.version >= (2, 83, 0):
+        render.use_high_quality_normals = self.savedHQNormals
+
+        ## OUTPUT PROPERTIES ##
+
+    # Refresh - Output
+    render.image_settings.color_mode = self.savedColorMode
+    render.image_settings.file_format = self.savedFileFormat
+
+    if grabDoc.imageType == 'TIFF':
+        render.image_settings.tiff_codec = self.savedCompression
+    if grabDoc.imageType == 'PNG':
+        render.image_settings.compression = self.savedCompression
+
+    if grabDoc.imageType != 'TARGA':
+        render.image_settings.color_depth = self.savedColorDepth
 
     # Refresh - Post Processing
     render.use_sequencer = self.savedUseSequencer
@@ -700,11 +880,33 @@ def export_refresh(self, context):
 
     render.dither_intensity = self.savedDitherIntensity
 
-    if bpy.app.version >= (2, 82, 0):
-        # Refresh - Performance        
-        render.use_high_quality_normals = self.savedHQNormals
+    # Refresh - Dimensions
+    render.resolution_x = self.savedResX
+    render.resolution_y = self.savedResY
 
-    # Refresh - objects hidden in render
+        ## VIEWPORT SHADING ##
+
+    scene_shading = bpy.data.scenes[str(context.scene.name)].display.shading
+
+    # Refresh
+    scene_shading.show_cavity = self.savedCavity
+    scene_shading.color_type = self.savedColorType
+    scene_shading.show_backface_culling = self.savedBackface
+    scene_shading.show_xray = self.savedXray
+    scene_shading.show_shadows = self.savedShadows
+    scene_shading.use_dof = self.savedDOF
+    scene_shading.show_object_outline = self.savedOutline
+    scene_shading.show_specular_highlight = self.savedShowSpec
+    scene_shading.light = self.savedLight
+
+        ## PLANE REFERENCE ##
+
+    if self.savedRefSelection:
+        grabDoc.refSelection = bpy.data.images[self.savedRefSelection]
+
+        ## OBJECT VISIBILITY ##
+
+    # Refresh - Non-rendered objects visibility
     for ob in context.view_layer.objects:
         # Unhide in render
         if ob.name in self.ob_hidden_render_list:
@@ -715,97 +917,87 @@ def export_refresh(self, context):
             ob.hide_viewport = False
 
 
-############################################################
-# EXPORT & OFFLINE RENDERER
-############################################################
+################################################################################################################
+# ID SETUP & CLEANUP
+################################################################################################################
 
 
-def grabdoc_export(self, context):
-    grabDocPrefs = context.scene.grabDocPrefs
-    render = context.scene.render
-    
-    # Save - file output path
-    savedPath = render.filepath
-
-    # Set - map type suffix
-    if self.exporterNormals:
-        exportSuffix = "_normal"
-        self.exporterNormals = False
-    elif self.exporterCurvature:
-        exportSuffix = "_curve"
-        self.exporterCurvature = False
-    elif self.exporterMatID:
-        exportSuffix = "_matID"
-        self.exporterMatID = False
-    elif self.exporterHeight:
-        exportSuffix = "_height"
-        self.exporterHeight = False
-    elif self.exporterAO:
-        exportSuffix = "_ao"
-        self.exporterAO = False
-
-    # Set - Output path to add-on path + add-on name + the type of map exported (file extensions handled automatically)
-    render.filepath = context.scene.grab_doc_filepath + grabDocPrefs.exportName + exportSuffix
-
-    bpy.ops.render.render(write_still = True)
-
-    # Refresh - file output path
-    render.filepath = savedPath
-
-
-def offline_render(self, context):
-    bpy.ops.render.render()
-
-    # Call user prefs window
-    bpy.ops.screen.userpref_show("INVOKE_DEFAULT")
-
-    # Change area & image type
-    area = context.window_manager.windows[-1].screen.areas[0]
-    area.type = "IMAGE_EDITOR"
-    area.spaces.active.image = bpy.data.images['Render Result']
-
-
-############################################################
-# MATERIAL SETUP & CLEANUP
-############################################################
-
-
-class GRABDOC_OT_quick_mat_setup(Operator):
-    bl_idname = "grab_doc.quick_mat_setup"
-    bl_label = "ID Material Setup"
-    bl_description = "Quickly sets up materials on all related objects"
+class GRABDOC_OT_quick_id_setup(Operator):
+    bl_idname = "grab_doc.quick_id_setup"
+    bl_label = "Auto ID Full Scene"
+    bl_description = "Quickly sets up materials on all objects within the cameras view spectrum"
     bl_options = {'REGISTER', 'UNDO'}
 
     def execute(self, context):
         if context.active_object:
-            bpy.ops.object.mode_set(mode = 'OBJECT')
+            bpy.ops.object.mode_set(mode='OBJECT')
 
         for mat in bpy.data.materials:
-            if mat.name.startswith("GrabDoc_ID"):
+            if mat.name.startswith("GD_RANDOM"):
                 bpy.data.materials.remove(mat)
 
         get_rendered_objects(self, context)
 
         for ob in context.view_layer.objects:
-            if ob.type == 'MESH':
-                if ob.name in self.render_list:
-                    if ob.name != "BG Plane":
-                        context.view_layer.objects.active = ob
+            add_mat = True
+            if ob.name in self.render_list and not ob.name.startswith('GD_'):
+                for slot in ob.material_slots:
+                    if slot.name.startswith('GD_ID'):
+                        add_mat = False
+                        break
 
-                        bpy.ops.object.material_slot_remove_unused()
+                if add_mat:
+                    mat = bpy.data.materials.new(f"GD_RANDOM_ID.{randint(0, 100000000)}")
+                    mat.use_nodes = True
 
-                        ob.active_material_index = 0
+                    # Set - viewport color
+                    mat.diffuse_color = random(), random(), random(), 1
 
-                        self.mat = bpy.data.materials.new("GrabDoc_ID." + str(randint(0, 10000000)))
-                        self.mat.diffuse_color = random(), random(), random(), 1
+                    bsdf_node = mat.node_tree.nodes.get('Principled BSDF')
+                    bsdf_node.inputs[0].default_value = mat.diffuse_color
+                        
+                    ob.active_material_index = 0
+                    ob.active_material = mat
 
-                        ob.active_material = bpy.data.materials[self.mat.name]
+        for mat in bpy.data.materials:
+            if mat.name.startswith('GD_ID') or mat.name.startswith('GD_RANDOM'):
+                if not mat.users:
+                    bpy.data.materials.remove(mat)
         return{'FINISHED'}
 
 
-class GRABDOC_OT_quick_remove_mats(Operator):
-    bl_idname = "grab_doc.quick_remove_mats"
-    bl_label = "Remove ID Materials"
+class GRABDOC_OT_quick_id_selected(Operator):
+    bl_idname = "grab_doc.quick_id_selected"
+    bl_label = "Add ID to Selected"
+    bl_description = "Adds a new single material with a random color to the selected objects"
+    bl_options = {'REGISTER', 'UNDO'}
+
+    @classmethod
+    def poll(cls, context):
+        return context.selected_objects
+
+    def execute(self, context):
+        if context.active_object:
+            bpy.ops.object.mode_set(mode='OBJECT')
+
+        mat = bpy.data.materials.new(f"GD_ID.{randint(0, 100000000)}")
+        mat.diffuse_color = random(), random(), random(), 1
+
+        for ob in context.selected_objects:
+            if ob.type == 'MESH':                       
+                ob.active_material_index = 0
+                ob.active_material = mat
+
+        for mat in bpy.data.materials:
+            if mat.name.startswith('GD_ID') or mat.name.startswith('GD_RANDOM'):
+                if not mat.users:
+                    bpy.data.materials.remove(mat)
+        return{'FINISHED'}
+
+
+class GRABDOC_OT_quick_remove_random_mats(Operator):
+    bl_idname = "grab_doc.quick_remove_random_mats"
+    bl_label = "All"
     bl_description = "Removes all GrabDoc Mat ID materials from all related objects"
     bl_options = {'REGISTER', 'UNDO'}
 
@@ -814,442 +1006,548 @@ class GRABDOC_OT_quick_remove_mats(Operator):
             bpy.ops.object.mode_set(mode = 'OBJECT')
 
         for mat in bpy.data.materials:
-            if mat.name.startswith("GrabDoc_ID"):
+            if mat.name.startswith("GD_RANDOM"):
                 bpy.data.materials.remove(mat)
-        
-        for ob in context.view_layer.objects:
-            if ob.type == "MESH":
-                context.view_layer.objects.active = ob
-
-                bpy.ops.object.material_slot_remove_unused()
         return{'FINISHED'}
 
 
-def grabdoc_material_apply(self, context):
-    # Save the active materials of every selected object to a list
-    self.active_material_list = []
+class GRABDOC_OT_quick_remove_manual_mats(Operator):
+    bl_idname = "grab_doc.quick_remove_manual_mats"
+    bl_label = "All"
+    bl_description = ""
+    bl_options = {'REGISTER', 'UNDO'}
 
-    for ob in context.view_layer.objects:
-        if ob.type == 'MESH':
-            if ob.name in self.render_list:
-                context.view_layer.objects.active = ob
-                bpy.ops.object.material_slot_remove_unused()
+    def execute(self, context):
+        if context.active_object:
+            bpy.ops.object.mode_set(mode = 'OBJECT')
 
-                ob.active_material_index = 0
+        for mat in bpy.data.materials:
+            if mat.name.startswith("GD_ID"):
+                bpy.data.materials.remove(mat)
+        return{'FINISHED'}
 
-                if ob.active_material:
-                    savedMaterial = ob.active_material.name
-                    self.active_material_list.append(savedMaterial)
-                else:
-                    self.active_material_list.append(None)
+
+class GRABDOC_OT_quick_remove_selected_mats(Operator):
+    bl_idname = "grab_doc.quick_remove_selected_mats"
+    bl_label = "Selected"
+    bl_description = ""
+    bl_options = {'REGISTER', 'UNDO'}
+
+    @classmethod
+    def poll(cls, context):
+        return context.selected_objects
+
+    def execute(self, context):
+        if context.active_object:
+            bpy.ops.object.mode_set(mode='OBJECT')
+
+        get_rendered_objects(self, context)
+
+        for ob in context.selected_objects:
+            if ob.type == 'MESH':
+                for slot in ob.material_slots:
+                    if slot.name.startswith('GD_ID'):
+                        bpy.data.materials.remove(bpy.data.materials[slot.name])
+                        break
+        return{'FINISHED'}
+
+
+################################################################################################################
+# MATERIAL SETUP & CLEANUP
+################################################################################################################
+
+
+## REMOVE NODE GROUP & RETURN ORIGINAL LINKS IF THEY EXIST ##
+def cleanup_ng_from_mat(self, context):
+    if self.setup_type != 'None':
+        for mat in bpy.data.materials:
+            if not mat.use_nodes:
+                mat.use_nodes = True
+            
+            # If there is a GrabDoc created material, remove it
+            if mat.name == 'GD_Material (do not touch contents)':
+                bpy.data.materials.remove(mat)
+
+            # If a material has a GrabDoc created Node Group, remove it
+            elif self.setup_type in mat.node_tree.nodes:
+                for mat_node in mat.node_tree.nodes:
+                    if mat_node.type == 'OUTPUT_MATERIAL' and mat_node.is_active_output:
+                        output_node = mat.node_tree.nodes.get(mat_node.name)
+                        break
+
+                GD_node_group = mat.node_tree.nodes.get(self.setup_type)
+
+                for input in GD_node_group.inputs:
+                    for link in input.links:
+                        original_node_connection = mat.node_tree.nodes.get(link.from_node.name)
+                        original_node_socket = link.from_socket.name
+                        
+                mat.node_tree.links.new(output_node.inputs["Surface"], original_node_connection.outputs[original_node_socket])
                 
-                ob.active_material = bpy.data.materials[self.mat.name]
+                mat.node_tree.nodes.remove(GD_node_group)
 
 
-def grabdoc_material_cleanup(self, context):
-    for material in bpy.data.materials:
-        if material.name.startswith("GrabDoc_Temp"):
-            # 'Refresh' every selected objects original material using the list we made earlier
-            for ob in context.view_layer.objects:
-                if ob.type == 'MESH':
-                    if ob.name in self.render_list:
-                        if self.active_material_list[0] != None:
-                            ob.active_material = bpy.data.materials[self.active_material_list[0]]
-                        self.active_material_list.pop(0)
+## CREATE & APPLY A MATERIAL TO OBJECTS WITHOUT ACTIVE MATERIALS ##
+def create_apply_ng_mat(self, context):
+    # Reuse GrabDoc created material if it already exists
+    if 'GD_Material (do not touch contents)' in bpy.data.materials:
+        self.mat = bpy.data.materials["GD_Material (do not touch contents)"]
+        mat = self.mat
+    else:
+        # Create a material
+        self.mat = bpy.data.materials.new(name = "GD_Material (do not touch contents)")
+        mat = self.mat
 
-            # Cleanup - remove the Trim Height material
-            bpy.data.materials.remove(bpy.data.materials[self.mat.name])
-            break
+        mat.use_nodes = True
+        
+        # Remove unnecessary BSDF node
+        mat.node_tree.nodes.remove(mat.node_tree.nodes.get('Principled BSDF'))
+
+    # Apply the material to the appropriate slot
+    #
+    # Search through all material slots, if any slots have no name that means they have no material
+    # & therefore should have one added. While this does need to run every time this is called it 
+    # should only really need to be used once per in add-on use. We do not want to remove empty
+    # material slots as they can be used for masking off materials.
+    for slot in self.ob.material_slots:
+        if slot.name == '':
+            self.ob.material_slots[slot.name].material = mat
+    else:
+        if not self.ob.active_material or self.ob.active_material.name == '':
+            self.ob.active_material = mat
 
 
-############################################################
-# NORMALS
-############################################################
+def add_ng_to_mat(self, context):
+    if self.setup_type != 'None':
+        ## ADD NODE GROUP TO ALL MATERIALS, SAVE ORIGINAL LINKS & LINK NODE GROUP TO MATERIAL OUTPUT ##
+        for self.ob in context.view_layer.objects:
+            if self.ob.name in self.render_list:
+                ob = self.ob
+
+                if ob.name != "GD_Orient Guide":
+                    # If no material slots found or empty mat slots found, assign a material to it
+                    if not len(ob.material_slots) or '' in ob.material_slots:
+                        create_apply_ng_mat(self, context)
+
+                    # Cycle through all material slots
+                    for slot in ob.material_slots:
+                        mat_slot = bpy.data.materials.get(slot.name)
+
+                        if not self.setup_type in mat_slot.node_tree.nodes:       
+                            # Get materials Output Material node
+                            for mat_node in mat_slot.node_tree.nodes:
+                                if mat_node.type == 'OUTPUT_MATERIAL' and mat_node.is_active_output:
+                                    output_node = mat_slot.node_tree.nodes.get(mat_node.name)
+                                    break
+
+                            # Add node group to material
+                            GD_node_group = mat_slot.node_tree.nodes.new('ShaderNodeGroup')
+                            GD_node_group.node_tree = bpy.data.node_groups[self.setup_type]
+                            GD_node_group.location = (output_node.location[0], output_node.location[1] - 140)
+                            GD_node_group.name = bpy.data.node_groups[self.setup_type].name
+                            GD_node_group.hide = True
+
+                            # If 'output_node' does not exist create it
+                            if not 'output_node' in locals():
+                                output_node = mat_slot.node_tree.nodes.new('ShaderNodeOutputMaterial')
+
+                            # If 'output_node' is found in locals() get the original node link (if it exists)
+                            else:
+                                for input in output_node.inputs:
+                                    for link in input.links:
+                                        original_node_connection = mat_slot.node_tree.nodes.get(link.from_node.name)
+
+                                        # Link original connection to the Node Group
+                                        mat_slot.node_tree.links.new(GD_node_group.inputs["Saved Input"], original_node_connection.outputs[link.from_socket.name])
+
+                            # Link Node Group to the output
+                            mat_slot.node_tree.links.new(output_node.inputs["Surface"], GD_node_group.outputs["Output"])
+
+
+## NORMALS ##
 
 
 def normals_setup(self, context):
-    grabDocPrefs = context.scene.grabDocPrefs
+    grabDoc = context.scene.grabDoc
     render = context.scene.render
 
     render.engine = 'BLENDER_EEVEE'
-    context.scene.eevee.taa_render_samples = grabDocPrefs.samplesNormals
+    context.scene.eevee.taa_render_samples = grabDoc.samplesNormals
     render.image_settings.color_mode = 'RGB'
     context.scene.display_settings.display_device = 'None'
 
-    # Create a new material & turn on node use
-    self.mat = bpy.data.materials.new(name = "GrabDoc_Temp_Normals")
-    self.mat.use_nodes = True
-
-    # Remove default node
-    self.mat.node_tree.nodes.remove(self.mat.node_tree.nodes.get('Principled BSDF'))
-
-    # Get /  load in nodes
-    mat_output_node = self.mat.node_tree.nodes.get('Material Output')
-
-    geo_node = self.mat.node_tree.nodes.new('ShaderNodeNewGeometry')
-
-    vec_transform_node = self.mat.node_tree.nodes.new('ShaderNodeVectorTransform')
-    vec_transform_node.vector_type = 'NORMAL'
-    vec_transform_node.convert_to = 'CAMERA'
-
-    sep_xyz_node = self.mat.node_tree.nodes.new('ShaderNodeSeparateXYZ')
-
-    math_multiply_x_node = self.mat.node_tree.nodes.new('ShaderNodeMath')
-    math_multiply_x_node.operation = 'MULTIPLY' 
-    math_multiply_x_node.inputs[1].default_value = .5
-
-    math_multiply_y_node = self.mat.node_tree.nodes.new('ShaderNodeMath')
-    math_multiply_y_node.operation = 'MULTIPLY'
-    math_multiply_y_node.inputs[1].default_value = .5
-
-    math_multiply_z_node = self.mat.node_tree.nodes.new('ShaderNodeMath')
-    math_multiply_z_node.operation = 'MULTIPLY'
-    math_multiply_z_node.inputs[1].default_value = -.5
-
-    math_add_x_node = self.mat.node_tree.nodes.new('ShaderNodeMath')
-    math_add_x_node.operation = 'ADD'
-    math_add_x_node.use_clamp = True
-    math_add_x_node.inputs[1].default_value = .5
-
-    math_add_y_node = self.mat.node_tree.nodes.new('ShaderNodeMath')
-    math_add_y_node.operation = 'ADD'
-    math_add_y_node.use_clamp = True
-    math_add_y_node.inputs[1].default_value = .5
-
-    math_add_z_node = self.mat.node_tree.nodes.new('ShaderNodeMath')
-    math_add_z_node.operation = 'ADD'
-    math_add_z_node.use_clamp = True
-    math_add_z_node.inputs[1].default_value = .5
-
-    combine_xyz_node = self.mat.node_tree.nodes.new('ShaderNodeCombineXYZ') 
-
-    sep_rgb_node = self.mat.node_tree.nodes.new('ShaderNodeSeparateRGB')
-
-    self.invert_node = self.mat.node_tree.nodes.new('ShaderNodeInvert')
-    self.invert_node.inputs[0].default_value = 1 if grabDocPrefs.normalsFlipY else 0
-
-    combine_rgb_node = self.mat.node_tree.nodes.new('ShaderNodeCombineRGB')
-
-    emission_node = self.mat.node_tree.nodes.new('ShaderNodeEmission')
-
-    # Link materials
-    links = self.mat.node_tree.links
-
-    links.new(vec_transform_node.inputs["Vector"], geo_node.outputs["Normal"])
-
-    links.new(sep_xyz_node.inputs["Vector"], vec_transform_node.outputs["Vector"])
-
-    links.new(math_multiply_x_node.inputs["Value"], sep_xyz_node.outputs["X"])
-    links.new(math_multiply_y_node.inputs["Value"], sep_xyz_node.outputs["Y"])
-    links.new(math_multiply_z_node.inputs["Value"], sep_xyz_node.outputs["Z"])
-
-    links.new(math_add_x_node.inputs["Value"], math_multiply_x_node.outputs["Value"])
-    links.new(math_add_y_node.inputs["Value"], math_multiply_y_node.outputs["Value"])
-    links.new(math_add_z_node.inputs["Value"], math_multiply_z_node.outputs["Value"])
-
-    links.new(combine_xyz_node.inputs["X"], math_add_x_node.outputs["Value"])
-    links.new(combine_xyz_node.inputs["Y"], math_add_y_node.outputs["Value"])
-    links.new(combine_xyz_node.inputs["Z"], math_add_z_node.outputs["Value"])
-
-    links.new(sep_rgb_node.inputs["Image"], combine_xyz_node.outputs["Vector"])
-
-    links.new(combine_rgb_node.inputs["R"], sep_rgb_node.outputs["R"])
-    links.new(self.invert_node.inputs["Color"], sep_rgb_node.outputs["G"])
-    links.new(combine_rgb_node.inputs["G"], self.invert_node.outputs["Color"])
-    links.new(combine_rgb_node.inputs["B"], sep_rgb_node.outputs["B"])
-
-    links.new(emission_node.inputs["Color"], combine_rgb_node.outputs["Image"])
-    links.new(mat_output_node.inputs["Surface"], emission_node.outputs["Emission"])
+    self.setup_type = 'GD_Normals'
+    add_ng_to_mat(self, context)
 
 def normals_export(self, context):
-    grabDocPrefs = context.scene.grabDocPrefs
-
-    # Export / Render
-    if self.renderer_type != "None":
-        if self.renderer_type == "Normals":
-            offline_render(self, context)
+    if self.offlineRenderType == "normals":
+        offline_render(self, context)
     else:
-        self.exporterNormals = True
-        grabdoc_export(self, context)
+        grabdoc_export(self, context, exportSuffix="_normals")
 
         # Reimport the Normal map as a material (if the option is turned on)
-        if grabDocPrefs.reimportAsMat:
-            for material in bpy.data.materials:
-                if material.name == grabDocPrefs.exportName + "_normal":
-                    bpy.data.materials.remove(material)
-                    break
+        if context.scene.grabDoc.reimportAsMatNormals:
+            normals_reimport_as_mat(self, context)
 
-            mat = bpy.data.materials.new(name=grabDocPrefs.exportName + "_normal")
-            mat.use_nodes = True
+def normals_reimport_as_mat(self, context):
+    grabDoc = context.scene.grabDoc
 
-            bsdf = mat.node_tree.nodes["Principled BSDF"]
+    # Remove pre-existing material
+    for mat in bpy.data.materials:
+        if mat.name == f'{grabDoc.exportName}_normals':
+            bpy.data.materials.remove(mat)
+            break
 
-            texImage = mat.node_tree.nodes.new('ShaderNodeTexImage')
-            texImage.image = bpy.data.images.load(context.scene.grab_doc_filepath + grabDocPrefs.exportName + "_normal.png")
-            texImage.image.colorspace_settings.name = 'Linear'
+    # Remove original image
+    for image in bpy.data.images:
+        if image.name == f'{grabDoc.exportName}_normals':
+            bpy.data.images.remove(image)
+            break
 
-            normalMap = mat.node_tree.nodes.new('ShaderNodeNormalMap')
+    # Create material
+    mat = bpy.data.materials.new(name=f'{grabDoc.exportName}_normals')
+    mat.use_nodes = True
 
-            # Make links
-            links = mat.node_tree.links
+    output_node = mat.node_tree.nodes["Material Output"]
+    output_node.location = (0,0)
 
-            links.new(normalMap.inputs['Color'], texImage.outputs['Color'])
-            links.new(bsdf.inputs['Normal'], normalMap.outputs['Normal'])
+    bsdf_node = mat.node_tree.nodes["Principled BSDF"]
+    bsdf_node.inputs[5].default_value = 0
+    bsdf_node.location = (-300,0)
+
+    normal_map_node = mat.node_tree.nodes.new('ShaderNodeNormalMap')
+    normal_map_node.location = (-500,0)
+
+    if grabDoc.imageType == 'TIFF':
+        file_extension = '.tif'
+    elif grabDoc.imageType == 'TARGA':
+        file_extension = '.tga'
+    else:
+        file_extension = '.png'
+
+    image_node = mat.node_tree.nodes.new('ShaderNodeTexImage')
+    image_node.image = bpy.data.images.load(f'{grabDoc.exportPath}{grabDoc.exportName}_normals{file_extension}')
+    image_node.image.colorspace_settings.name = 'Linear'
+    image_node.location = (-800,0)
+
+    # Rename the newly imported image
+    bpy.data.images[f'{grabDoc.exportName}_normals{file_extension}'].name = f'{grabDoc.exportName}_normals'
+
+    # Make links
+    link = mat.node_tree.links
+
+    link.new(normal_map_node.inputs['Color'], image_node.outputs['Color'])
+    link.new(bsdf_node.inputs['Normal'], normal_map_node.outputs['Normal'])
 
 
-############################################################
-# CURVATURE
-############################################################
+## CURVATURE ##
 
 
 def curvature_setup(self, context):
-    grabDocPrefs = context.scene.grabDocPrefs
-    render = context.scene.render
-    sceneShading = bpy.data.scenes[str(context.scene.name)].display.shading
-    viewSettings = context.scene.view_settings
+    scene = context.scene
+    grabDoc = scene.grabDoc
+    scene_shading = bpy.data.scenes[str(scene.name)].display.shading
+    
+    # Set - Render engine settings
+    scene.view_settings.look = grabDoc.contrastCurvature.replace('_', ' ')
 
-    render.engine = 'BLENDER_WORKBENCH'
-    context.scene.display.render_aa = grabDocPrefs.samplesCurvature
-    sceneShading.light = 'FLAT'
-    sceneShading.color_type =  'SINGLE'
-    context.scene.display_settings.display_device = 'sRGB'
+    scene.render.engine = 'BLENDER_WORKBENCH'
+    scene.display.render_aa = grabDoc.samplesCurvature
+    scene_shading.light = 'FLAT'
+    scene_shading.color_type =  'SINGLE'
+    scene.display_settings.display_device = 'sRGB'
 
-    if grabDocPrefs.colorCurvature != Color((.21404114365577698, .21404114365577698, .21404114365577698)):
-        render.image_settings.color_mode = 'RGB'
-    else:
-        render.image_settings.color_mode = 'BW'
+    scene.render.image_settings.color_mode = 'BW'
 
-    # Save cavity stuff
-    self.savedCavityType = sceneShading.cavity_type
-    self.savedCavityRidgeFactor = sceneShading.cavity_ridge_factor
-    self.savedCurveRidgeFactor = sceneShading.curvature_ridge_factor
-    self.savedCavityValleyFactor = sceneShading.cavity_valley_factor
-    self.savedCurveValleyFactor = sceneShading.curvature_valley_factor
-    self.savedCavity = sceneShading.show_cavity
+    # Save & Set - Cavity
+    self.savedCavityType = scene_shading.cavity_type
+    self.savedCavityRidgeFactor = scene_shading.cavity_ridge_factor
+    self.savedCurveRidgeFactor = scene_shading.curvature_ridge_factor
+    self.savedCavityValleyFactor = scene_shading.cavity_valley_factor
+    self.savedCurveValleyFactor = scene_shading.curvature_valley_factor
+    self.savedRidgeDistance = scene.display.matcap_ssao_distance
 
-    self.initialColorList = sceneShading.single_color
-    self.savedSingleList = [] # List for single_color because saving the variable on its own isn't enough
+    self.savedSingleList = [] # List for single_color because saving the variable on its own isn't enough (for some reason)
 
-    for i in self.initialColorList:
+    for i in scene_shading.single_color:
         self.savedSingleList.append(i)
     
-    sceneShading.show_cavity = True
-    sceneShading.cavity_type = 'BOTH'
-    sceneShading.cavity_ridge_factor = grabDocPrefs.WSRidge
-    sceneShading.curvature_ridge_factor = grabDocPrefs.SSRidge
-    sceneShading.cavity_valley_factor = 0
-    sceneShading.curvature_valley_factor = grabDocPrefs.SSValley
-    sceneShading.single_color = grabDocPrefs.colorCurvature
+    scene_shading.show_cavity = True
+    scene_shading.cavity_type = 'BOTH'
+    scene_shading.cavity_ridge_factor = scene_shading.curvature_ridge_factor = grabDoc.ridgeCurvature
+    scene_shading.curvature_valley_factor = grabDoc.valleyCurvature
+    scene_shading.cavity_valley_factor = 0
+    scene_shading.single_color = (0.214041, 0.214041, 0.214041)
+
+    scene.display.matcap_ssao_distance = 0.075
+
+    self.setup_type = 'None'
     
-    viewSettings.look = grabDocPrefs.contrastCurvature.replace('_', ' ')
-
 def curvature_export(self, context):
-    if self.renderer_type != "None":
-        if self.renderer_type == "Curvature":
-            offline_render(self, context)
+    if self.offlineRenderType == "curvature":
+        offline_render(self, context)
     else:
-        self.exporterCurvature = True
-        grabdoc_export(self, context)
+        grabdoc_export(self, context, exportSuffix="_curvature")
+
+def curvature_refresh(self, context):
+    scene_shading = bpy.data.scenes[str(context.scene.name)].display.shading
+
+    scene_shading.cavity_ridge_factor = self.savedCavityRidgeFactor
+    scene_shading.curvature_ridge_factor = self.savedCurveRidgeFactor
+    scene_shading.cavity_valley_factor = self.savedCavityValleyFactor
+    scene_shading.curvature_valley_factor = self.savedCurveValleyFactor
+    scene_shading.single_color =  self.savedSingleList
+    scene_shading.cavity_type = self.savedCavityType
+    scene_shading.show_cavity = self.savedCavity
+
+    context.scene.display.matcap_ssao_distance = self.savedRidgeDistance
+    
+    bpy.data.objects["GD_Background Plane"].color[3] = 1
 
 
-############################################################
-# AMBIENT OCCLUSION
-############################################################
+## AMBIENT OCCLUSION ##
 
 
 def occlusion_setup(self, context):
-    grabDocPrefs = context.scene.grabDocPrefs
+    grabDoc = context.scene.grabDoc
     render = context.scene.render
-    viewSettings = context.scene.view_settings
-
+    eevee = context.scene.eevee
+    
     render.engine = 'BLENDER_EEVEE'
-    context.scene.eevee.taa_render_samples = grabDocPrefs.samplesOcclusion
+    eevee.taa_render_samples = grabDoc.samplesOcclusion
     render.image_settings.color_mode = 'BW'
     context.scene.display_settings.display_device = 'None'
 
-    # Save & turn on overscan to help with screenspace effects
-    self.savedUseOverscan = context.scene.eevee.use_overscan
-    self.savedOverscanSize = context.scene.eevee.overscan_size
+    # Save & Set - Overscan (Can help with screenspace effects)
+    self.savedUseOverscan = eevee.use_overscan
+    self.savedOverscanSize = eevee.overscan_size
 
-    context.scene.eevee.use_overscan = True
-    context.scene.eevee.overscan_size = 10
+    eevee.use_overscan = True
+    eevee.overscan_size = 10
 
     # Set - Ambient Occlusion
-    context.scene.eevee.use_gtao = True
-    context.scene.eevee.gtao_distance = 1
+    eevee.use_gtao = True
+    eevee.gtao_distance = grabDoc.distanceOcclusion
+    eevee.gtao_quality = .5
 
-    # Create a new material & turn on node use
-    self.mat = bpy.data.materials.new(name = "GrabDoc_Temp_AO")
-    self.mat.use_nodes = True
+    context.scene.view_settings.look = grabDoc.contrastOcclusion.replace('_', ' ')
 
-    # Remove default node
-    self.mat.node_tree.nodes.remove(self.mat.node_tree.nodes.get('Principled BSDF'))
-
-    # Get / create nodes
-    material_output_node = self.mat.node_tree.nodes.get('Material Output')
-
-    ao_node = self.mat.node_tree.nodes.new('ShaderNodeAmbientOcclusion')
-    ao_node.samples = 32
-
-    gamma_node = self.mat.node_tree.nodes.new('ShaderNodeGamma')
-    gamma_node.inputs[1].default_value = grabDocPrefs.gammaOcclusion
-
-    emission_node = self.mat.node_tree.nodes.new('ShaderNodeEmission')
-
-    # Link materials
-    links = self.mat.node_tree.links
-
-    links.new(gamma_node.inputs["Color"], ao_node.outputs["Color"])
-    links.new(emission_node.inputs["Color"], gamma_node.outputs["Color"])
-    links.new(material_output_node.inputs["Surface"], emission_node.outputs["Emission"])
-
-    viewSettings.look = grabDocPrefs.contrastOcclusion.replace('_', ' ')
+    self.setup_type = 'GD_Ambient Occlusion'
+    add_ng_to_mat(self, context)
 
 def occlusion_export(self, context):
-    if self.renderer_type != "None":
-        if self.renderer_type == "Occlusion":
-            offline_render(self, context)
+    if self.offlineRenderType == "occlusion":
+        offline_render(self, context)
     else:
-        self.exporterAO = True
-        grabdoc_export(self, context)
+        grabdoc_export(self, context, exportSuffix="_ao")
+
+        # Reimport the Normal map as a material if requested
+        if context.scene.grabDoc.reimportAsMatOcclusion:
+            occlusion_reimport_as_mat(self, context)
+
+def occlusion_refresh(self, context):
+    eevee = context.scene.eevee
+
+    eevee.use_overscan = self.savedUseOverscan
+    eevee.overscan_size = self.savedOverscanSize
+
+    eevee.use_gtao = self.savedUseAO
+    eevee.gtao_distance = self.savedAODistance
+    eevee.gtao_quality = self.savedAOQuality
+
+def occlusion_reimport_as_mat(self, context):
+    grabDoc = context.scene.grabDoc
+
+    # Remove pre-existing material
+    for mat in bpy.data.materials:
+        if mat.name == f'{grabDoc.exportName}_AO':
+            bpy.data.materials.remove(mat)
+            break
+
+    # Remove original image
+    for image in bpy.data.images:
+        if image.name == f'{grabDoc.exportName}_AO':
+            bpy.data.images.remove(image)
+            break
+
+    # Create material
+    mat = bpy.data.materials.new(name=f'{grabDoc.exportName}_AO')
+    mat.use_nodes = True
+
+    output_node = mat.node_tree.nodes["Material Output"]
+    output_node.location = (0,0)
+
+    mat.node_tree.nodes.remove(mat.node_tree.nodes.get('Principled BSDF'))
+
+    if grabDoc.imageType == 'TIFF':
+        file_extension = '.tif'
+    elif grabDoc.imageType == 'TARGA':
+        file_extension = '.tga'
+    else:
+        file_extension = '.png'
+
+    image_node = mat.node_tree.nodes.new('ShaderNodeTexImage')
+    image_node.image = bpy.data.images.load(f'{grabDoc.exportPath}{grabDoc.exportName}_AO{file_extension}')
+    image_node.location = (-300,0)
+
+    # Rename the newly imported image
+    bpy.data.images[f'{grabDoc.exportName}_AO{file_extension}'].name = f'{grabDoc.exportName}_AO'
+
+    # Make links
+    link = mat.node_tree.links
+
+    link.new(output_node.inputs['Surface'], image_node.outputs['Color'])
 
 
-############################################################
-# HEIGHT
-############################################################
+## HEIGHT ##
 
 
 def height_setup(self, context):
-    grabDocPrefs = context.scene.grabDocPrefs
+    grabDoc = context.scene.grabDoc
     render = context.scene.render
 
     render.engine = 'BLENDER_EEVEE'
-    context.scene.eevee.taa_render_samples = grabDocPrefs.samplesHeight
+    context.scene.eevee.taa_render_samples = grabDoc.samplesHeight
     render.image_settings.color_mode = 'BW'
     context.scene.display_settings.display_device = 'None'
 
-    if grabDocPrefs.manualHeightRange == 'AUTO':
+    self.setup_type = 'GD_Height'
+    add_ng_to_mat(self, context)
+
+    if grabDoc.rangeTypeHeight == 'AUTO':
         find_tallest_object(self, context)
 
-    # Create a new material & turn on node use
-    self.mat = bpy.data.materials.new(name = "GrabDoc_Temp_Height")
-    self.mat.use_nodes = True
-
-    # Remove default node
-    self.mat.node_tree.nodes.remove(self.mat.node_tree.nodes.get('Principled BSDF'))
-
-    # Get /  load in nodes
-    material_output = self.mat.node_tree.nodes.get('Material Output')
-
-    camera_data = self.mat.node_tree.nodes.new('ShaderNodeCameraData')
-
-    self.map_range_node = self.mat.node_tree.nodes.new('ShaderNodeMapRange')
-    if grabDocPrefs.onlyFlatValues:
-        self.map_range_node.inputs[1].default_value = grabDocPrefs.camHeight - .001
-    else:
-        self.map_range_node.inputs[1].default_value = grabDocPrefs.heightGuide * -1 + grabDocPrefs.camHeight
-    self.map_range_node.inputs[2].default_value = grabDocPrefs.camHeight
-
-    invert_node = self.mat.node_tree.nodes.new('ShaderNodeInvert')
-
-    emission_node = self.mat.node_tree.nodes.new('ShaderNodeEmission')
-
-    # Link materials
-    links = self.mat.node_tree.links
-
-    links.new(self.map_range_node.inputs["Value"], camera_data.outputs["View Z Depth"])
-    links.new(invert_node.inputs["Color"], self.map_range_node.outputs["Result"])
-    links.new(emission_node.inputs["Color"], invert_node.outputs["Color"])
-    links.new(material_output.inputs["Surface"], emission_node.outputs["Emission"])
-
 def height_export(self, context):
-    if self.renderer_type != "None":
-        if self.renderer_type == "Height":
-            offline_render(self, context)
+    if self.offlineRenderType == "height":
+        offline_render(self, context)
     else:
-        self.exporterHeight = True
-        grabdoc_export(self, context)
+        grabdoc_export(self, context, exportSuffix="_height")
+        
 
-
-############################################################
-# MAT ID
-############################################################
+## MATERIAL ID ##
 
 
 def id_setup(self, context):
-    grabDocPrefs = context.scene.grabDocPrefs
     render = context.scene.render
-    sceneShading = bpy.data.scenes[str(context.scene.name)].display.shading
+    scene_shading = bpy.data.scenes[str(context.scene.name)].display.shading
 
     render.engine = 'BLENDER_WORKBENCH'
-    context.scene.display.render_aa = grabDocPrefs.samplesMatID
-    sceneShading.light = 'FLAT'
+    context.scene.display.render_aa = context.scene.grabDoc.samplesMatID
+    scene_shading.light = 'FLAT'
     render.image_settings.color_mode = 'RGB'
     context.scene.display_settings.display_device = 'sRGB'
 
     # Choose the method of ID creation based on user preference
-    sceneShading.color_type = grabDocPrefs.matID_method
+    scene_shading.color_type = context.scene.grabDoc.methodMatID
+
+    self.setup_type = 'None'
 
 def id_export(self, context):
-    if self.renderer_type != "None":
-        if self.renderer_type == "ID":
-            offline_render(self, context)
+    if self.offlineRenderType == "ID":
+        offline_render(self, context)
     else:
-        self.exporterMatID = True
-        grabdoc_export(self, context)
+        grabdoc_export(self, context, exportSuffix="_matID")
 
 
-############################################################
-# EXPORT MAPS
-############################################################
+################################################################################################################
+# BAKER
+################################################################################################################
+
+
+def grabdoc_export(self, context, exportSuffix):
+    grabDoc = context.scene.grabDoc
+    render = context.scene.render
+    
+    # Save - file output path
+    savedPath = render.filepath
+
+    # Set - Output path to add-on path + add-on name + the type of map exported (file extensions handled automatically)
+    render.filepath = grabDoc.exportPath + grabDoc.exportName + exportSuffix
+
+    context.scene.camera = bpy.data.objects["GD_Trim Camera"]
+
+    bpy.ops.render.render(write_still = True)
+
+    # Refresh - file output path
+    render.filepath = savedPath
+
+
+def offline_render(self, context):
+    render = context.scene.render
+
+    # Get add-on paths
+    addon_path = os.path.dirname(__file__)
+    temp_folder_path = os.path.join(addon_path, "Temp")
+
+    # Create the directory 
+    if not os.path.exists(temp_folder_path):
+        os.mkdir(temp_folder_path)
+
+    image_name = 'GD_Temp_Render.png'
+
+    # Save & Set - file output path
+    savedPath = render.filepath
+
+    render.filepath = f'{temp_folder_path}\\GD_Temp_Render'
+
+    # Delete original image
+    if image_name in bpy.data.images:
+        bpy.data.images.remove(bpy.data.images[image_name])
+
+    # Render
+    bpy.ops.render.render(write_still = True)
+
+    # Load in the newly rendered image
+    bpy.data.images.load(f'{temp_folder_path}\\{image_name}')
+
+    # Refresh - file output path
+    render.filepath = savedPath
+
+    # Call user prefs window
+    bpy.ops.screen.userpref_show("INVOKE_DEFAULT")
+
+    # Change area & image type
+    area = context.window_manager.windows[-1].screen.areas[0]
+    area.type = "IMAGE_EDITOR"
+    area.spaces.active.image = bpy.data.images[image_name]
 
 
 class GRABDOC_OT_export_maps(OpInfo, Operator):
     bl_idname = "grab_doc.export_maps"
     bl_label = "Export Maps"
     bl_description = "Export all enabled maps to the designated file path"
+    bl_options={'INTERNAL'}
 
     @classmethod
     def poll(cls, context):
-        return(not context.scene.grabDocPrefs.modalState)
+        return(not context.scene.grabDoc.modalState)
 
-    renderer_type: EnumProperty(items=(('None',"None",""),
-                                       ('Normals', "Normals", ""),
-                                       ('Curvature', "Curvature", ""),
-                                       ('Occlusion', "Ambient Occlusion", ""),
-                                       ('Height', "Height", ""),
-                                       ('ID', "Material ID", "")))
+    offlineRenderType: EnumProperty(items=(('online', "Online", ""),
+                                           ('normals', "Normals", ""),
+                                           ('curvature', "Curvature", ""),
+                                           ('occlusion', "Ambient Occlusion", ""),
+                                           ('height', "Height", ""),
+                                           ('ID', "Material ID", "")),
+                                           options={'HIDDEN'})
 
     def execute(self, context):
-        # Declare propertygroup as a variable
-        grabDocPrefs = context.scene.grabDocPrefs
+        # Declare propertygroup as var
+        grabDoc = context.scene.grabDoc
+
+        report_value, report_string = bad_setup_check(self, context, active_export=True if self.offlineRenderType == 'online' else False)
+
+        if report_value:
+            self.report({'ERROR'}, report_string)
+            return{'CANCELLED'}
         
-        # Setup Scene
-        export_and_preview_setup(self, context)
-
-        for ob in context.view_layer.objects:
-            if ob.name in self.render_list:
-                for mod in ob.modifiers:
-                    if mod.type == "DISPLACE":
-                        if context.scene.grabDocPrefs.manualHeightRange == 'AUTO':
-                            self.report({'ERROR'}, "While using Displace modifiers you must use the manual height range option for accuracy (0-1 range affects the clipping plane)")
-                            return{'FINISHED'}
-
-        if self.renderer_type == "None":
-            # General checks & variables
-            if not os.path.exists(context.scene.grab_doc_filepath):
-                self.report({'ERROR'}, "There is no file path set")
-                return{'FINISHED'}
-
-            # Start counting execution time
+        # Start execution timer
+        if self.offlineRenderType == "online":
             start = time.time()
 
-        self.exporterNormals = False
-        self.exporterCurvature = False
-        self.exporterHeight = False
-        self.exporterMatID = False
+        # Live UI timer (updated manually as progress is made)
+        context.window_manager.progress_begin(0, 9999)
         
-        activeSelected = False
+        export_and_preview_setup(self, context)
 
         if context.active_object:
             if context.object.type in {'MESH', 'CURVE', 'FONT', 'SURFACE', 'META', 'LATTICE', 'ARMATURE', 'CAMERA'}:
@@ -1260,73 +1558,66 @@ class GRABDOC_OT_export_maps(OpInfo, Operator):
                 activeSelected = True
 
         # Scale up BG Plane (helps overscan & border pixels)
-        plane_ob = bpy.data.objects["BG Plane"]
-        plane_ob.scale[0] = 1.1
-        plane_ob.scale[1] = 1.1
+        plane_ob = bpy.data.objects["GD_Background Plane"]
+        plane_ob.scale[0] = plane_ob.scale[1] = 3
 
-        if grabDocPrefs.exportMatID or self.renderer_type == "ID":
-           id_setup(self, context)
-           id_export(self, context)
+        context.window_manager.progress_update(14)
 
-        if grabDocPrefs.exportHeight or self.renderer_type == "Height":
-            height_setup(self, context)
-            grabdoc_material_apply(self, context)
-            height_export(self, context)
-            grabdoc_material_cleanup(self, context)
+        if grabDoc.uiVisibilityNormals and grabDoc.exportNormals and self.offlineRenderType == 'online' or self.offlineRenderType == "normals":
+            normals_setup(self, context)
+            normals_export(self, context)
+            cleanup_ng_from_mat(self, context)
 
-        if grabDocPrefs.exportCurvature or self.renderer_type == "Curvature":
+        context.window_manager.progress_update(28)
+
+        if grabDoc.uiVisibilityCurvature and grabDoc.exportCurvature and self.offlineRenderType == 'online' or self.offlineRenderType == "curvature":
             curvature_setup(self, context)
             curvature_export(self, context)
+            curvature_refresh(self, context)
 
-            # Set - Scene
-            sceneShading = bpy.data.scenes[str(context.scene.name)].display.shading
+        context.window_manager.progress_update(42)
 
-            # Refresh specific preferences
-            sceneShading.cavity_ridge_factor = self.savedCavityRidgeFactor
-            sceneShading.curvature_ridge_factor = self.savedCurveRidgeFactor
-            sceneShading.cavity_valley_factor = self.savedCavityValleyFactor
-            sceneShading.curvature_valley_factor = self.savedCurveValleyFactor
-            sceneShading.single_color = self.savedSingleList
-            sceneShading.cavity_type = self.savedCavityType
-            sceneShading.show_cavity = self.savedCavity
-
-            context.scene.view_settings.look = self.savedContrastType
-
-        if grabDocPrefs.exportOcclusion or self.renderer_type == "Occlusion":        
+        if grabDoc.uiVisibilityOcclusion and grabDoc.exportOcclusion and self.offlineRenderType == 'online' or self.offlineRenderType == "occlusion":
             occlusion_setup(self, context)
-            grabdoc_material_apply(self, context)
             occlusion_export(self, context)
-            grabdoc_material_cleanup(self, context)
+            cleanup_ng_from_mat(self, context)
+            occlusion_refresh(self, context)
 
-            # Refresh specific preferences
-            context.scene.eevee.use_overscan = self.savedUseOverscan
-            context.scene.eevee.overscan_size = self.savedOverscanSize
+        context.window_manager.progress_update(56)
 
-            context.scene.eevee.use_gtao = self.savedUseAO
-            context.scene.eevee.gtao_distance = self.savedAODistance
+        if grabDoc.uiVisibilityHeight and grabDoc.exportHeight and self.offlineRenderType == 'online' or self.offlineRenderType == "height":
+            height_setup(self, context)
+            height_export(self, context)
+            cleanup_ng_from_mat(self, context)
 
-        if grabDocPrefs.exportNormals or self.renderer_type == "Normals":
-            normals_setup(self, context)
-            grabdoc_material_apply(self, context)
-            normals_export(self, context)
-            grabdoc_material_cleanup(self, context)
+        context.window_manager.progress_update(70)
+
+        if grabDoc.uiVisibilityMatID and grabDoc.exportMatID and self.offlineRenderType == 'online' or self.offlineRenderType == "ID":
+            id_setup(self, context)
+            id_export(self, context)
+
+        context.window_manager.progress_update(84)
 
         # Scale down BG Plane (helps overscan & border pixels)
-        plane_ob = bpy.data.objects["BG Plane"]
-        plane_ob.scale[0] = 1
-        plane_ob.scale[1] = 1
+        plane_ob = bpy.data.objects["GD_Background Plane"]
+        plane_ob.scale[0] = plane_ob.scale[1] = 1
 
         # Refresh all original settings
         export_refresh(self, context)
 
+        if grabDoc.exportPlane:
+            export_bg_plane(self, context)
+
         # Call for Original Context Mode (Use bpy.ops so that Blenders viewport refreshes)
-        if activeSelected:
+        if 'activeSelected' in locals():
             context.view_layer.objects.active = bpy.data.objects[activeCallback]
             bpy.ops.object.mode_set(mode = modeCallback)
 
-        if self.renderer_type == "None":
-            if grabDocPrefs.openFolderOnExport:
-                bpy.ops.wm.path_open(filepath = context.scene.grab_doc_filepath)
+        context.window_manager.progress_update(98)
+
+        if self.offlineRenderType == "online":
+            if grabDoc.openFolderOnExport:
+                bpy.ops.wm.path_open(filepath = grabDoc.exportPath)
 
             # End the timer
             end = time.time()
@@ -1334,18 +1625,167 @@ class GRABDOC_OT_export_maps(OpInfo, Operator):
 
             self.report({'INFO'}, f"Export completed! (execution time: {str((round(timeSpent, 2)))}s)")
         else:
-            if self.renderer_type in ('Normals', 'Occlusion', 'Height'):
-                self.report({'WARNING'}, "Offline render completed! Result will appear wrong until you set display device to 'None' [Render Properties > Color Management]")
-            else:
-                self.report({'INFO'}, "Offline render completed!")
+            self.report({'INFO'}, "Offline render completed!")
+            
+            # Reset so default can be the realtime renderer
+            self.offlineRenderType = "online"
 
-        self.renderer_type = "None"
+        context.window_manager.progress_end()
         return{'FINISHED'}
 
 
-############################################################
+class GRABDOC_OT_send_to_marmo(OpInfo, Operator):
+    bl_idname = "grab_doc.bake_marmoset"
+    bl_label = "Open / Refresh in Marmoset"
+    bl_description = "Export your models, open & bake (if turned on) in Marmoset Toolbag utilizing the settings set within the 'View / Edit Maps' tab"
+    
+    send_type: EnumProperty(items=(('open',"Open",""),
+                                   ('refresh', "Refresh", "")),
+                                   options={'HIDDEN'})
+
+    @classmethod
+    def poll(cls, context):
+        return(os.path.exists(context.scene.grabDoc.marmoExportPath))
+
+    def execute(self, context):
+        grabDoc = context.scene.grabDoc
+
+        report_value, report_string = bad_setup_check(self, context, active_export=True)
+
+        if report_value:
+            self.report({'ERROR'}, report_string)
+            return{'CANCELLED'}
+
+        if grabDoc.imageType != "PNG":
+            self.report({'ERROR'}, "Non PNG formats are currently not supported for external baking in Marmoset")
+            return{'FINISHED'}
+
+        # Add-on root path 
+        addon_path = os.path.dirname(__file__)
+        
+        # Temporary model path 
+        temps_path = os.path.join(addon_path, "Temp")
+
+        # Create the directory 
+        if not os.path.exists(temps_path):
+            os.mkdir(temps_path)
+
+        selectedCallback = context.view_layer.objects.selected.keys()
+
+        if context.active_object:
+            bpy.ops.object.mode_set(mode = 'OBJECT')
+
+        if grabDoc.exportHeight:
+            if grabDoc.rangeTypeHeight == 'AUTO':
+                find_tallest_object(self, context)
+
+        for ob in context.view_layer.objects:
+            ob.select_set(False)
+            if ob.name in self.render_list:
+                if ob.visible_get():
+                    ob.select_set(True)
+                    if ob.name.startswith('GD_'):
+                        obCopy = ob.copy()
+                        context.collection.objects.link(obCopy)
+                        obCopy.name = "GrabDoc_high GD_Background Plane"
+
+                        ob.name = f"GrabDoc_low {ob.name}"
+                    else:
+                        ob.name = f"GrabDoc_high {ob.name}"
+
+        # Reselect BG Plane high poly
+        bpy.data.objects['GrabDoc_high GD_Background Plane'].select_set(True)
+
+        for mat in bpy.data.materials:
+            if mat.name == "GD_Reference":
+                bpy.data.materials.remove(mat)
+
+        # Export models
+        bpy.ops.export_scene.fbx(filepath=f"{temps_path}\\grabdoc_temp_model.fbx",
+                                 use_selection=True,
+                                 path_mode='ABSOLUTE')
+
+        if "GrabDoc_high GD_Background Plane" in bpy.data.objects:
+            bpy.data.objects.remove(bpy.data.objects["GrabDoc_high GD_Background Plane"])
+
+        for ob in context.selected_objects:
+            if ob.name == "GrabDoc_low GD_Background Plane":
+                ob.name = ob.name[12:]
+            else:
+                ob.name = ob.name[13:]
+            ob.select_set(False)
+
+        for o in selectedCallback:
+            if ob.visible_get():
+                ob = context.scene.objects.get(o)
+                ob.select_set(True)
+
+        # Create a dictionary of variables to transfer into Marmoset
+        marmo_vars = {'file_path': f'{grabDoc.exportPath}{grabDoc.exportName}.{grabDoc.imageType.lower()}',
+                      'file_path_no_ext': grabDoc.exportPath,
+                      'marmo_sky_path': f'{os.path.dirname(grabDoc.marmoExportPath)}\\data\\sky\\Evening Clouds.tbsky',
+
+                      'resolution_x': grabDoc.exportResX,
+                      'resolution_y': grabDoc.exportResY,
+                      'bits_per_channel': int(grabDoc.colorDepth),
+                      'samples': int(grabDoc.marmoSamples),
+
+                      'auto_bake': grabDoc.marmoAutoBake,
+                      'close_after_bake': grabDoc.marmoClosePostBake,
+                      'open_folder': grabDoc.openFolderOnExport,
+
+                      'export_normals': grabDoc.exportNormals & grabDoc.uiVisibilityNormals,
+                      'flipy_normals': grabDoc.flipYNormals,
+
+                      'export_curvature': grabDoc.exportCurvature & grabDoc.uiVisibilityCurvature,
+
+                      'export_occlusion': grabDoc.exportOcclusion & grabDoc.uiVisibilityOcclusion,
+                      'ray_count_occlusion': grabDoc.marmoAORayCount,
+
+                      'export_height': grabDoc.exportHeight & grabDoc.uiVisibilityHeight,
+                      'flat_height': grabDoc.flatMaskHeight,
+                      'cage_height': grabDoc.guideHeight * 100 * 2,
+
+                      'export_matid': grabDoc.exportMatID & grabDoc.uiVisibilityMatID}
+
+        # Flip the slashes of the first Dict value (It's gross but I don't know how to do it any other way without an error in Marmoset)
+        for key, value in marmo_vars.items():
+            marmo_vars[key] = value.replace("\\", "/")
+            break
+        
+        # Serializing
+        marmo_json = json.dumps(marmo_vars, indent = 4)
+
+        # Writing
+        with open(temps_path + "\\" + "marmo_vars.json", "w") as outfile:
+            outfile.write(marmo_json)
+        
+        path_ext_only = os.path.basename(os.path.normpath(grabDoc.marmoExportPath)).encode()
+
+        if grabDoc.exportPlane:
+            export_bg_plane(self, context)
+
+        if self.send_type == 'refresh':
+            subproc = subprocess.check_output('tasklist', shell=True)
+            if not path_ext_only in subproc:
+                subprocess.Popen([grabDoc.marmoExportPath, os.path.join(addon_path, "grabdoc_marmo.py")])
+
+                self.report({'INFO'}, "Export completed! Opening Marmoset Toolbag...")
+            else:
+                if grabDoc.marmoAutoBake:
+                    self.report({'INFO'}, "Models re-exported! Check Marmoset Toolbag.")
+                else:
+                    self.report({'INFO'}, "Models re-exported! Check Marmoset Toolbag. (Rebake required)")
+        else:
+            subprocess.Popen([grabDoc.marmoExportPath, os.path.join(addon_path, "grabdoc_marmo.py")])
+
+            self.report({'INFO'}, "Export completed! Opening Marmoset Toolbag...")
+        return{'FINISHED'}
+
+
+################################################################################################################
 # MAP PREVIEWER
-############################################################
+################################################################################################################
 
 
 def draw_callback_px(self, context):
@@ -1353,108 +1793,268 @@ def draw_callback_px(self, context):
 
     blf.position(font_id, 15, 140, 0)
     blf.size(font_id, 26, 72)
-    blf.draw(font_id, f"{self.preview_type} Preview | 'ESC' to leave")
+    blf.draw(font_id, f"{self.preview_type.capitalize()} Preview | 'ESC' to leave")
 
-    blf.position(font_id, 15, 100, 0)
-    blf.size(font_id, 18, 72)
+    blf.position(font_id, 15, 90, 0)
+    blf.size(font_id, 21, 72)
     blf.draw(font_id, "You are currently in Map Preview mode!")
+
+
+class GRABDOC_OT_leave_map_preview(Operator):
+    bl_idname = "grab_doc.leave_modal"
+    bl_label = "Leave Map Preview"
+    bl_description = "Leave Map Preview mode"
+    bl_options = {'INTERNAL', 'REGISTER'}
+
+    def execute(self, context):
+        context.scene.grabDoc.modalState = False
+        return{'FINISHED'}
+
+
+class GRABDOC_OT_map_preview_warning(OpInfo, Operator):
+    """Preview the selected material"""
+    bl_idname = "grab_doc.preview_warning"
+    bl_label = "    MATERIAL PREVIEW WARNING"
+    bl_options = {'INTERNAL'}
+
+    preview_type: EnumProperty(items=(('normals', "", ""),
+                                      ('curvature', "", ""),
+                                      ('occlusion', "", ""),
+                                      ('height', "", ""),
+                                      ('ID', "", "")),
+                                      options={'HIDDEN'})
+
+    def invoke(self, context, event):
+        return context.window_manager.invoke_props_dialog(self, width = 500)
+
+    def draw(self, context):
+        layout = self.layout
+        
+        col = layout.column()
+        col.separator()
+
+        col.label(text = "Live Material Preview is a feature that allows you to view what your bake maps will look like")
+        col.label(text = "in real-time. Consider this warning: This feature is strictly meant for viewing your materials &")
+        col.label(text = "not for editing while inside a preview. Once finished previewing, please exit to avoid instability.")
+        col.label(text = "")
+        col.label(text = "Pressing 'OK' will dismiss this warning permanently for this project file.")
+
+    def execute(self, context):
+        context.scene.grabDoc.firstBakePreview = False
+
+        bpy.ops.grab_doc.preview_map(preview_type = self.preview_type)
+        return{'FINISHED'}
+
+
+class GRABDOC_OT_map_preview(OpInfo, Operator):
+    """Preview the selected material"""
+    bl_idname = "grab_doc.preview_map"
+    bl_label = ""
+    bl_options = {'INTERNAL'}
+
+    preview_type: EnumProperty(items=(('normals', "", ""),
+                                      ('curvature', "", ""),
+                                      ('occlusion', "", ""),
+                                      ('height', "", ""),
+                                      ('ID', "", "")),
+                                      options={'HIDDEN'})
+
+    def modal(self, context, event):
+        grabDoc = context.scene.grabDoc
+        view_settings = context.scene.view_settings
+        scene_shading = bpy.data.scenes[str(context.scene.name)].display.shading
+        eevee = context.scene.eevee
+
+        # Idea for UI blocking
+        #if event.type == 'LEFTMOUSE':
+        #    return {'INTERFACE'}
+
+        # Set - Exporter settings
+        image_settings = context.scene.render.image_settings
+
+        image_settings.file_format = grabDoc.imageType
+
+        if grabDoc.imageType == 'TIFF':
+            image_settings.tiff_codec = grabDoc.imageCompTIFF
+        if grabDoc.imageType == 'PNG':
+            image_settings.compression = grabDoc.imageComp
+
+        if grabDoc.imageType != 'TARGA':
+            image_settings.color_depth = grabDoc.colorDepth
+
+        if self.preview_type == "normals":
+            context.scene.eevee.taa_render_samples = grabDoc.samplesNormals
+    
+        elif self.preview_type == "curvature":
+            context.scene.display.render_aa = grabDoc.samplesCurvature
+            view_settings.look = grabDoc.contrastCurvature.replace('_', ' ')
+
+            bpy.data.objects["GD_Background Plane"].color[3] = .9999
+
+            # Refresh specific settings
+            if self.done:
+                curvature_refresh(self, context)
+
+        elif self.preview_type == "occlusion":
+            eevee.taa_render_samples = grabDoc.samplesOcclusion
+            eevee.gtao_distance = grabDoc.distanceOcclusion
+            view_settings.look = grabDoc.contrastOcclusion.replace('_', ' ')
+
+            # Refresh specific settings
+            if self.done:
+                occlusion_refresh(self, context)
+
+        elif self.preview_type == "height":
+            eevee.taa_render_samples = grabDoc.samplesHeight
+
+        elif self.preview_type == "ID":
+            context.scene.display.render_aa = grabDoc.samplesMatID
+
+            # Choose the method of ID creation based on user preference
+            scene_shading.color_type = grabDoc.methodMatID
+
+        is_setup = proper_scene_setup()
+
+        # Exiting    
+        if self.done:
+            bpy.types.SpaceView3D.draw_handler_remove(self._handle, 'WINDOW')
+
+            cleanup_ng_from_mat(self, context)
+            export_refresh(self, context)
+
+            # Refresh - Current workspace shading type
+            for area in context.screen.areas:
+                if area.type == 'VIEW_3D':
+                    for space in area.spaces:
+                        space.shading.type = self.saved_render_view
+                        break
+            
+            # Refresh - Original workspace shading type
+            for screen in bpy.data.workspaces[self.savedOriginalWorkspace].screens:
+                for area in screen.areas:
+                    if area.type == 'VIEW_3D':
+                        for space in area.spaces:
+                            space.shading.type = self.saved_render_view
+                            break
+
+            grabDoc.bakerType = self.savedBakerType
+            
+            if grabDoc.autoExitCamera or not is_setup:
+                # Keep this at the end of the stack because bugs
+                bpy.ops.grab_doc.view_cam(from_modal=True)
+            return {'CANCELLED'}
+
+        # Exit checking
+        if not grabDoc.modalState or event.type in {'ESC'} or not is_setup:
+            bpy.ops.grab_doc.leave_modal()
+            self.done = True
+            return {'PASS_THROUGH'}
+        return {'PASS_THROUGH'}
+
+    def execute(self, context):
+        grabDoc = context.scene.grabDoc
+
+        report_value, report_string = bad_setup_check(self, context, active_export = False)
+
+        if report_value:
+            self.report({'ERROR'}, report_string)
+            return{'CANCELLED'}
+
+        self.done = False
+        grabDoc.modalState = True
+
+        if context.active_object:
+            bpy.ops.object.mode_set(mode = 'OBJECT')
+
+        if [area.spaces.active.region_3d.view_perspective for area in context.screen.areas if area.type == 'VIEW_3D'] != ['CAMERA']:
+            bpy.ops.view3d.view_camera()
+
+        export_and_preview_setup(self, context)
+
+        # Save & Set - Shading type
+        self.savedOriginalWorkspace = context.workspace.name
+
+        for area in context.screen.areas:
+            if area.type == 'VIEW_3D':
+                for space in area.spaces:
+                    self.saved_render_view = space.shading.type
+                    space.shading.type = 'RENDERED'
+                    break
+
+        # Save & Set - UI Baker Type
+        self.savedBakerType = grabDoc.bakerType
+        grabDoc.bakerType = 'Blender'
+
+        # Set - Preview type
+        grabDoc.modalPreviewType = self.preview_type
+
+        if self.preview_type == 'normals':
+            normals_setup(self, context)
+        elif self.preview_type == 'curvature':
+            curvature_setup(self, context)
+        elif self.preview_type == 'occlusion':
+            occlusion_setup(self, context)
+        elif self.preview_type == 'height':
+            height_setup(self, context)
+        else: # ID
+            id_setup(self, context)
+
+        # Draw text handler
+        args = (self, context)
+        self._handle = bpy.types.SpaceView3D.draw_handler_add(draw_callback_px, args, 'WINDOW', 'POST_PIXEL')
+
+        # Modal handler
+        context.window_manager.modal_handler_add(self)
+        return {'RUNNING_MODAL'}
+
 
 class GRABDOC_OT_export_current_preview(OpInfo, Operator):
     """Export the currently previewed material"""
     bl_idname = "grab_doc.export_preview"
     bl_label = "Export Previewed Map"
 
-    preview_export_type: EnumProperty(items=(('Normals', "", ""),
-                                             ('Curvature', "", ""),
-                                             ('Occlusion', "", ""),
-                                             ('Height', "", ""),
-                                             ('ID', "", "")))
-
     @classmethod
     def poll(cls, context):
-        return(context.scene.grabDocPrefs.modalState)
+        return(context.scene.grabDoc.modalState)
 
     def execute(self, context):
-        # Look for Trim Camera (only thing required to render)
-        for ob in context.view_layer.objects:
-            if ob.name == "Trim Camera":
-                break
-        else:
-            self.report({'ERROR'}, "Trim Camera not found, either you haven't set up the scene or you have excluded it from the View Layer.")
-            return{'FINISHED'}
+        grabDoc = context.scene.grabDoc
 
-        # General checks & variables
-        if not os.path.exists(context.scene.grab_doc_filepath):
-            self.report({'ERROR'}, "There is no file path set")
-            return{'FINISHED'}
+        report_value, report_string = bad_setup_check(self, context, active_export = True)
 
-        get_rendered_objects(self, context)
-
-        for ob in context.view_layer.objects:
-            if ob.name in self.render_list:
-                for mod in ob.modifiers:
-                    if mod.type == "DISPLACE":
-                        if context.scene.grabDocPrefs.manualHeightRange == 'AUTO':
-                            self.report({'ERROR'}, "While using Displace modifiers you must use the manual height range option for accuracy (0-1 range affects the clipping plane)")
-                            return{'FINISHED'}
+        if report_value:
+            self.report({'ERROR'}, report_string)
+            return{'CANCELLED'}
 
         # Start counting execution time
         start = time.time()
 
         # Save - file output path
         render = context.scene.render
-
         savedPath = render.filepath
 
-        # Set - map type suffix
-        if self.preview_export_type == 'Normals':
-            exportSuffix = "_normal"
-        elif self.preview_export_type == 'Curvature':
-            exportSuffix = "_curve"
-        elif self.preview_export_type == 'Occlusion':
-            exportSuffix = "_ao"
-        elif self.preview_export_type == 'Height':
-            exportSuffix = "_height"
-        else: # ID
-            exportSuffix = "_matID"
-
-        grabDocPrefs = context.scene.grabDocPrefs
-
-        # Set - Output path to add-on path + add-on name + the type of map exported (file extensions handled automatically)
-        render.filepath = context.scene.grab_doc_filepath + grabDocPrefs.exportName + exportSuffix
+        # Set - Output path to add-on path + add-on name + the type of map exported (file extensions get handled automatically)
+        render.filepath = grabDoc.exportPath + grabDoc.exportName + f"_{grabDoc.modalPreviewType}"
 
         bpy.ops.render.render(write_still = True)
 
         # Refresh - file output path
         render.filepath = savedPath
 
-        if self.preview_export_type == 'Normals':
-            # Reimport the Normal map as a material (if the option is turned on)
-            if grabDocPrefs.reimportAsMat:
-                for material in bpy.data.materials:
-                    if material.name == grabDocPrefs.exportName + "_normal":
-                        bpy.data.materials.remove(material)
-                        break
+        # Reimport the Normal map as a material if requested
+        if grabDoc.modalPreviewType == 'normals' and grabDoc.reimportAsMatNormals:
+            normals_reimport_as_mat(self, context)
 
-                mat = bpy.data.materials.new(name=grabDocPrefs.exportName + "_normal")
-                mat.use_nodes = True
+        # Reimport the Occlusion map as a material if requested
+        elif grabDoc.modalPreviewType == 'occlusion' and grabDoc.reimportAsMatOcclusion:
+            occlusion_reimport_as_mat(self, context)
 
-                bsdf = mat.node_tree.nodes["Principled BSDF"]
-
-                texImage = mat.node_tree.nodes.new('ShaderNodeTexImage')
-                texImage.image = bpy.data.images.load(context.scene.grab_doc_filepath + grabDocPrefs.exportName + "_normal.png")
-                texImage.image.colorspace_settings.name = 'Linear'
-
-                normalMap = mat.node_tree.nodes.new('ShaderNodeNormalMap')
-
-                # Make links
-                links = mat.node_tree.links
-
-                links.new(normalMap.inputs['Color'], texImage.outputs['Color'])
-                links.new(bsdf.inputs['Normal'], normalMap.outputs['Normal'])
-           
-        if grabDocPrefs.openFolderOnExport:
-            bpy.ops.wm.path_open(filepath = context.scene.grab_doc_filepath)
+        if grabDoc.exportPlane:
+            export_bg_plane(self, context)
+        
+        # Open export path location if requested
+        if grabDoc.openFolderOnExport:
+            bpy.ops.wm.path_open(filepath = grabDoc.exportPath)
 
         # End the timer
         end = time.time()
@@ -1464,238 +2064,31 @@ class GRABDOC_OT_export_current_preview(OpInfo, Operator):
         return{'FINISHED'}
 
 
-class GRABDOC_OT_preview_map(OpInfo, Operator):
-    """Preview the selected material"""
-    bl_idname = "grab_doc.preview_map"
-    bl_label = ""
-
-    preview_type: EnumProperty(items=(('Normals', "", ""),
-                                      ('Curvature', "", ""),
-                                      ('Occlusion', "", ""),
-                                      ('Height', "", ""),
-                                      ('ID', "", ""))) 
-
-    def modal(self, context, event):
-        grabDocPrefs = context.scene.grabDocPrefs
-        viewSettings = context.scene.view_settings
-        sceneShading = bpy.data.scenes[str(context.scene.name)].display.shading
-        
-        try:
-            if self.preview_type == "Curvature":
-                if not self.emergency_exit:
-                    context.scene.display.render_aa = grabDocPrefs.samplesCurvature
-
-                    if grabDocPrefs.colorCurvature != Color((.21404114365577698, .21404114365577698, .21404114365577698)):
-                        context.scene.render.image_settings.color_mode = 'RGB'
-                    else:
-                        context.scene.render.image_settings.color_mode = 'BW'
-
-                    viewSettings.look = grabDocPrefs.contrastCurvature.replace('_', ' ')
-
-                if self.done:
-                    sceneShading.cavity_ridge_factor = self.savedCavityRidgeFactor
-                    sceneShading.curvature_ridge_factor = self.savedCurveRidgeFactor
-                    sceneShading.cavity_valley_factor = self.savedCavityValleyFactor
-                    sceneShading.curvature_valley_factor = self.savedCurveValleyFactor
-                    sceneShading.single_color = self.savedSingleList
-                    sceneShading.cavity_type = self.savedCavityType
-                    sceneShading.show_cavity = self.savedCavity
-
-                    sceneShading.cavity_ridge_factor = self.savedCavityRidgeFactor
-                    sceneShading.curvature_ridge_factor = self.savedCurveRidgeFactor
-                    sceneShading.cavity_valley_factor = self.savedCavityValleyFactor
-                    sceneShading.curvature_valley_factor = self.savedCurveValleyFactor
-                    sceneShading.single_color = self.savedSingleList
-                    sceneShading.cavity_type = self.savedCavityType
-                    sceneShading.show_cavity = self.savedCavity
-
-            elif self.preview_type == "Occlusion":
-                if not self.emergency_exit:
-                    context.scene.eevee.taa_render_samples = grabDocPrefs.samplesOcclusion
-
-                    context.scene.eevee.gtao_distance = grabDocPrefs.distanceOcclusion
-
-                    viewSettings.look = grabDocPrefs.contrastOcclusion.replace('_', ' ')
-
-                if self.done:
-                    context.scene.eevee.use_gtao = self.savedUseAO
-                    context.scene.eevee.gtao_distance = self.savedAODistance
-
-            elif not self.emergency_exit:
-                if self.preview_type == "Normals":
-                    context.scene.eevee.taa_render_samples = grabDocPrefs.samplesNormals
-
-                    self.invert_node.inputs[0].default_value = 1 if grabDocPrefs.normalsFlipY else 0
-
-                elif self.preview_type == "Height":
-                    context.scene.eevee.taa_render_samples = grabDocPrefs.samplesHeight
-
-                    context.scene.render.image_settings.file_format = grabDocPrefs.image_type
-
-                elif self.preview_type == "ID":
-                    context.scene.display.render_aa = grabDocPrefs.samplesMatID
-
-                    # Choose the method of ID creation based on user preference
-                    sceneShading.color_type = grabDocPrefs.matID_method
-
-            # Check if user wants the grid preview to be on
-            if grabDocPrefs.creatingGrid:
-                plane_ob = bpy.data.objects["BG Plane"]
-                plane_ob.show_wire = grabDocPrefs.wirePreview
-
-            # Exiting    
-            if self.done:
-                # Refresh - Camera view
-                for area in context.screen.areas:
-                    if area.type == 'VIEW_3D':
-                        for space in area.spaces:
-                            space.shading.type = 'SOLID'
-                            if [area.spaces.active.region_3d.view_perspective for area in context.screen.areas if area.type == 'VIEW_3D'] == ['CAMERA']:
-                                try:
-                                    context.scene.camera = bpy.data.objects["Trim Camera"]
-                                    bpy.ops.view3d.view_camera()
-                                except:
-                                    traceback.print_exc() # I have no idea why an error occurs here seemingly randomly.
-                                    pass
-                            break
-                    
-                grabdoc_material_cleanup(self, context)
-
-                export_refresh(self, context)
-
-                # Refresh - Grid view
-                if grabDocPrefs.creatingGrid:
-                    plane_ob.show_wire = True
-
-                # Refresh - Modal checks
-                grabDocPrefs.preview_type = 'None'
-
-                if context.preferences.addons[__package__].preferences.drawMatPreviewUI_Pref:
-                    bpy.types.SpaceView3D.draw_handler_remove(self._handle, 'WINDOW')
-
-                if self.emergency_exit == 1:
-                    self.report({'ERROR'}, "Map preview has safely exited after encountering an error. Please send the latest error code in the system console to the add-on devs.")
-                return {'CANCELLED'}
-
-            # Exit checking                     
-            if not grabDocPrefs.modalState or event.type in {'ESC'}:
-                self.done = True
-                return {'PASS_THROUGH'}
-        except:
-            traceback.print_exc()
-            self.done = True
-
-            # This is a failsafe for if the modal operator breaks. The first time it breaks, the modal attempts to safely exit. 
-            # Once it errors out 2 times it force exits without resetting the proper value and warns the user to reset the session.
-            self.emergency_exit += 1
-            if self.emergency_exit == 2:
-                self.report({'ERROR'}, "Critical error, please restart your session without saving.")
-            return {'PASS_THROUGH'}
-        return {'PASS_THROUGH'}
-        
-    def invoke(self, context, event):
-        grabDocPrefs = context.scene.grabDocPrefs
-
-        if grabDocPrefs.onlyRenderColl:  
-            for coll in bpy.data.collections:
-                if coll.name == "GrabDoc Objects (put objects here)":
-                    if len(coll.all_objects) == 0:
-                        self.report({'ERROR'}, "You have 'Manually pick rendered' turned on, but no objects are in that collection")
-                        return{'FINISHED'}
-
-        self.done = False
-        self.emergency_exit = 0
-
-        export_and_preview_setup(self, context)
-
-        if [area.spaces.active.region_3d.view_perspective for area in context.screen.areas if area.type == 'VIEW_3D'] != ['CAMERA']:
-            bpy.ops.view3d.view_camera()
-
-        if context.active_object:
-            bpy.ops.object.mode_set(mode = 'OBJECT')
-
-        if self.preview_type == 'Normals':
-            normals_setup(self, context)
-            grabdoc_material_apply(self, context)
-
-        elif self.preview_type == 'Curvature':
-            curvature_setup(self, context)
-
-        elif self.preview_type == 'Occlusion':
-            occlusion_setup(self, context)
-            grabdoc_material_apply(self, context)
-
-        elif self.preview_type == 'Height':
-            height_setup(self, context)
-            grabdoc_material_apply(self, context)
-
-        elif self.preview_type == 'ID':
-            id_setup(self, context)
-
-        # Set - Rendered view
-        for area in context.screen.areas:
-            if area.type == 'VIEW_3D':
-                for space in area.spaces:
-                    space.shading.type = 'RENDERED'
-                    break
-
-        grabDocPrefs.preview_type = self.preview_type
-        grabDocPrefs.modalState = True
-
-        if context.preferences.addons[__package__].preferences.drawMatPreviewUI_Pref:
-            # Draw text handler
-            args = (self, context)
-            self._handle = bpy.types.SpaceView3D.draw_handler_add(draw_callback_px, args, 'WINDOW', 'POST_PIXEL')
-
-        # Modal handler
-        context.window_manager.modal_handler_add(self)
-        return {'RUNNING_MODAL'}
-
-active_modals = set()
-
-def callback(modal):
-    def modal_wrapper(self, context, event):
-        GRABDOC_OT_preview_map = type(self)
-        _ret, = ret = modal(self, context, event)
-        if _ret in {'RUNNING_MODAL', 'PASS_THROUGH'}:
-            active_modals.add(GRABDOC_OT_preview_map)
-        elif _ret in {'FINISHED', 'CANCELLED'}:
-            active_modals.discard(GRABDOC_OT_preview_map)
-            context.scene.grabDocPrefs.modalState = False
-        return ret
-    return modal_wrapper
-
-for GRABDOC_OT_preview_map in bpy.types.Operator.__subclasses__():
-    if hasattr(GRABDOC_OT_preview_map, "modal"):
-        GRABDOC_OT_preview_map.modal = callback(GRABDOC_OT_preview_map.modal)
-
-
-############################################################
+################################################################################################################
 # REGISTRATION
-############################################################
+################################################################################################################
 
 
 classes = (GRABDOC_OT_open_folder,
+           GRABDOC_OT_load_ref,
            GRABDOC_OT_view_cam,
-           GRABDOC_OT_leave_modal,
            GRABDOC_OT_setup_scene,
-           GRABDOC_OT_quick_mat_setup,
-           GRABDOC_OT_quick_remove_mats,
+           GRABDOC_OT_remove_setup,
+           GRABDOC_OT_quick_id_setup,
+           GRABDOC_OT_quick_id_selected,
+           GRABDOC_OT_quick_remove_random_mats,
+           GRABDOC_OT_quick_remove_manual_mats,
+           GRABDOC_OT_quick_remove_selected_mats,
            GRABDOC_OT_export_maps,
-           GRABDOC_OT_preview_map,
+           GRABDOC_OT_map_preview_warning,
+           GRABDOC_OT_map_preview,
+           GRABDOC_OT_leave_map_preview,
            GRABDOC_OT_export_current_preview,
            GRABDOC_OT_send_to_marmo)
 
 def register():
     for cls in classes:
         bpy.utils.register_class(cls)
-    bpy.types.Scene.directory = StringProperty(subtype = 'DIR_PATH')
-
-    bpy.types.Scene.grab_doc_filepath = bpy.props.StringProperty \
-        (name = "",
-         default = " ",
-         description = "",
-         subtype = 'DIR_PATH')
 
 def unregister():
     for cls in classes:

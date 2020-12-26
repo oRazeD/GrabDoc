@@ -1,10 +1,11 @@
 bl_info = {
-    "name":"Blender GrabDoc",
+    "name":"GrabDoc",
     "author":"Ethan Simon-Law",
-    "location": "View3D > Sidebar > GrabDoc Tab",
-    "version":(1, 0, 0),
-    "blender":(2, 83, 0),
-    "category":"3D View"}
+    "location": "3D View > Sidebar > GrabDoc Tab",
+    "version":(1, 1),
+    "blender":(2, 91, 0),
+    "tracker_url": "https://discord.com/invite/wHAyVZG",
+    "category": "3D View"}
 
 
 import bpy
@@ -13,7 +14,7 @@ import importlib
 
 module_names = ("ui",
                 "operators",
-                "prefs")
+                "preferences")
 modules = []
 
 for module_name in module_names:
