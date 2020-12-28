@@ -575,7 +575,7 @@ def find_tallest_object(self, context):
 
     for ob in context.view_layer.objects:
         if ob.name in self.render_list:
-            if ob.name != "GD_Background Plane" and ob.name != 'GD_Orient Guide':
+            if not ob.name.startswith('GD_'):
                 # Get global coordinates of vertices
                 global_vert_coords = [ob.matrix_world @ v.co for v in ob.data.vertices]
 
@@ -982,6 +982,10 @@ class GRABDOC_OT_quick_id_selected(Operator):
 
         mat = bpy.data.materials.new(f"GD_ID.{randint(0, 100000000)}")
         mat.diffuse_color = random(), random(), random(), 1
+        mat.use_nodes = True
+
+        bsdf_node = mat.node_tree.nodes.get('Principled BSDF')
+        bsdf_node.inputs[0].default_value = mat.diffuse_color
 
         for ob in context.selected_objects:
             if ob.type == 'MESH':                       
