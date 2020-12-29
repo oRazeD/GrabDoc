@@ -1137,6 +1137,9 @@ def add_ng_to_mat(self, context):
                     for slot in ob.material_slots:
                         mat_slot = bpy.data.materials.get(slot.name)
 
+                        if not mat_slot.use_nodes:
+                            mat_slot.use_nodes = True
+
                         if not self.setup_type in mat_slot.node_tree.nodes:       
                             # Get materials Output Material node
                             for mat_node in mat_slot.node_tree.nodes:
@@ -1487,12 +1490,12 @@ def offline_render(self, context):
     if not os.path.exists(temp_folder_path):
         os.mkdir(temp_folder_path)
 
-    image_name = 'GD_Temp_Render.png'
+    image_name = 'GD_Render Result'
 
     # Save & Set - file output path
     savedPath = render.filepath
 
-    render.filepath = f'{temp_folder_path}\\GD_Temp_Render'
+    render.filepath = f'{temp_folder_path}\\{image_name}'
 
     # Delete original image
     if image_name in bpy.data.images:
@@ -1502,7 +1505,8 @@ def offline_render(self, context):
     bpy.ops.render.render(write_still = True)
 
     # Load in the newly rendered image
-    bpy.data.images.load(f'{temp_folder_path}\\{image_name}')
+    new_image = bpy.data.images.load(f'{temp_folder_path}\\{image_name}.png')
+    new_image.name = image_name
 
     # Refresh - file output path
     render.filepath = savedPath
@@ -1829,7 +1833,7 @@ class GRABDOC_OT_map_preview_warning(OpInfo, Operator):
                                       options={'HIDDEN'})
 
     def invoke(self, context, event):
-        return context.window_manager.invoke_props_dialog(self, width = 500)
+        return context.window_manager.invoke_props_dialog(self, width = 550)
 
     def draw(self, context):
         layout = self.layout
