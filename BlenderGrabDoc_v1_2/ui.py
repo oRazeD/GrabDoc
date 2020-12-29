@@ -88,10 +88,7 @@ class GRABDOC_PT_export(PanelInfo, Panel):
         if grabDoc.bakerType == 'Blender':
             row = col.row(align=True)
             row.scale_y = 1.5
-            if grabDoc.modalState:
-                row.operator("grab_doc.export_preview", text = f"Export {grabDoc.modalPreviewType.capitalize()}", icon = "EXPORT")
-            else:
-                row.operator("grab_doc.export_maps", icon = "EXPORT").offlineRenderType = 'online'
+            row.operator("grab_doc.export_maps", icon = "EXPORT").offlineRenderType = 'online'
         else: # Marmoset
             row = col.row()
             if not os.path.exists(grabDoc.marmoExportPath):
@@ -220,6 +217,10 @@ class GRABDOC_PT_view_edit_maps(PanelInfo, Panel):
             row = col.row(align = True)
             row.scale_y = 1.5
             row.operator("grab_doc.leave_modal", icon="CANCEL")
+
+            row = col.row(align = True)
+            row.scale_y = 1.1
+            row.operator("grab_doc.export_preview", text = f"Export {grabDoc.modalPreviewType.capitalize()}", icon = "EXPORT")
 
             layout = col.box()
 
