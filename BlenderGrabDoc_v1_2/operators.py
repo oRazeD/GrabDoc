@@ -674,7 +674,15 @@ def export_and_preview_setup(self, context):
     grabDoc = context.scene.grabDoc
     render = context.scene.render
 
-    # Set - Active camera
+    # TO DO - Preserve use_local_camera & original camera
+
+    # Set - Active Camera
+    for area in context.screen.areas:
+        if area.type == 'VIEW_3D':
+            for space in area.spaces:
+                space.use_local_camera = False
+                break
+
     context.scene.camera = bpy.data.objects["GD_Trim Camera"]
 
         ## VIEW LAYER PROPERTIES ##
@@ -1877,6 +1885,8 @@ class GRABDOC_OT_map_preview(OpInfo, Operator):
         #if event.type == 'LEFTMOUSE':
         #    return {'INTERFACE'}
 
+        context.scene.camera = bpy.data.objects["GD_Trim Camera"]
+
         # Set - Exporter settings
         image_settings = context.scene.render.image_settings
 
@@ -1946,9 +1956,9 @@ class GRABDOC_OT_map_preview(OpInfo, Operator):
                             break
 
             grabDoc.bakerType = self.savedBakerType
-            
+
+            # Check for auto exit camera option (Keep this at the end of the stack to avoid pop in)
             if grabDoc.autoExitCamera or not is_setup:
-                # Keep this at the end of the stack because bugs
                 bpy.ops.grab_doc.view_cam(from_modal=True)
             return {'CANCELLED'}
 
@@ -1974,10 +1984,10 @@ class GRABDOC_OT_map_preview(OpInfo, Operator):
         if context.active_object:
             bpy.ops.object.mode_set(mode = 'OBJECT')
 
+        export_and_preview_setup(self, context)
+        
         if [area.spaces.active.region_3d.view_perspective for area in context.screen.areas if area.type == 'VIEW_3D'] != ['CAMERA']:
             bpy.ops.view3d.view_camera()
-
-        export_and_preview_setup(self, context)
 
         # Save & Set - Shading type
         self.savedOriginalWorkspace = context.workspace.name
