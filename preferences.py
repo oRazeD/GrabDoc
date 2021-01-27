@@ -228,8 +228,8 @@ class GRABDOC_property_group(bpy.types.PropertyGroup):
     gridSubdivisions: FloatProperty(name = "", default = 0, min = 0, max = 64, step = 100, precision = 0, update = scene_refresh)
 
     # Baker settings
-    bakerType: EnumProperty(items=(('Blender', "Blender (Built-in)", ""),
-                                   ('Marmoset', "Toolbag 3 & 4", "")), name = "Baker")
+    bakerType: EnumProperty(items=(('Blender', "Blender (Built-in)", "Set Baker: Blender (Built-in)"),
+                                   ('Marmoset', "Toolbag 3 & 4", "Set Baker: Marmoset Toolbag 3&4")), name = "Baker")
                                    #('Painter', "Substance Painter", "")
     exportPath: StringProperty(name = "", default = " ", description = "", subtype = 'DIR_PATH')
     exportResX: IntProperty(name = "", default = 2048, min = 4, max = 8192, update = update_res_x)
@@ -241,7 +241,7 @@ class GRABDOC_property_group(bpy.types.PropertyGroup):
                                    ('TARGA', "TGA", "")), name = "Format")
     colorDepth: EnumProperty(items = (('16', "16", ""),
                                       ('8', "8", "")))
-    imageComp: IntProperty(name = "Compression", default = 50, min = 0, max = 100, subtype = 'PERCENTAGE')
+    imageComp: IntProperty(name = "", default = 50, min = 0, max = 100, description = 'Lossless Compression for smaller image sizes, but longer export times', subtype = 'PERCENTAGE')
     imageCompTIFF: EnumProperty(items = (('NONE', "None", ""),
                                          ('DEFLATE', "Deflate", ""),
                                          ('LZW', "LZW", ""),
