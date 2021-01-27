@@ -1145,15 +1145,21 @@ def add_ng_to_mat(self, context):
                     for slot in ob.material_slots:
                         mat_slot = bpy.data.materials.get(slot.name)
 
+                        output_node = None
+                        original_node_connection = None
+
                         if not mat_slot.use_nodes:
                             mat_slot.use_nodes = True
 
-                        if not self.setup_type in mat_slot.node_tree.nodes:       
+                        if not self.setup_type in mat_slot.node_tree.nodes:
                             # Get materials Output Material node
                             for mat_node in mat_slot.node_tree.nodes:
                                 if mat_node.type == 'OUTPUT_MATERIAL' and mat_node.is_active_output:
                                     output_node = mat_slot.node_tree.nodes.get(mat_node.name)
                                     break
+
+                            if not output_node:
+                                output_node = mat_slot.node_tree.nodes.new('ShaderNodeOutputMaterial')
 
                             # Add node group to material
                             GD_node_group = mat_slot.node_tree.nodes.new('ShaderNodeGroup')
@@ -1162,18 +1168,20 @@ def add_ng_to_mat(self, context):
                             GD_node_group.name = bpy.data.node_groups[self.setup_type].name
                             GD_node_group.hide = True
 
-                            # If 'output_node' does not exist create it
-                            if not 'output_node' in locals():
-                                output_node = mat_slot.node_tree.nodes.new('ShaderNodeOutputMaterial')
+                            original_node_found = False
 
-                            # If 'output_node' is found in locals() get the original node link (if it exists)
-                            else:
-                                for input in output_node.inputs:
-                                    for link in input.links:
-                                        original_node_connection = mat_slot.node_tree.nodes.get(link.from_node.name)
+                            # Get the original node link (if it exists)
+                            for node_input in output_node.inputs:
+                                for link in node_input.links:
+                                    original_node_connection = mat_slot.node_tree.nodes.get(link.from_node.name)
 
-                                        # Link original connection to the Node Group
-                                        mat_slot.node_tree.links.new(GD_node_group.inputs["Saved Input"], original_node_connection.outputs[link.from_socket.name])
+                                    # Link original connection to the Node Group
+                                    mat_slot.node_tree.links.new(GD_node_group.inputs["Saved Input"], original_node_connection.outputs[link.from_socket.name])
+
+                                    original_node_found = True
+
+                                if original_node_found:
+                                    break
 
                             # Link Node Group to the output
                             mat_slot.node_tree.links.new(output_node.inputs["Surface"], GD_node_group.outputs["Output"])
@@ -1530,8 +1538,8 @@ def offline_render(self, context):
 
 class GRABDOC_OT_export_maps(OpInfo, Operator):
     bl_idname = "grab_doc.export_maps"
-    bl_label = "Export Maps"
-    bl_description = "Export all enabled maps to the designated file path"
+    bl_label = ""
+    bl_description = " "
     bl_options={'INTERNAL'}
 
     @classmethod
@@ -1819,7 +1827,7 @@ def draw_callback_px(self, context):
 class GRABDOC_OT_leave_map_preview(Operator):
     bl_idname = "grab_doc.leave_modal"
     bl_label = "Leave Map Preview"
-    bl_description = "Leave Map Preview mode"
+    bl_description = "Leave the current Map Preview"
     bl_options = {'INTERNAL', 'REGISTER'}
 
     def execute(self, context):
