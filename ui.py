@@ -88,7 +88,7 @@ class GRABDOC_PT_export(PanelInfo, Panel):
         if grabDoc.bakerType == 'Blender':
             row = col.row(align=True)
             row.scale_y = 1.5
-            row.operator("grab_doc.export_maps", icon = "EXPORT").offlineRenderType = 'online'
+            row.operator("grab_doc.export_maps", text = 'Export Maps', icon = "EXPORT").offlineRenderType = 'online'
         else: # Marmoset
             row = col.row()
             if not os.path.exists(grabDoc.marmoExportPath):
@@ -253,7 +253,7 @@ class GRABDOC_PT_normals_settings(PanelInfo, Panel):
         grabDoc = context.scene.grabDoc
 
         row = self.layout.row(align = True)
-        row.separator()
+        row.separator(factor = .5)
         row.prop(grabDoc, 'exportNormals', text = "")
 
         if grabDoc.firstBakePreview:
@@ -297,8 +297,7 @@ class GRABDOC_PT_curvature_settings(PanelInfo, Panel):
         grabDoc = context.scene.grabDoc
 
         row = self.layout.row(align = True)
-        row.separator()
-
+        row.separator(factor = .5)
         row.prop(grabDoc, 'exportCurvature', text = "")
         
         if grabDoc.firstBakePreview:
@@ -346,8 +345,7 @@ class GRABDOC_PT_occlusion_settings(PanelInfo, Panel):
         grabDoc = context.scene.grabDoc
 
         row = self.layout.row(align = True)
-        row.separator()
-
+        row.separator(factor = .5)
         row.prop(grabDoc, 'exportOcclusion', text = "")
 
         if grabDoc.firstBakePreview:
@@ -399,8 +397,7 @@ class GRABDOC_PT_height_settings(PanelInfo, Panel):
         grabDoc = context.scene.grabDoc
 
         row = self.layout.row(align = True)
-        row.separator()
-
+        row.separator(factor = .5)
         row.prop(grabDoc, 'exportHeight', text = "")
 
         if grabDoc.firstBakePreview:
@@ -450,8 +447,7 @@ class GRABDOC_PT_id_settings(PanelInfo, Panel):
         grabDoc = context.scene.grabDoc
 
         row = self.layout.row(align = True)
-        row.separator()
-
+        row.separator(factor = .5)
         row.prop(grabDoc, 'exportMatID', text = "")
         
         if grabDoc.firstBakePreview:
