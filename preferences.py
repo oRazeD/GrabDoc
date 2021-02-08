@@ -207,7 +207,7 @@ class GRABDOC_property_group(bpy.types.PropertyGroup):
     def update_height_guide(self, context):
         map_range_node = bpy.data.node_groups["GD_Height"].nodes.get('Map Range')
         map_range_node.inputs[1].default_value = 4.9999 if self.flatMaskHeight else -self.guideHeight + 5
-        map_range_node.inputs[2].default_value = 5
+        #map_range_node.inputs[2].default_value = 5
 
         if self.rangeTypeHeight == 'MANUAL':
             scene_refresh(self, context)

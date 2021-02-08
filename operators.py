@@ -1196,7 +1196,7 @@ def normals_setup(self, context):
 
     render.engine = 'BLENDER_EEVEE'
     context.scene.eevee.taa_render_samples = grabDoc.samplesNormals
-    render.image_settings.color_mode = 'RGB'
+    render.image_settings.color_mode = 'RGBA'
     context.scene.display_settings.display_device = 'None'
 
     self.setup_type = 'GD_Normals'
@@ -1457,7 +1457,7 @@ def id_setup(self, context):
     render.engine = 'BLENDER_WORKBENCH'
     context.scene.display.render_aa = context.scene.grabDoc.samplesMatID
     scene_shading.light = 'FLAT'
-    render.image_settings.color_mode = 'RGB'
+    render.image_settings.color_mode = 'RGBA'
     context.scene.display_settings.display_device = 'sRGB'
 
     # Choose the method of ID creation based on user preference
