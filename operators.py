@@ -324,7 +324,7 @@ def scene_refresh(self, context):
     trim_cam = bpy.data.cameras.new("GD_Trim Camera")
     trim_cam_ob = bpy.data.objects.new("GD_Trim Camera", trim_cam)
 
-    trim_cam_ob.location = (0, 0, 5)
+    trim_cam_ob.location = (0, 0, 10 * grabDoc.scalingSet)
     trim_cam_ob.data.type = 'ORTHO'
     trim_cam_ob.data.display_size = .01
     trim_cam_ob.data.passepartout_alpha = 1
