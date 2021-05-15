@@ -1,17 +1,9 @@
 
-import bpy
-import time
-import os
-import bgl
-import blf
+import bpy, time, os, blf, subprocess, json, bmesh, traceback
 from bpy.types import Operator
 from bpy.props import EnumProperty, BoolProperty
-import traceback
 from random import random, randint
-from mathutils import Vector, Color
-import subprocess
-import json
-import bmesh
+from mathutils import Vector
 
 
 ################################################################################################################
@@ -60,7 +52,10 @@ class GRABDOC_OT_view_cam(OpInfo, Operator):
     bl_label = "View Trim Camera"
     bl_description = "View the scenes Trim Camera"
 
-    from_modal: BoolProperty(default = False, options={'HIDDEN'})
+    from_modal: BoolProperty(
+        default=False,
+        options={'HIDDEN'}
+    )
 
     def execute(self, context):
         context.scene.camera = bpy.data.objects["GD_Trim Camera"]
@@ -324,7 +319,7 @@ def scene_refresh(self, context):
     trim_cam = bpy.data.cameras.new("GD_Trim Camera")
     trim_cam_ob = bpy.data.objects.new("GD_Trim Camera", trim_cam)
 
-    trim_cam_ob.location = (0, 0, 10 * grabDoc.scalingSet)
+    trim_cam_ob.location = (0, 0, 15 * grabDoc.scalingSet)
     trim_cam_ob.data.type = 'ORTHO'
     trim_cam_ob.data.display_size = .01
     trim_cam_ob.data.passepartout_alpha = 1
@@ -526,9 +521,7 @@ def ng_setup(self, context):
         camera_data_node = ng_height.nodes.new('ShaderNodeCameraData')
         camera_data_node.location = (-800,0)
 
-        map_range_node = ng_height.nodes.new('ShaderNodeMapRange')
-        map_range_node.inputs[1].default_value = -grabDoc.guideHeight + 5
-        map_range_node.inputs[2].default_value = 5
+        map_range_node = ng_height.nodes.new('ShaderNodeMapRange') # Ranges handled in updated prop
         map_range_node.location = (-600,0)
 
         invert_node = ng_height.nodes.new('ShaderNodeInvert')
@@ -603,9 +596,8 @@ def is_in_bounding_vectors(vec_check):
 
 def proper_scene_setup(is_setup=False):
     if "GrabDoc (do not touch contents)" in bpy.data.collections:
-        if "GD_Background Plane" in bpy.data.objects:
-            if "GD_Trim Camera" in bpy.data.objects:
-                is_setup = True
+        if "GD_Background Plane" in bpy.data.objects and "GD_Background Plane" in bpy.data.objects:
+            is_setup = True
     return is_setup
 
 
@@ -624,7 +616,7 @@ def bad_setup_check(self, context, active_export, report_value=False, report_str
     if grabDoc.onlyRenderColl and not report_value:
         if not len(bpy.data.collections["GrabDoc Objects (put objects here)"].objects):
             report_value = True
-            report_string = "You have 'Pick Baked Objects via Collection' turned on, but no objects are inside the collection."
+            report_string = "You have 'Use Bake Collection' turned on, but no objects are inside the collection."
         
     # Check for rendered objects that contain the Displace modifier
     if grabDoc.exportHeight and not report_value:
@@ -674,7 +666,7 @@ def export_and_preview_setup(self, context):
     grabDoc = context.scene.grabDoc
     render = context.scene.render
 
-    # TO DO - Preserve use_local_camera & original camera
+    # TODO - Preserve use_local_camera & original camera
 
     # Set - Active Camera
     for area in context.screen.areas:
@@ -1069,7 +1061,7 @@ class GRABDOC_OT_quick_remove_selected_mats(Operator):
 ################################################################################################################
 
 
-## REMOVE NODE GROUP & RETURN ORIGINAL LINKS IF THEY EXIST ##
+# REMOVE NODE GROUP & RETURN ORIGINAL LINKS IF THEY EXIST
 def cleanup_ng_from_mat(self, context):
     if self.setup_type != 'None':
         for mat in bpy.data.materials:
@@ -1099,7 +1091,7 @@ def cleanup_ng_from_mat(self, context):
                 mat.node_tree.nodes.remove(GD_node_group)
 
 
-## CREATE & APPLY A MATERIAL TO OBJECTS WITHOUT ACTIVE MATERIALS ##
+# CREATE & APPLY A MATERIAL TO OBJECTS WITHOUT ACTIVE MATERIALS
 def create_apply_ng_mat(self, context):
     # Reuse GrabDoc created material if it already exists
     if 'GD_Material (do not touch contents)' in bpy.data.materials:
@@ -1189,7 +1181,6 @@ def add_ng_to_mat(self, context):
 
 ## NORMALS ##
 
-
 def normals_setup(self, context):
     grabDoc = context.scene.grabDoc
     render = context.scene.render
@@ -1265,7 +1256,6 @@ def normals_reimport_as_mat(self, context):
 
 ## CURVATURE ##
 
-
 def curvature_setup(self, context):
     scene = context.scene
     grabDoc = scene.grabDoc
@@ -1329,7 +1319,6 @@ def curvature_refresh(self, context):
 
 
 ## AMBIENT OCCLUSION ##
-
 
 def occlusion_setup(self, context):
     grabDoc = context.scene.grabDoc
@@ -1424,7 +1413,6 @@ def occlusion_reimport_as_mat(self, context):
 
 ## HEIGHT ##
 
-
 def height_setup(self, context):
     grabDoc = context.scene.grabDoc
     render = context.scene.render
@@ -1448,7 +1436,6 @@ def height_export(self, context):
         
 
 ## MATERIAL ID ##
-
 
 def id_setup(self, context):
     render = context.scene.render
@@ -1546,13 +1533,17 @@ class GRABDOC_OT_export_maps(OpInfo, Operator):
     def poll(cls, context):
         return(not context.scene.grabDoc.modalState)
 
-    offlineRenderType: EnumProperty(items=(('online', "Online", ""),
-                                           ('normals', "Normals", ""),
-                                           ('curvature', "Curvature", ""),
-                                           ('occlusion', "Ambient Occlusion", ""),
-                                           ('height', "Height", ""),
-                                           ('ID', "Material ID", "")),
-                                           options={'HIDDEN'})
+    offlineRenderType: EnumProperty(
+        items=(
+            ('online', "Online", ""),
+            ('normals', "Normals", ""),
+            ('curvature', "Curvature", ""),
+            ('occlusion', "Ambient Occlusion", ""),
+            ('height', "Height", ""),
+            ('ID', "Material ID", "")
+        ),
+        options={'HIDDEN'}
+    )
 
     def execute(self, context):
         # Declare propertygroup as var
@@ -1663,13 +1654,17 @@ class GRABDOC_OT_send_to_marmo(OpInfo, Operator):
     bl_label = "Open / Refresh in Marmoset"
     bl_description = "Export your models, open & bake (if turned on) in Marmoset Toolbag utilizing the settings set within the 'View / Edit Maps' tab"
     
-    send_type: EnumProperty(items=(('open',"Open",""),
-                                   ('refresh', "Refresh", "")),
-                                   options={'HIDDEN'})
+    send_type: EnumProperty(
+        items=(
+            ('open',"Open",""),
+            ('refresh', "Refresh", "")
+        ),
+        options={'HIDDEN'}
+    )
 
     @classmethod
     def poll(cls, context):
-        return(os.path.exists(context.scene.grabDoc.marmoExportPath))
+        return(os.path.exists(context.scene.grabDoc.marmoEXE))
 
     def execute(self, context):
         grabDoc = context.scene.grabDoc
@@ -1747,7 +1742,7 @@ class GRABDOC_OT_send_to_marmo(OpInfo, Operator):
         # Create a dictionary of variables to transfer into Marmoset
         marmo_vars = {'file_path': f'{grabDoc.exportPath}{grabDoc.exportName}.{grabDoc.imageType.lower()}',
                       'file_path_no_ext': grabDoc.exportPath,
-                      'marmo_sky_path': f'{os.path.dirname(grabDoc.marmoExportPath)}\\data\\sky\\Evening Clouds.tbsky',
+                      'marmo_sky_path': f'{os.path.dirname(grabDoc.marmoEXE)}\\data\\sky\\Evening Clouds.tbsky',
 
                       'resolution_x': grabDoc.exportResX,
                       'resolution_y': grabDoc.exportResY,
@@ -1784,7 +1779,7 @@ class GRABDOC_OT_send_to_marmo(OpInfo, Operator):
         with open(temps_path + "\\" + "marmo_vars.json", "w") as outfile:
             outfile.write(marmo_json)
         
-        path_ext_only = os.path.basename(os.path.normpath(grabDoc.marmoExportPath)).encode()
+        path_ext_only = os.path.basename(os.path.normpath(grabDoc.marmoEXE)).encode()
 
         if grabDoc.exportPlane:
             export_bg_plane(self, context)
@@ -1792,7 +1787,7 @@ class GRABDOC_OT_send_to_marmo(OpInfo, Operator):
         if self.send_type == 'refresh':
             subproc = subprocess.check_output('tasklist', shell=True)
             if not path_ext_only in subproc:
-                subprocess.Popen([grabDoc.marmoExportPath, os.path.join(addon_path, "grabdoc_marmo.py")])
+                subprocess.Popen([grabDoc.marmoEXE, os.path.join(addon_path, "grabdoc_marmo.py")])
 
                 self.report({'INFO'}, "Export completed! Opening Marmoset Toolbag...")
             else:
@@ -1801,7 +1796,7 @@ class GRABDOC_OT_send_to_marmo(OpInfo, Operator):
                 else:
                     self.report({'INFO'}, "Models re-exported! Check Marmoset Toolbag. (Rebake required)")
         else:
-            subprocess.Popen([grabDoc.marmoExportPath, os.path.join(addon_path, "grabdoc_marmo.py")])
+            subprocess.Popen([grabDoc.marmoEXE, os.path.join(addon_path, "grabdoc_marmo.py")])
 
             self.report({'INFO'}, "Export completed! Opening Marmoset Toolbag...")
         return{'FINISHED'}
@@ -1841,12 +1836,16 @@ class GRABDOC_OT_map_preview_warning(OpInfo, Operator):
     bl_label = "    MATERIAL PREVIEW WARNING"
     bl_options = {'INTERNAL'}
 
-    preview_type: EnumProperty(items=(('normals', "", ""),
-                                      ('curvature', "", ""),
-                                      ('occlusion', "", ""),
-                                      ('height', "", ""),
-                                      ('ID', "", "")),
-                                      options={'HIDDEN'})
+    preview_type: EnumProperty(
+        items=(
+            ('normals', "", ""),
+            ('curvature', "", ""),
+            ('occlusion', "", ""),
+            ('height', "", ""),
+            ('ID', "", "")
+        ),
+        options={'HIDDEN'}
+    )
 
     def invoke(self, context, event):
         return context.window_manager.invoke_props_dialog(self, width = 550)
@@ -1876,12 +1875,16 @@ class GRABDOC_OT_map_preview(OpInfo, Operator):
     bl_label = ""
     bl_options = {'INTERNAL'}
 
-    preview_type: EnumProperty(items=(('normals', "", ""),
-                                      ('curvature', "", ""),
-                                      ('occlusion', "", ""),
-                                      ('height', "", ""),
-                                      ('ID', "", "")),
-                                      options={'HIDDEN'})
+    preview_type: EnumProperty(
+        items=(
+            ('normals', "", ""),
+            ('curvature', "", ""),
+            ('occlusion', "", ""),
+            ('height', "", ""),
+            ('ID', "", "")
+        ),
+        options={'HIDDEN'}
+    )
 
     def modal(self, context, event):
         grabDoc = context.scene.grabDoc
@@ -1889,7 +1892,7 @@ class GRABDOC_OT_map_preview(OpInfo, Operator):
         scene_shading = bpy.data.scenes[str(context.scene.name)].display.shading
         eevee = context.scene.eevee
 
-        # Idea for UI blocking
+        # TODO Idea for UI blocking
         #if event.type == 'LEFTMOUSE':
         #    return {'INTERFACE'}
 
@@ -2095,26 +2098,30 @@ class GRABDOC_OT_export_current_preview(OpInfo, Operator):
 ################################################################################################################
 
 
-classes = (GRABDOC_OT_open_folder,
-           GRABDOC_OT_load_ref,
-           GRABDOC_OT_view_cam,
-           GRABDOC_OT_setup_scene,
-           GRABDOC_OT_remove_setup,
-           GRABDOC_OT_quick_id_setup,
-           GRABDOC_OT_quick_id_selected,
-           GRABDOC_OT_quick_remove_random_mats,
-           GRABDOC_OT_quick_remove_manual_mats,
-           GRABDOC_OT_quick_remove_selected_mats,
-           GRABDOC_OT_export_maps,
-           GRABDOC_OT_map_preview_warning,
-           GRABDOC_OT_map_preview,
-           GRABDOC_OT_leave_map_preview,
-           GRABDOC_OT_export_current_preview,
-           GRABDOC_OT_send_to_marmo)
+classes = (
+    GRABDOC_OT_open_folder,
+    GRABDOC_OT_load_ref,
+    GRABDOC_OT_view_cam,
+    GRABDOC_OT_setup_scene,
+    GRABDOC_OT_remove_setup,
+    GRABDOC_OT_quick_id_setup,
+    GRABDOC_OT_quick_id_selected,
+    GRABDOC_OT_quick_remove_random_mats,
+    GRABDOC_OT_quick_remove_manual_mats,
+    GRABDOC_OT_quick_remove_selected_mats,
+    GRABDOC_OT_export_maps,
+    GRABDOC_OT_map_preview_warning,
+    GRABDOC_OT_map_preview,
+    GRABDOC_OT_leave_map_preview,
+    GRABDOC_OT_export_current_preview,
+    GRABDOC_OT_send_to_marmo
+)
+
 
 def register():
     for cls in classes:
         bpy.utils.register_class(cls)
+
 
 def unregister():
     for cls in classes:

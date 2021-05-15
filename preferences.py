@@ -1,5 +1,4 @@
-import bpy
-import os
+import bpy, os
 from bpy.props import BoolProperty, PointerProperty, StringProperty, EnumProperty, IntProperty, FloatProperty
 from bl_operators.presets import AddPresetBase
 from bl_ui.utils import PresetPanel
@@ -7,6 +6,7 @@ from bpy.types import Panel, Menu
 from .operators import scene_refresh, get_rendered_objects, find_tallest_object
 from .addon_updater import Updater as updater
 from .__init__ import bl_info
+
 
 ################################################################################################################
 # PRESETS
@@ -33,7 +33,7 @@ class GRABDOC_OT_add_preset(AddPresetBase, bpy.types.Operator):
     preset_menu = "GRABDOC_MT_presets"
 
     # Variable used for all preset values
-    preset_defines = ["grabDoc = bpy.context.scene.grabDoc"]
+    preset_defines = ["grabDoc=bpy.context.scene.grabDoc"]
 
     # Properties to store in the preset
     preset_values = [
@@ -56,14 +56,13 @@ class GRABDOC_OT_add_preset(AddPresetBase, bpy.types.Operator):
         "grabDoc.onlyRenderColl",
         "grabDoc.exportPlane",        
         "grabDoc.openFolderOnExport",
+        "grabDoc.autoExitCamera",
 
         "grabDoc.uiVisibilityNormals",
         "grabDoc.uiVisibilityCurvature",
         "grabDoc.uiVisibilityOcclusion",
         "grabDoc.uiVisibilityHeight",
         "grabDoc.uiVisibilityMatID",
-
-        "grabDoc.autoExitCamera",
 
         "grabDoc.exportNormals",
         "grabDoc.reimportAsMatNormals",
@@ -94,11 +93,13 @@ class GRABDOC_OT_add_preset(AddPresetBase, bpy.types.Operator):
         "grabDoc.samplesMatID",
 
         "grabDoc.bakerType",
-        "grabDoc.marmoExportPath",
+
+        "grabDoc.marmoEXE",
         "grabDoc.marmoAutoBake",
         "grabDoc.marmoClosePostBake",
         "grabDoc.marmoSamples",
-        "grabDoc.marmoAORayCount"]
+        "grabDoc.marmoAORayCount"
+    ]
 
     # Where to store the preset
     preset_subdir = "grab_doc"
@@ -120,31 +121,25 @@ class GRABDOC_OT_check_for_update(bpy.types.Operator):
 
 
 class GRABDOC_MT_addon_prefs(bpy.types.AddonPreferences):
-    bl_idname = __package__
+    bl_idname=__package__
 
     def draw(self, context):
-        layout = self.layout
-        row = layout.row()
+        layout=self.layout
+        row=layout.row()
 
         if updater.update_ready == None:
-            row.label(text = "Checking for an update...")
+            row.label(text="Checking for an update...")
 
             updater.check_for_update_now()
 
         elif updater.update_ready:
-            row.alert = True
-            row.label(text = "There is a GrabDoc update available! Get it on Gumroad :D")
+            row.alert=True
+            row.label(text="There is a GrabDoc update available! Get it on Gumroad :D")
 
         elif not updater.update_ready:
-            row.label(text = "You have the latest version of GrabDoc! There are no new versions available.")
+            row.label(text="You have the latest version of GrabDoc! There are no new versions available.")
 
-            row.operator("updater_gd.check_for_update", text = "", icon = "FILE_REFRESH")
-
-        #res = updater.run_update(force=False, revert_tag=None, callback=None)
-        #if res == 0:
-        #    print("Update ran successfully, restart blender")
-        #else:
-        #    print("Updater returned "+str(res)+", error occurred")
+            row.operator("updater_gd.check_for_update", text="", icon="FILE_REFRESH")
 
 
 ############################################################
@@ -153,7 +148,17 @@ class GRABDOC_MT_addon_prefs(bpy.types.AddonPreferences):
 
 
 class GRABDOC_property_group(bpy.types.PropertyGroup):
-    ## UPDATE FUNCTIONS ##
+    ### UPDATE FUNCTIONS ###
+
+    def update_scaling_set(self, context):
+        scene_refresh(self, context)
+        
+        if self.modalState:
+            gd_camera_ob_z = bpy.data.objects.get('GD_Trim Camera').location[2]
+
+            map_range_node = bpy.data.node_groups["GD_Height"].nodes.get('Map Range')
+            map_range_node.inputs[1].default_value = gd_camera_ob_z - .00001 if self.flatMaskHeight else -self.guideHeight + gd_camera_ob_z
+            map_range_node.inputs[2].default_value = gd_camera_ob_z
 
     def update_res_x(self, context):
         if self.lockRes:
@@ -205,9 +210,11 @@ class GRABDOC_property_group(bpy.types.PropertyGroup):
             bpy.data.objects["GD_Background Plane"].active_material = bpy.data.materials['GD_Material (do not touch contents)']
 
     def update_height_guide(self, context):
+        gd_camera_ob_z = bpy.data.objects.get('GD_Trim Camera').location[2]
+
         map_range_node = bpy.data.node_groups["GD_Height"].nodes.get('Map Range')
-        map_range_node.inputs[1].default_value = 4.9999 if self.flatMaskHeight else -self.guideHeight + 5
-        #map_range_node.inputs[2].default_value = 5
+        map_range_node.inputs[1].default_value = gd_camera_ob_z - .00001 if self.flatMaskHeight else -self.guideHeight + gd_camera_ob_z
+        map_range_node.inputs[2].default_value = gd_camera_ob_z
 
         if self.rangeTypeHeight == 'MANUAL':
             scene_refresh(self, context)
@@ -216,134 +223,270 @@ class GRABDOC_property_group(bpy.types.PropertyGroup):
         if self.modalState:
             bpy.data.objects["GD_Background Plane"].active_material = bpy.data.materials['GD_Material (do not touch contents)']
 
-    ## PROPERTIES ##
+    ### PROPERTIES ###
 
-    # Setup
-    collSelectable: BoolProperty(default = True, update = scene_refresh)
-    collVisible: BoolProperty(default = True, update = scene_refresh)
+    ## SETUP SETTINGS
+
+    collSelectable: BoolProperty(default=True, update=scene_refresh)
+    collVisible: BoolProperty(default=True, update=scene_refresh)
                                        
-    scalingSet: FloatProperty(name = "", default = 2, min = .1, soft_max = 100, precision = 3, subtype = 'DISTANCE', update = scene_refresh)
-    refSelection: PointerProperty(type = bpy.types.Image, update = scene_refresh)
-    useGrid: BoolProperty(default = True, update = scene_refresh)
-    gridSubdivisions: FloatProperty(name = "", default = 0, min = 0, max = 64, step = 100, precision = 0, update = scene_refresh)
+    scalingSet: FloatProperty(name="", default=2, min=.1, soft_max=100, precision=3, subtype='DISTANCE', update=update_scaling_set)
+    
+    refSelection: PointerProperty(type=bpy.types.Image, update=scene_refresh)
+    
+    useGrid: BoolProperty(default=True, update=scene_refresh)
+    gridSubdivisions: IntProperty(name="", default=0, min=0, soft_max=64, update=scene_refresh)
 
-    # Baker settings
-    bakerType: EnumProperty(items=(('Blender', "Blender (Built-in)", "Set Baker: Blender (Built-in)"),
-                                   ('Marmoset', "Toolbag 3 & 4", "Set Baker: Marmoset Toolbag 3&4")), name = "Baker")
-                                   #('Painter', "Substance Painter", "")
-    exportPath: StringProperty(name = "", default = " ", description = "", subtype = 'DIR_PATH')
-    exportResX: IntProperty(name = "", default = 2048, min = 4, max = 8192, update = update_res_x)
-    exportResY: IntProperty(name = "", default = 2048, min = 4, max = 8192, update = update_res_y)
-    lockRes: BoolProperty(default = True, update = update_res_x)
-    exportName: StringProperty(name = "", description = "File export name", default = "untitled", update = update_export_name)
-    imageType: EnumProperty(items=(('PNG', "PNG", ""),
-                                   ('TIFF', "TIFF", ""),
-                                   ('TARGA', "TGA", "")), name = "Format")
-    colorDepth: EnumProperty(items = (('16', "16", ""),
-                                      ('8', "8", "")))
-    imageComp: IntProperty(name = "", default = 50, min = 0, max = 100, description = 'Lossless Compression for smaller image sizes, but longer export times', subtype = 'PERCENTAGE')
-    imageCompTIFF: EnumProperty(items = (('NONE', "None", ""),
-                                         ('DEFLATE', "Deflate", ""),
-                                         ('LZW', "LZW", ""),
-                                         ('PACKBITS', "Pack Bits", "")),
-                                         name='Compression',
-                                         default='DEFLATE')         
-    onlyRenderColl: BoolProperty(update = scene_refresh, description = "Choose this option if your objects aren't visible in the renders. This will add a collection to the scene, and the add-on will ONLY render what is inside that collection. Read the documentation on why this can happen")
-    exportPlane: BoolProperty(name = "Export Plane", description = "Exports the background plane as a .FBX for use in an external program")
-    openFolderOnExport: BoolProperty(description = "This option will open up the folder path whenever you export maps")
+    ## BAKER SEETINGS
 
-    uiVisibilityNormals: BoolProperty(default = True)
-    uiVisibilityCurvature: BoolProperty(default = True)
-    uiVisibilityOcclusion: BoolProperty(default = True)
-    uiVisibilityHeight: BoolProperty(default = True)
-    uiVisibilityMatID: BoolProperty(default = True)
+    bakerType: EnumProperty(
+        items=(
+            ('Blender', "Blender (Built-in)", "Set Baker: Blender (Built-in)"),
+            ('Marmoset', "Toolbag 3 & 4", "Set Baker: Marmoset Toolbag 3&4")
+            # ('Painter', "Substance Painter", "")
+        ),
+        name="Baker"    
+    )
 
-    # Bake map options
-    exportNormals: BoolProperty(default = True)
-    reimportAsMatNormals: BoolProperty(description = "This will reimport the Normal map as a material for use in Blender")
-    flipYNormals: BoolProperty(name = "Flip Y (-Y)", description = "Flip the normal map Y direction", options = {'SKIP_SAVE'}, update = update_flip_y)
-    samplesNormals: IntProperty(name = "", default = 128, min = 1, max = 500)
+    exportPath: StringProperty(name="", default="", description="", subtype='DIR_PATH')
+    
+    exportResX: IntProperty(name="", default=2048, min=4, soft_max=8192, update=update_res_x)
+    exportResY: IntProperty(name="", default=2048, min=4, soft_max=8192, update=update_res_y)
+    
+    lockRes: BoolProperty(default=True, update=update_res_x)
+    
+    exportName: StringProperty(name="", description="File export name", default="untitled", update=update_export_name)
+    
+    imageType: EnumProperty(
+        items=(
+            ('PNG', "PNG", ""),
+            ('TIFF', "TIFF", ""),
+            ('TARGA', "TGA", "")
+        ),
+        name="Format"
+    )
+    
+    colorDepth: EnumProperty(
+        items=(
+            ('16', "16", ""),
+            ('8', "8", "")
+        )
+    )
+    
+    imageComp: IntProperty(
+        name="",
+        default=50,
+        min=0,
+        max=100,
+        description='Lossless Compression for smaller image sizes, but longer export times',
+        subtype='PERCENTAGE'
+    )
+    
+    imageCompTIFF: EnumProperty(
+        items=(
+            ('NONE', "None", ""),
+            ('DEFLATE', "Deflate", ""),
+            ('LZW', "LZW", ""),
+            ('PACKBITS', "Pack Bits", "")
+        ),
+        name='Compression',
+        default='DEFLATE'
+    )
 
-    exportCurvature: BoolProperty(default = True)
-    ridgeCurvature: FloatProperty(name = "", default = 2, min = 0, max = 2, precision = 3, step = .1, update = update_curvature, subtype = 'FACTOR')
-    valleyCurvature: FloatProperty(name = "", default = 1.5, min = 0, max = 2, precision = 3, step = .1, update = update_curvature, subtype = 'FACTOR')
-    contrastCurvature: EnumProperty(items = (('None', "None (Medium)", ""),
-                                             ('Very_High_Contrast', "Very High", ""),
-                                             ('High_Contrast', "High", ""),
-                                             ('Medium_High_Contrast', "Medium High", ""),
-                                             ('Medium_High_Contrast', "Medium Low", ""),
-                                             ('Low_Contrast', "Low", ""),
-                                             ('Very_Low_Contrast', "Very Low", "")),
-                                             name = "Curvature Contrast")
-    samplesCurvature: EnumProperty(items = (('OFF', "No Anti-Aliasing", ""),
-                                            ('FXAA', "Single Pass Anti-Aliasing", ""),
-                                            ('5', "5 Samples", ""),
-                                            ('8', "8 Samples", ""),
-                                            ('11', "11 Samples", ""),
-                                            ('16', "16 Samples", ""),
-                                            ('32', "32 Samples", "")),
-                                            default = "32", name = "Curvature Samples")
+    onlyRenderColl: BoolProperty(
+        update=scene_refresh,
+        description="This will add a collection to the scene which GrabDoc will ONLY render from, ignoring objects outside of it. This option is useful if objects aren't visible in the renders"
+    )
+    
+    exportPlane: BoolProperty(name="Export Plane", description="Exports the background plane as an FBX for use externally")
+    
+    openFolderOnExport: BoolProperty(description="Open the folder path in your File Explorer on map export")
 
-    exportOcclusion: BoolProperty(default = True)
-    reimportAsMatOcclusion: BoolProperty(description = "This will reimport the Occlusion map as a material for use in Blender")
-    gammaOcclusion: FloatProperty(default = 1, min = .001, max = 10, step = .17, name = "", description = "Intensity of AO (calculated with gamma)", update = update_occlusion_gamma)
-    distanceOcclusion: FloatProperty(default = 1, min = 0, max = 100, step = .03, subtype = 'DISTANCE', name = "", description = "The distance AO rays travel", update = update_occlusion_distance)
-    samplesOcclusion: IntProperty(name = "", default = 128, min = 1, max = 500)
-    contrastOcclusion: EnumProperty(items = (('None', "None (Medium)", ""),
-                                             ('Very_High_Contrast', "Very High", ""),
-                                             ('High_Contrast', "High", ""),
-                                             ('Medium_High_Contrast', "Medium High", ""),
-                                             ('Medium_High_Contrast', "Medium Low", ""),
-                                             ('Low_Contrast', "Low", ""),
-                                             ('Very_Low_Contrast', "Very Low", "")),
-                                             name = "Occlusion Contrast")                      
+    uiVisibilityNormals: BoolProperty(default=True)
+    uiVisibilityCurvature: BoolProperty(default=True)
+    uiVisibilityOcclusion: BoolProperty(default=True)
+    uiVisibilityHeight: BoolProperty(default=True)
+    uiVisibilityMatID: BoolProperty(default=True)
 
-    exportHeight: BoolProperty(default = True, update = scene_refresh)
-    flatMaskHeight: BoolProperty(description = "The height map will be exported with only fully white & black values for use as an alpha", update = update_height_guide)
-    guideHeight: FloatProperty(name = "", default = 1, min = .01, max = 5, step = .03, subtype = 'DISTANCE', update = update_height_guide)
-    samplesHeight: IntProperty(name = "", default = 128, min = 1, max = 500)
-    rangeTypeHeight: EnumProperty(items = (('AUTO', "Auto", ""),
-                                           ('MANUAL', "Manual", "")),
-                                           update = update_manual_height_range,
-                                           description = "Automatic or manual height range. Use manual if automatic is giving you incorrect results or if baking is really slow")
+    ## BAKE MAP SETTINGS
 
-    exportMatID: BoolProperty(default = True)
-    methodMatID: EnumProperty(items = (('RANDOM', "Random", ""),
-                                       ('MATERIAL', "Material", "")))
-    fakeMethodMatID: EnumProperty(items = (('RANDOM', "Random", ""),
-                                           ('MATERIAL', "Material", "")),
-                                           default = "MATERIAL")
-    samplesMatID: EnumProperty(items=(('OFF', "No Anti-Aliasing", ""),
-                                      ('FXAA', "Single Pass Anti-Aliasing", ""),
-                                      ('5', "5 Samples", ""),
-                                      ('8', "8 Samples", ""),
-                                      ('11', "11 Samples", ""),
-                                      ('16', "16 Samples", ""),
-                                      ('32', "32 Samples", "")),
-                                      default = "32", name = "Mat ID Samples")
+    # Normals
+    exportNormals: BoolProperty(default=True)
 
-    # Map Preview
-    firstBakePreview: BoolProperty(default = True)
+    reimportAsMatNormals: BoolProperty(description="Reimport the Normal map as a material for use in Blender")
+
+    flipYNormals: BoolProperty(name="Flip Y (-Y)", description="Flip the normal map Y direction", options={'SKIP_SAVE'}, update=update_flip_y)
+
+    samplesNormals: IntProperty(name="", default=128, min=1, max=500)
+    
+    # Curvature
+    exportCurvature: BoolProperty(default=True)
+
+    ridgeCurvature: FloatProperty(name="", default=2, min=0, max=2, precision=3, step=.1, update=update_curvature, subtype='FACTOR')
+
+    valleyCurvature: FloatProperty(name="", default=1.5, min=0, max=2, precision=3, step=.1, update=update_curvature, subtype='FACTOR')
+
+    contrastCurvature: EnumProperty(
+        items=(
+            ('None', "None (Medium)", ""),
+            ('Very_High_Contrast', "Very High", ""),
+            ('High_Contrast', "High", ""),
+            ('Medium_High_Contrast', "Medium High", ""),
+            ('Medium_High_Contrast', "Medium Low", ""),
+            ('Low_Contrast', "Low", ""),
+            ('Very_Low_Contrast', "Very Low", "")
+        ),
+        name="Curvature Contrast"
+    )
+
+    samplesCurvature: EnumProperty(
+        items=(
+            ('OFF', "No Anti-Aliasing", ""),
+            ('FXAA', "Single Pass Anti-Aliasing", ""),
+            ('5', "5 Samples", ""),
+            ('8', "8 Samples", ""),
+            ('11', "11 Samples", ""),
+            ('16', "16 Samples", ""),
+            ('32', "32 Samples", "")
+        ),
+        default="32",
+        name="Curvature Samples"
+    )
+
+    # Occlusion
+    exportOcclusion: BoolProperty(default=True)
+    
+    reimportAsMatOcclusion: BoolProperty(description="This will reimport the Occlusion map as a material for use in Blender")
+    
+    gammaOcclusion: FloatProperty(
+        default=1,
+        min=.001,
+        max=10,
+        step=.17,
+        name="",
+        description="Intensity of AO (calculated with gamma)",
+        update=update_occlusion_gamma
+    )
+    
+    distanceOcclusion: FloatProperty(
+        default=1,
+        min=0,
+        soft_max=100,
+        step=.03,
+        subtype='DISTANCE',
+        name="",
+        description="The distance AO rays travel",
+        update=update_occlusion_distance
+    )
+    
+    samplesOcclusion: IntProperty(name="", default=128, min=1, max=500)
+
+    contrastOcclusion: EnumProperty(
+        items=(
+            ('None', "None (Medium)", ""),
+            ('Very_High_Contrast', "Very High", ""),
+            ('High_Contrast', "High", ""),
+            ('Medium_High_Contrast', "Medium High", ""),
+            ('Medium_High_Contrast', "Medium Low", ""),
+            ('Low_Contrast', "Low", ""),
+            ('Very_Low_Contrast', "Very Low", "")
+        ),
+        name="Occlusion Contrast"
+    )                      
+
+    # Height
+    exportHeight: BoolProperty(default=True, update=scene_refresh)
+
+    flatMaskHeight: BoolProperty(description="The height map will be exported with only fully white & black values for use as an alpha", update=update_height_guide)
+
+    guideHeight: FloatProperty(name="", default=1, min=.01, soft_max=100, step=.03, subtype='DISTANCE', update=update_height_guide)
+
+    samplesHeight: IntProperty(name="", default=128, min=1, max=500)
+
+    rangeTypeHeight: EnumProperty(
+        items=(
+            ('AUTO', "Auto", ""),
+            ('MANUAL', "Manual", "")
+        ),
+        update=update_manual_height_range,
+        description="Automatic or manual height range. Use manual if automatic is giving you incorrect results or if baking is really slow"
+    )
+
+    # MatID
+    exportMatID: BoolProperty(default=True)
+
+    methodMatID: EnumProperty(
+        items=(
+            ('RANDOM', "Random", ""),
+            ('MATERIAL', "Material", "")
+        )
+    )
+
+    fakeMethodMatID: EnumProperty( # Not actually used, just for UI representation
+        items=(
+            ('RANDOM', "Random", ""),
+            ('MATERIAL', "Material", "")
+        ),
+        default="MATERIAL"
+    )
+
+    samplesMatID: EnumProperty(
+        items=(
+            ('OFF', "No Anti-Aliasing", ""),
+            ('FXAA', "Single Pass Anti-Aliasing", ""),
+            ('5', "5 Samples", ""),
+            ('8', "8 Samples", ""),
+            ('11', "11 Samples", ""),
+            ('16', "16 Samples", ""),
+            ('32', "32 Samples", "")
+        ),
+        default="32",
+        name="Mat ID Samples"
+    )
+
+    ## MAP PREVIEW
+
+    firstBakePreview: BoolProperty(default=True)
     
     autoExitCamera: BoolProperty()
 
     modalState: BoolProperty()
-    modalPreviewType: EnumProperty(items=(('none', "None", ""),
-                                          ('normals', "Normals", ""),
-                                          ('curvature', "Curvature", ""),
-                                          ('occlusion', "Ambient Occlusion", ""),
-                                          ('height', "Height", ""),
-                                          ('ID', "Material ID", "")))
 
-    # Marmoset Baking
-    marmoExportPath: StringProperty(name = "", description = "Changes the name of the exported file", default = "", subtype = 'FILE_PATH')
-    marmoAutoBake: BoolProperty(name = "Auto bake", default = True)
-    marmoClosePostBake: BoolProperty(name = "Close after baking")
-    marmoSamples: EnumProperty(items=(('1', "1x", ""),
-                                      ('4', "4x", ""),
-                                      ('16', "16x", "")),
-                                      default = "16", name = "Marmoset Samples")
-    marmoAORayCount: IntProperty(default = 512, min = 32, max = 4096)
+    modalPreviewType: EnumProperty(
+        items=(
+            ('none', "None", ""),
+            ('normals', "Normals", ""),
+            ('curvature', "Curvature", ""),
+            ('occlusion', "Ambient Occlusion", ""),
+            ('height', "Height", ""),
+            ('ID', "Material ID", "")
+        )
+    )
+
+    ## MARMOSET BAKING
+
+    marmoEXE: StringProperty(
+        name="",
+        description="Changes the name of the exported file",
+        default="",
+        subtype="FILE_PATH"
+    )
+
+    marmoAutoBake: BoolProperty(name="Auto bake", default=True)
+
+    marmoClosePostBake: BoolProperty(name="Close after baking")
+
+    marmoSamples: EnumProperty(
+        items=(
+            ('1', "1x", ""),
+            ('4', "4x", ""),
+            ('16', "16x", "")
+        ),
+        default="16",
+        name="Marmoset Samples"
+    )
+
+    marmoAORayCount: IntProperty(default=512, min=32, soft_max=4096)
 
 
 ##################################
@@ -351,24 +494,26 @@ class GRABDOC_property_group(bpy.types.PropertyGroup):
 ##################################
 
 
-classes = (GRABDOC_MT_presets,
-           GRABDOC_PT_presets,
-           GRABDOC_OT_add_preset,
-           GRABDOC_property_group,
-           GRABDOC_MT_addon_prefs,
-           GRABDOC_OT_check_for_update)
+classes = (
+    GRABDOC_MT_presets,
+    GRABDOC_PT_presets,
+    GRABDOC_OT_add_preset,
+    GRABDOC_property_group,
+    GRABDOC_MT_addon_prefs,
+    GRABDOC_OT_check_for_update
+)
 
 
 def register():
     for cls in classes:
         bpy.utils.register_class(cls)
 
-    bpy.types.Scene.grabDoc = PointerProperty(type = GRABDOC_property_group)
+    bpy.types.Scene.grabDoc=PointerProperty(type=GRABDOC_property_group)
 
     # Set the updaters repo
-    updater.user = "oRazeD"
-    updater.repo = "grabdoc"
-    updater.current_version = bl_info["version"]
+    updater.user="oRazeD"
+    updater.repo="grabdoc"
+    updater.current_version=bl_info["version"]
 
     # Initial check for repo updates
     updater.check_for_update_now()
