@@ -1,5 +1,4 @@
-import bpy
-import os
+import bpy, os
 from bpy.types import Panel
 from .preferences import GRABDOC_PT_presets
 from .operators import proper_scene_setup
@@ -91,16 +90,16 @@ class GRABDOC_PT_export(PanelInfo, Panel):
             row.operator("grab_doc.export_maps", text = 'Export Maps', icon = "EXPORT").offlineRenderType = 'online'
         else: # Marmoset
             row = col.row()
-            if not os.path.exists(grabDoc.marmoExportPath):
+            if not os.path.exists(grabDoc.marmoEXE):
                 row.alignment = 'CENTER'
                 row.label(text="Give Marmoset Toolbag .exe Path", icon = 'INFO')
 
                 row = col.row()
-                row.prop(grabDoc, 'marmoExportPath', text = 'Toolbag .exe')
+                row.prop(grabDoc, 'marmoEXE', text = 'Toolbag .exe')
 
                 col.separator()
             else:
-                row.prop(grabDoc, 'marmoExportPath', text = "Toolbag .exe")
+                row.prop(grabDoc, 'marmoEXE', text = "Toolbag .exe")
 
                 row = col.row(align=True)
                 row.scale_y = 1.5
@@ -150,8 +149,8 @@ class GRABDOC_PT_export(PanelInfo, Panel):
         box.use_property_split = False
 
         col = box.column(align = True)
-        col.prop(grabDoc, "onlyRenderColl", text = "Pick Baked Objects via Collection", icon='CHECKBOX_HLT' if grabDoc.onlyRenderColl else 'CHECKBOX_DEHLT')
-        col.prop(grabDoc, "exportPlane", text = 'Export Plane as .FBX', icon='CHECKBOX_HLT' if grabDoc.exportPlane else 'CHECKBOX_DEHLT')
+        col.prop(grabDoc, "onlyRenderColl", text = "Use Bake Collection", icon='CHECKBOX_HLT' if grabDoc.onlyRenderColl else 'CHECKBOX_DEHLT')
+        col.prop(grabDoc, "exportPlane", text = 'Export Plane as FBX', icon='CHECKBOX_HLT' if grabDoc.exportPlane else 'CHECKBOX_DEHLT')
         col.prop(grabDoc, "openFolderOnExport", text = "Open Folder on Export", icon='CHECKBOX_HLT' if grabDoc.openFolderOnExport else 'CHECKBOX_DEHLT')
 
         if grabDoc.bakerType == 'Marmoset':
@@ -508,19 +507,23 @@ def id_ui(layout, self, context):
 ################################################################################################################
 
 
-classes = (GRABDOC_PT_grabdoc,
-           GRABDOC_OT_config_maps,
-           GRABDOC_PT_export,
-           GRABDOC_PT_view_edit_maps,
-           GRABDOC_PT_normals_settings,
-           GRABDOC_PT_curvature_settings,
-           GRABDOC_PT_occlusion_settings,
-           GRABDOC_PT_height_settings,
-           GRABDOC_PT_id_settings)
+classes = (
+    GRABDOC_PT_grabdoc,
+    GRABDOC_OT_config_maps,
+    GRABDOC_PT_export,
+    GRABDOC_PT_view_edit_maps,
+    GRABDOC_PT_normals_settings,
+    GRABDOC_PT_curvature_settings,
+    GRABDOC_PT_occlusion_settings,
+    GRABDOC_PT_height_settings,
+    GRABDOC_PT_id_settings
+)
+
 
 def register():
     for cls in classes:
         bpy.utils.register_class(cls)
+
 
 def unregister():
     for cls in classes:

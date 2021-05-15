@@ -1,6 +1,5 @@
-import mset
-import os
-import json
+import mset, os, json
+
 
 temps_path = os.path.join(os.path.dirname(mset.getPluginPath()), "Temp")
 
@@ -111,6 +110,7 @@ def refresh_scene():
             findDefault.name = 'Bake Material'
 
         os.remove(os.path.join(temps_path, "marmo_vars.json"))
+
 
 mset.callbacks.onRegainFocus = refresh_scene
 

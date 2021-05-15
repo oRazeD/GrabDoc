@@ -3,13 +3,13 @@ bl_info = {
     "author":"Ethan Simon-Law",
     "location": "3D View > Sidebar > GrabDoc Tab",
     "version":(1, 2),
-    "blender":(2, 91, 0),
+    "blender":(2, 93, 0),
     "tracker_url": "https://discord.com/invite/wHAyVZG",
-    "category": "3D View"}
+    "category": "3D View"
+}
 
 
-import bpy
-import importlib
+import bpy, importlib
 
 
 module_names = ("ui",
