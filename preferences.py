@@ -233,7 +233,7 @@ class GRABDOC_property_group(bpy.types.PropertyGroup):
 
     ## SETUP SETTINGS
 
-    collSelectable: BoolProperty(default=True, update=scene_refresh)
+    collSelectable: BoolProperty(update=scene_refresh)
     collVisible: BoolProperty(default=True, update=scene_refresh)
                                        
     scalingSet: FloatProperty(name="", default=2, min=.1, soft_max=100, precision=3, subtype='DISTANCE', update=update_scaling_set)
