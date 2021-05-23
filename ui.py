@@ -417,8 +417,15 @@ def height_ui(layout, self, context):
     layout.use_property_decorate = False
 
     col = layout.column()
-    col.prop(grabDoc, 'flatMaskHeight', text = "Alpha Mask")
+    row = col.row()
+    row.enabled = not bool(grabDoc.invertMaskHeight)
+    row.prop(grabDoc, 'flatMaskHeight', text = "Alpha Mask")
     col.separator(factor=.5)
+    
+    if grabDoc.bakerType == 'Blender':
+        col.prop(grabDoc, 'invertMaskHeight', text = "Invert Mask")
+        col.separator(factor=.5)
+
     row = col.row()
     row.prop(grabDoc, "rangeTypeHeight", text = 'Height Mode', expand = True)
 

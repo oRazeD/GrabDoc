@@ -215,6 +215,12 @@ class GRABDOC_property_group(bpy.types.PropertyGroup):
         map_range_node = bpy.data.node_groups["GD_Height"].nodes.get('Map Range')
         map_range_node.inputs[1].default_value = gd_camera_ob_z - .00001 if self.flatMaskHeight else -self.guideHeight + gd_camera_ob_z
         map_range_node.inputs[2].default_value = gd_camera_ob_z
+        
+        invert_node = bpy.data.node_groups["GD_Height"].nodes.get('Invert')
+        invert_node.inputs[0].default_value = 0 if self.invertMaskHeight else 1
+
+        if self.invertMaskHeight and self.flatMaskHeight:
+            self.flatMaskHeight = False
 
         if self.rangeTypeHeight == 'MANUAL':
             scene_refresh(self, context)
@@ -361,7 +367,7 @@ class GRABDOC_property_group(bpy.types.PropertyGroup):
     gammaOcclusion: FloatProperty(
         default=1,
         min=.001,
-        max=10,
+        soft_max=10,
         step=.17,
         name="",
         description="Intensity of AO (calculated with gamma)",
@@ -398,6 +404,8 @@ class GRABDOC_property_group(bpy.types.PropertyGroup):
     exportHeight: BoolProperty(default=True, update=scene_refresh)
 
     flatMaskHeight: BoolProperty(description="The height map will be exported with only fully white & black values for use as an alpha", update=update_height_guide)
+
+    invertMaskHeight: BoolProperty(description="Invert the height mask, this is useful if you are sculpting into a plane mesh", update=update_height_guide)
 
     guideHeight: FloatProperty(name="", default=1, min=.01, soft_max=100, step=.03, subtype='DISTANCE', update=update_height_guide)
 
