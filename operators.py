@@ -97,51 +97,46 @@ class GRABDOC_OT_remove_setup(Operator):
     bl_options = {'REGISTER'}
 
     def execute(self, context):
-        # Remove Node Groups
-        if 'GD_Normals' in bpy.data.node_groups:
-            bpy.data.node_groups.remove(bpy.data.node_groups["GD_Normals"])
+        # Remove GD Node Groups
+        for group in bpy.data.node_groups:
+            if group.name in ('GD_Normals', 'GD_Height', 'GD_Ambient Occlusion'):
+                bpy.data.node_groups.remove(group)
 
-        if 'GD_Height' in bpy.data.node_groups:
-            bpy.data.node_groups.remove(bpy.data.node_groups["GD_Height"])
 
-        if 'GD_Ambient Occlusion' in bpy.data.node_groups:
-            bpy.data.node_groups.remove(bpy.data.node_groups["GD_Ambient Occlusion"])
+        objectsColl = "GrabDoc Objects (put objects here)"
+        if objectsColl in bpy.data.collections:
+            for ob in bpy.data.collections[objectsColl].all_objects:
+                # Move object to the master collection
+                context.scene.collection.objects.link(ob)
 
-        # Remove collections
-        if "GrabDoc (do not touch contents)" in bpy.data.collections:
-            bpy.data.collections.remove(bpy.data.collections["GrabDoc (do not touch contents)"])
-
-        if "GrabDoc Objects (put objects here)" in bpy.data.collections:
-            objectsColl = "GrabDoc Objects (put objects here)"
-
-            if "GrabDoc Objects (put objects here)" in bpy.data.collections:
-                for ob in bpy.data.collections[objectsColl].all_objects:
-                    # Move object to the master collection
-                    context.scene.collection.objects.link(ob)
-                    # Remove the objects from the grabdoc collection
-                    bpy.data.collections[objectsColl].objects.unlink(ob)
+                # Remove the objects from the grabdoc collection
+                ob.users_collection[0].objects.unlink(ob)
 
             bpy.data.collections.remove(bpy.data.collections[objectsColl])
-        
-        # Remove image ref
+
+        # Remove objects accidentally placed by the user in the GD collection into the master collection
+        gdColl = "GrabDoc (do not touch contents)"
+        if gdColl in bpy.data.collections:
+            for ob in bpy.data.collections[gdColl].all_objects:
+                if ob.name not in ('GD_Background Plane', 'GD_Orient Guide', 'GD_Trim Camera'):
+                    # Move object to the master collection
+                    context.scene.collection.objects.link(ob)
+
+                    # Remove the objects from the grabdoc collection
+                    ob.users_collection[0].objects.unlink(ob)
+
+            bpy.data.collections.remove(bpy.data.collections["GrabDoc (do not touch contents)"])
+
+        # Remove all GD objects
         if "GD_Reference" in bpy.data.materials:
             bpy.data.materials.remove(bpy.data.materials["GD_Reference"])
 
-        # Remove bg plane
-        if "GD_Background Plane" in bpy.data.objects:
-            bpy.data.meshes.remove(bpy.data.objects["GD_Background Plane"].data)
+        for ob in bpy.data.objects:
+            if ob.name in ("GD_Height Guide", "GD_Orient Guide", "GD_Background Plane"):
+                bpy.data.meshes.remove(bpy.data.meshes[ob.name])
 
-        # Remove camera
-        if "GD_Trim Camera" in bpy.data.cameras:
-            bpy.data.cameras.remove(bpy.data.cameras["GD_Trim Camera"])
-
-        # Remove height guide
-        if "GD_Height Guide" in bpy.data.objects:
-            bpy.data.meshes.remove(bpy.data.objects["GD_Height Guide"].data)
-
-        # Remove orient guide
-        if "GD_Orient Guide" in bpy.data.objects:
-            bpy.data.meshes.remove(bpy.data.objects["GD_Orient Guide"].data)
+            elif ob.name == "GD_Trim Camera":
+                bpy.data.cameras.remove(bpy.data.cameras[ob.name])
         return{'FINISHED'}
 
 
@@ -177,9 +172,8 @@ def scene_refresh(self, context):
 
     # COLLECTIONS
 
-    # Do some checks to see if the user wants to only render out the objects in a specific collection (for perf reasons)
+    # Do some checks to see if the user wants to only render out the objects in a specific collection
     objectsColl = "GrabDoc Objects (put objects here)"
-
     if context.scene.grabDoc.onlyRenderColl:
         if not objectsColl in bpy.data.collections:
             bpy.data.collections.new(name = objectsColl)
@@ -190,17 +184,29 @@ def scene_refresh(self, context):
             for ob in bpy.data.collections[objectsColl].all_objects:
                 # Move object to the master collection
                 context.scene.collection.objects.link(ob)
+                
                 # Remove the objects from the grabdoc collection
-                bpy.data.collections[objectsColl].objects.unlink(ob)
+                ob.users_collection[0].objects.unlink(ob)
 
             # Delete the collection
             bpy.data.collections.remove(bpy.data.collections[objectsColl])
 
-    # Create main GrabDoc collection
-    if "GrabDoc (do not touch contents)" in bpy.data.collections:
-        bpy.data.collections.remove(bpy.data.collections["GrabDoc (do not touch contents)"])
+    # Remove objects accidentally placed by the user in the GD collection into the master collection
+    gdColl = "GrabDoc (do not touch contents)"
+    if gdColl in bpy.data.collections:
+        for ob in bpy.data.collections[gdColl].all_objects:
+            if ob.name not in ('GD_Background Plane', 'GD_Orient Guide', 'GD_Trim Camera'):
+                # Move object to the master collection
+                context.scene.collection.objects.link(ob)
 
-    grabDocColl = bpy.data.collections.new(name = "GrabDoc (do not touch contents)")
+                # Remove the objects from the grabdoc collection
+                ob.users_collection[0].objects.unlink(ob)
+
+    # Create main GrabDoc collection
+    if gdColl in bpy.data.collections:
+        bpy.data.collections.remove(bpy.data.collections[gdColl])
+
+    grabDocColl = bpy.data.collections.new(name = gdColl)
     context.scene.collection.children.link(grabDocColl)
     context.view_layer.active_layer_collection = context.view_layer.layer_collection.children[-1]
 
@@ -549,13 +555,13 @@ def get_rendered_objects(self, context):
 
     if context.scene.grabDoc.onlyRenderColl:  
         for coll in bpy.data.collections:
-            if coll.name == "GrabDoc Objects (put objects here)" or coll.name == "GrabDoc (do not touch contents)":
+            if coll.name in ("GrabDoc Objects (put objects here)", "GrabDoc (do not touch contents)"):
                 for ob in coll.all_objects:
-                    if not ob.hide_render and ob.type == 'MESH' and len(ob.data.polygons) and not ob.name.startswith('GD_'):
+                    if not ob.hide_render and ob.type in ('MESH', 'CURVE') and not ob.name.startswith('GD_'):
                         self.render_list.append(ob.name)
     else:
         for ob in context.view_layer.objects:
-            if not ob.hide_render and ob.type == 'MESH' and len(ob.data.polygons) and not ob.name.startswith('GD_'):
+            if not ob.hide_render and ob.type in ('MESH', 'CURVE') and not ob.name.startswith('GD_'):
                 local_bbox_center = .125 * sum((Vector(b) for b in ob.bound_box), Vector())
                 global_bbox_center = ob.matrix_world @ local_bbox_center
 
@@ -567,7 +573,7 @@ def find_tallest_object(self, context):
     tallest_vert = 0
 
     for ob in context.view_layer.objects:
-        if ob.name in self.render_list:
+        if ob.name in self.render_list and ob.type == 'MESH':
             if not ob.name.startswith('GD_'):
                 # Get global coordinates of vertices
                 global_vert_coords = [ob.matrix_world @ v.co for v in ob.data.vertices]
@@ -618,7 +624,10 @@ def bad_setup_check(self, context, active_export, report_value=False, report_str
             report_value = True
             report_string = "You have 'Use Bake Collection' turned on, but no objects are inside the collection."
         
-    # Check for rendered objects that contain the Displace modifier
+    # Checks for rendered objects that contain the Displace modifier or are 'CURVE' type objects
+    #
+    # TODO This just calls if the height map is turned on, not if they are actually previewing it in Map Preview
+    # This is bad, find a workaround
     if grabDoc.exportHeight and not report_value:
         for ob in context.view_layer.objects:
             if ob.name in self.render_list and grabDoc.exportHeight and grabDoc.rangeTypeHeight == 'AUTO':
@@ -626,7 +635,13 @@ def bad_setup_check(self, context, active_export, report_value=False, report_str
                     if mod.type == "DISPLACE":
                         report_value = True
                         report_string = "When using Displace modifiers & baking Height you must use the 'Manual' 0-1 Range option.\n\n 'Auto' 0-1 Range cannot account for modifier geometry, this goes for all modifiers but is only required for displacement."
-                        
+                        break
+
+                if not report_value:
+                    if ob.type == 'CURVE':
+                        report_value = True
+                        report_string = "Curves are not fully supported. When baking Height you must use the 'Manual' 0-1 Range option for accurate results." 
+
     if active_export:
         # Check for export path
         if not os.path.exists(grabDoc.exportPath) and not report_value:
@@ -812,7 +827,7 @@ def export_and_preview_setup(self, context):
     
     # Save & Set - Non-rendered objects visibility (self.render_list defined in bad_setup_check)
     for ob in context.view_layer.objects:
-        if ob.type == 'MESH':
+        if ob.type in ('MESH', 'CURVE'):
             if not ob.name in self.render_list:
                 # Hide in render
                 if not ob.hide_render:
@@ -988,7 +1003,7 @@ class GRABDOC_OT_quick_id_selected(Operator):
         bsdf_node.inputs[0].default_value = mat.diffuse_color
 
         for ob in context.selected_objects:
-            if ob.type == 'MESH':                       
+            if ob.type in ('MESH', 'CURVE'):                       
                 ob.active_material_index = 0
                 ob.active_material = mat
 
@@ -1048,7 +1063,7 @@ class GRABDOC_OT_quick_remove_selected_mats(Operator):
         get_rendered_objects(self, context)
 
         for ob in context.selected_objects:
-            if ob.type == 'MESH':
+            if ob.type in ('MESH', 'CURVE'):
                 for slot in ob.material_slots:
                     if slot.name.startswith('GD_ID'):
                         bpy.data.materials.remove(bpy.data.materials[slot.name])
