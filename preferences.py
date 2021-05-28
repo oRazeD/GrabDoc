@@ -39,6 +39,7 @@ class GRABDOC_OT_add_preset(AddPresetBase, bpy.types.Operator):
     preset_values = [
         "grabDoc.collSelectable",
         "grabDoc.collVisible",
+        "grabDoc.collRendered",
         "grabDoc.useGrid",
         "grabDoc.gridSubdivisions",
         "grabDoc.scalingSet",
@@ -63,6 +64,7 @@ class GRABDOC_OT_add_preset(AddPresetBase, bpy.types.Operator):
         "grabDoc.uiVisibilityOcclusion",
         "grabDoc.uiVisibilityHeight",
         "grabDoc.uiVisibilityMatID",
+        "grabDoc.uiVisibilityAlpha",
 
         "grabDoc.exportNormals",
         "grabDoc.reimportAsMatNormals",
@@ -85,8 +87,13 @@ class GRABDOC_OT_add_preset(AddPresetBase, bpy.types.Operator):
         "grabDoc.exportHeight",
         "grabDoc.rangeTypeHeight",
         "grabDoc.guideHeight",
-        "grabDoc.flatMaskHeight",
+        "grabDoc.invertMaskHeight",
         "grabDoc.samplesHeight",
+        "grabDoc.contrastHeight",
+        
+        "grabDoc.exportAlpha",
+        "grabDoc.invertMaskAlpha",
+        "grabDoc.samplesAlpha",
 
         "grabDoc.exportMatID",
         "grabDoc.methodMatID",
@@ -157,8 +164,12 @@ class GRABDOC_property_group(bpy.types.PropertyGroup):
             gd_camera_ob_z = bpy.data.objects.get('GD_Trim Camera').location[2]
 
             map_range_node = bpy.data.node_groups["GD_Height"].nodes.get('Map Range')
-            map_range_node.inputs[1].default_value = gd_camera_ob_z - .00001 if self.flatMaskHeight else -self.guideHeight + gd_camera_ob_z
+            map_range_node.inputs[1].default_value = -self.guideHeight + gd_camera_ob_z
             map_range_node.inputs[2].default_value = gd_camera_ob_z
+
+            map_range_alpha_node = bpy.data.node_groups["GD_Alpha"].nodes.get('Map Range')
+            map_range_alpha_node.inputs[1].default_value = gd_camera_ob_z - .00001
+            map_range_alpha_node.inputs[2].default_value = gd_camera_ob_z
 
     def update_res_x(self, context):
         if self.lockRes:
@@ -194,9 +205,8 @@ class GRABDOC_property_group(bpy.types.PropertyGroup):
         gamma_node.inputs[1].default_value = self.gammaOcclusion
 
     def update_occlusion_distance(self, context):
-        # Update here so that it refreshes live in the VP
-        if self.modalState:
-            context.scene.eevee.gtao_distance = self.distanceOcclusion
+        ao_node = bpy.data.node_groups["GD_Ambient Occlusion"].nodes.get('Ambient Occlusion')
+        ao_node.inputs[1].default_value = self.distanceOcclusion
 
     def update_manual_height_range(self, context):
         scene_refresh(self, context)
@@ -213,17 +223,30 @@ class GRABDOC_property_group(bpy.types.PropertyGroup):
         gd_camera_ob_z = bpy.data.objects.get('GD_Trim Camera').location[2]
 
         map_range_node = bpy.data.node_groups["GD_Height"].nodes.get('Map Range')
-        map_range_node.inputs[1].default_value = gd_camera_ob_z - .00001 if self.flatMaskHeight else -self.guideHeight + gd_camera_ob_z
+        map_range_node.inputs[1].default_value = gd_camera_ob_z + -self.guideHeight
         map_range_node.inputs[2].default_value = gd_camera_ob_z
-        
-        invert_node = bpy.data.node_groups["GD_Height"].nodes.get('Invert')
-        invert_node.inputs[0].default_value = 0 if self.invertMaskHeight else 1
 
-        if self.invertMaskHeight and self.flatMaskHeight:
-            self.flatMaskHeight = False
+        ramp_node = bpy.data.node_groups["GD_Height"].nodes.get('ColorRamp')
+        ramp_node.color_ramp.elements[0].color = (0, 0, 0, 1) if self.invertMaskHeight else (1, 1, 1, 1)
+        ramp_node.color_ramp.elements[1].color = (1, 1, 1, 1) if self.invertMaskHeight else (0, 0, 0, 1)
+        ramp_node.location = (-400,0)
 
         if self.rangeTypeHeight == 'MANUAL':
             scene_refresh(self, context)
+
+        # Update here so that it refreshes live in the VP
+        if self.modalState:
+            bpy.data.objects["GD_Background Plane"].active_material = bpy.data.materials['GD_Material (do not touch contents)']
+
+    def update_alpha(self, context):
+        gd_camera_ob_z = bpy.data.objects.get('GD_Trim Camera').location[2]
+
+        map_range_node = bpy.data.node_groups["GD_Alpha"].nodes.get('Map Range')
+        map_range_node.inputs[1].default_value = gd_camera_ob_z - .00001
+        map_range_node.inputs[2].default_value = gd_camera_ob_z
+        
+        invert_node = bpy.data.node_groups["GD_Alpha"].nodes.get('Invert')
+        invert_node.inputs[0].default_value = 0 if self.invertMaskAlpha else 1
 
         # Update here so that it refreshes live in the VP
         if self.modalState:
@@ -235,6 +258,7 @@ class GRABDOC_property_group(bpy.types.PropertyGroup):
 
     collSelectable: BoolProperty(update=scene_refresh)
     collVisible: BoolProperty(default=True, update=scene_refresh)
+    collRendered: BoolProperty(default=True, update=scene_refresh)
                                        
     scalingSet: FloatProperty(name="", default=2, min=.1, soft_max=100, precision=3, subtype='DISTANCE', update=update_scaling_set)
     
@@ -249,7 +273,6 @@ class GRABDOC_property_group(bpy.types.PropertyGroup):
         items=(
             ('Blender', "Blender (Built-in)", "Set Baker: Blender (Built-in)"),
             ('Marmoset', "Toolbag 3 & 4", "Set Baker: Marmoset Toolbag 3&4")
-            # ('Painter', "Substance Painter", "")
         ),
         name="Baker"    
     )
@@ -313,6 +336,7 @@ class GRABDOC_property_group(bpy.types.PropertyGroup):
     uiVisibilityOcclusion: BoolProperty(default=True)
     uiVisibilityHeight: BoolProperty(default=True)
     uiVisibilityMatID: BoolProperty(default=True)
+    uiVisibilityAlpha: BoolProperty(default=True)
 
     ## BAKE MAP SETTINGS
 
@@ -338,7 +362,7 @@ class GRABDOC_property_group(bpy.types.PropertyGroup):
             ('Very_High_Contrast', "Very High", ""),
             ('High_Contrast', "High", ""),
             ('Medium_High_Contrast', "Medium High", ""),
-            ('Medium_High_Contrast', "Medium Low", ""),
+            ('Medium_Low_Contrast', "Medium Low", ""),
             ('Low_Contrast', "Low", ""),
             ('Very_Low_Contrast', "Very Low", "")
         ),
@@ -393,7 +417,7 @@ class GRABDOC_property_group(bpy.types.PropertyGroup):
             ('Very_High_Contrast', "Very High", ""),
             ('High_Contrast', "High", ""),
             ('Medium_High_Contrast', "Medium High", ""),
-            ('Medium_High_Contrast', "Medium Low", ""),
+            ('Medium_Low_Contrast', "Medium Low", ""),
             ('Low_Contrast', "Low", ""),
             ('Very_Low_Contrast', "Very Low", "")
         ),
@@ -403,13 +427,24 @@ class GRABDOC_property_group(bpy.types.PropertyGroup):
     # Height
     exportHeight: BoolProperty(default=True, update=scene_refresh)
 
-    flatMaskHeight: BoolProperty(description="The height map will be exported with only fully white & black values for use as an alpha", update=update_height_guide)
-
-    invertMaskHeight: BoolProperty(description="Invert the height mask, this is useful if you are sculpting into a plane mesh", update=update_height_guide)
+    invertMaskHeight: BoolProperty(description="Invert the Height mask, this is useful if you are sculpting into a plane mesh", update=update_height_guide)
 
     guideHeight: FloatProperty(name="", default=1, min=.01, soft_max=100, step=.03, subtype='DISTANCE', update=update_height_guide)
 
     samplesHeight: IntProperty(name="", default=128, min=1, max=500)
+
+    contrastHeight: EnumProperty(
+        items=(
+            ('None', "None (Medium)", ""),
+            ('Very_High_Contrast', "Very High", ""),
+            ('High_Contrast', "High", ""),
+            ('Medium_High_Contrast', "Medium High", ""),
+            ('Medium_Low_Contrast', "Medium Low", ""),
+            ('Low_Contrast', "Low", ""),
+            ('Very_Low_Contrast', "Very Low", "")
+        ),
+        name="Height Contrast"
+    )     
 
     rangeTypeHeight: EnumProperty(
         items=(
@@ -419,6 +454,13 @@ class GRABDOC_property_group(bpy.types.PropertyGroup):
         update=update_manual_height_range,
         description="Automatic or manual height range. Use manual if automatic is giving you incorrect results or if baking is really slow"
     )
+
+    # Alpha
+    exportAlpha: BoolProperty(update=scene_refresh)
+
+    invertMaskAlpha: BoolProperty(description="Invert the Alpha mask", update=update_alpha)
+
+    samplesAlpha: IntProperty(name="", default=128, min=1, max=500)
 
     # MatID
     exportMatID: BoolProperty(default=True)
@@ -467,6 +509,7 @@ class GRABDOC_property_group(bpy.types.PropertyGroup):
             ('curvature', "Curvature", ""),
             ('occlusion', "Ambient Occlusion", ""),
             ('height', "Height", ""),
+            ('alpha', "Alpha", ""),
             ('ID', "Material ID", "")
         )
     )
