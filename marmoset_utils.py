@@ -49,24 +49,24 @@ def refresh_scene():
         heightMap = baker.getMap("Height")
         heightMap.innerDistance = 0
         heightMap.enabled = marmo_json["export_height"]
-        if marmo_json["flat_height"]:
-            heightMap.outerDistance = .01
-        else:
-            heightMap.outerDistance = marmo_json["cage_height"] / 2 - .02
+        heightMap.outerDistance = marmo_json["cage_height"] / 2 - .02
+
+        #alphaMap = baker.getMap("Height")
+        #alphaMap.innerDistance = 0
+        #alphaMap.enabled = marmo_json["export_alpha"]
+        #alphaMap.outerDistance = .01
 
         matIDMap = baker.getMap("Material ID")
         matIDMap.enabled = marmo_json["export_matid"]
 
         # Import the models
-        baker.importModel(os.path.join(temps_path, "grabdoc_temp_model.fbx"))
+        baker.importModel(os.path.normpath(os.path.join(temps_path, "grabdoc_temp_model.fbx")))
 
         # Set cage offset
         mset.findObject('Low').maxOffset = marmo_json["cage_height"] + .01
 
-        tb_version = mset.getToolbagVersion()
-
         # Change skybox to Evening Clouds
-        if tb_version < 4000:
+        if mset.getToolbagVersion() < 4000:
             mset.findObject('Sky').loadSky(marmo_json["marmo_sky_path"])
 
         # Rotate all models 90 degrees

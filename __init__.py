@@ -9,12 +9,17 @@ bl_info = {
 }
 
 
-import bpy, importlib
+import importlib
 
 
-module_names = ("ui",
-                "operators",
-                "preferences")
+module_names = (
+    "ui",
+    "operators",
+    "marmoset_ops",
+    "preferences",
+    "generic_utils"
+)
+
 modules = []
 
 for module_name in module_names:
