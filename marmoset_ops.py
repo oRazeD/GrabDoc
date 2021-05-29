@@ -59,10 +59,8 @@ class GRABDOC_OT_send_to_marmo(OpInfo, bpy.types.Operator):
 
         for ob in context.view_layer.objects:
             ob.select_set(False)
-
             if ob.name in self.render_list and ob.visible_get():
                 ob.select_set(True)
-
                 if ob.name.startswith('GD_'):
                     obCopy = ob.copy()
                     context.collection.objects.link(obCopy)

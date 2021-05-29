@@ -2,10 +2,9 @@
 import bpy, time, os, blf, bmesh
 from bpy.types import Operator
 from bpy.props import EnumProperty
-from random import random, randint
-from .node_group_utils import ng_setup, cleanup_ng_from_mat, add_ng_to_mat
 from .generic_utils import OpInfo, proper_scene_setup, bad_setup_check, export_bg_plane
-from .render_setup_utils import get_rendered_objects, find_tallest_object
+from .node_group_utils import ng_setup, cleanup_ng_from_mat, add_ng_to_mat
+from .render_setup_utils import find_tallest_object
 
 
 ################################################################################################################
@@ -13,77 +12,16 @@ from .render_setup_utils import get_rendered_objects, find_tallest_object
 ################################################################################################################
 
 
-class GRABDOC_OT_setup_scene(Operator):
-    bl_idname = "grab_doc.setup_scene"
-    bl_label = "Setup / Refresh Scene"
-    bl_description = "Setup/Refresh your current scene. Useful if you messed up something within the GrabDoc collections that you don't know how to perfectly revert" 
-    bl_options = {'REGISTER'}
-
-    def execute(self, context):
-        scene_refresh(self, context)
-        return{'FINISHED'}
-
-
-class GRABDOC_OT_remove_setup(Operator):
-    bl_idname = "grab_doc.remove_setup"
-    bl_label = "Remove Setup"
-    bl_description = "Completely removes every element of GrabDoc from the scene, not including images reimported after bakes" 
-    bl_options = {'REGISTER'}
-
-    def execute(self, context):
-        # Remove GD Node Groups
-        for group in bpy.data.node_groups:
-            if group.name in ('GD_Normals', 'GD_Height', 'GD_Ambient Occlusion', 'GD_Alpha'):
-                bpy.data.node_groups.remove(group)
-
-
-        objectsColl = "GrabDoc Objects (put objects here)"
-        if objectsColl in bpy.data.collections:
-            for ob in bpy.data.collections[objectsColl].all_objects:
-                # Move object to the master collection
-                context.scene.collection.objects.link(ob)
-
-                # Remove the objects from the grabdoc collection
-                ob.users_collection[0].objects.unlink(ob)
-
-            bpy.data.collections.remove(bpy.data.collections[objectsColl])
-
-        # Remove objects accidentally placed by the user in the GD collection into the master collection
-        gdColl = "GrabDoc (do not touch contents)"
-        if gdColl in bpy.data.collections:
-            for ob in bpy.data.collections[gdColl].all_objects:
-                if ob.name not in ('GD_Background Plane', 'GD_Orient Guide', 'GD_Trim Camera'):
-                    # Move object to the master collection
-                    context.scene.collection.objects.link(ob)
-
-                    # Remove the objects from the grabdoc collection
-                    ob.users_collection[0].objects.unlink(ob)
-
-            bpy.data.collections.remove(bpy.data.collections["GrabDoc (do not touch contents)"])
-
-        # Remove all GD objects
-        if "GD_Reference" in bpy.data.materials:
-            bpy.data.materials.remove(bpy.data.materials["GD_Reference"])
-
-        for ob in bpy.data.objects:
-            if ob.name in ("GD_Height Guide", "GD_Orient Guide", "GD_Background Plane"):
-                bpy.data.meshes.remove(bpy.data.meshes[ob.name])
-
-            elif ob.name == "GD_Trim Camera":
-                bpy.data.cameras.remove(bpy.data.cameras[ob.name])
-        return{'FINISHED'}
-
-
-def scene_refresh(self, context):
-    # PRELIMINARY
-
+def scene_setup_and_refresh(self, context):
     grabDoc = context.scene.grabDoc
+
+    # PRELIMINARY
 
     savedActiveColl = context.view_layer.active_layer_collection
     selectedCallback = context.view_layer.objects.selected.keys()
 
     if context.active_object:
-        if context.object.type in {'MESH', 'CURVE', 'FONT', 'SURFACE', 'META', 'LATTICE', 'ARMATURE', 'CAMERA'}:
+        if context.object.type in ('MESH', 'CURVE', 'FONT', 'SURFACE', 'META', 'LATTICE', 'ARMATURE', 'CAMERA'):
             activeCallback = context.active_object.name
 
             modeCallback = context.object.mode
@@ -278,7 +216,7 @@ def scene_refresh(self, context):
     
     # Create object & link new object to the active collection
     if grabDoc.exportHeight and grabDoc.rangeTypeHeight == 'MANUAL':
-        pc_height_guide = manual_height_guide_pc("GD_Height Guide")
+        pc_height_guide = manual_height_guide_point_cloud("GD_Height Guide")
         context.collection.objects.link(pc_height_guide)
 
         # Parent the height guide to the BG Plane
@@ -293,7 +231,7 @@ def scene_refresh(self, context):
 
     plane_y = plane_ob.dimensions.y / 2
 
-    pc_orient = uv_orient_pc("GD_Orient Guide", [(-.3, plane_y + .1, 0), (.3, plane_y + .1, 0), (0, plane_y + .35, 0)])
+    pc_orient = uv_orient_point_cloud("GD_Orient Guide", [(-.3, plane_y + .1, 0), (.3, plane_y + .1, 0), (0, plane_y + .35, 0)])
     context.collection.objects.link(pc_orient)
 
     # Parent the height guide to the BG Plane
@@ -326,7 +264,7 @@ def scene_refresh(self, context):
     grabDocColl.hide_render = not grabDoc.collRendered
 
 
-def manual_height_guide_pc(ob_name, edges = [(0,4), (1,5), (2,6), (3,7), (4,5), (5,6), (6,7), (7,4)], faces = []):
+def manual_height_guide_point_cloud(ob_name, edges = [(0,4), (1,5), (2,6), (3,7), (4,5), (5,6), (6,7), (7,4)], faces = []):
     grabDoc = bpy.context.scene.grabDoc
 
     # Make a tuple for the planes vertex positions
@@ -359,7 +297,7 @@ def manual_height_guide_pc(ob_name, edges = [(0,4), (1,5), (2,6), (3,7), (4,5), 
     return obNew
 
 
-def uv_orient_pc(ob_name, vertices, edges = [(0,2), (0,1), (1,2)], faces = []):
+def uv_orient_point_cloud(ob_name, vertices, edges = [(0,2), (0,1), (1,2)], faces = []):
     # Create new mesh & object data blocks
     meNew = bpy.data.meshes.new(ob_name)
     obNew = bpy.data.objects.new(ob_name, meNew)
@@ -390,7 +328,7 @@ def export_and_preview_setup(self, context):
                 space.use_local_camera = False
                 break
 
-    context.scene.camera = bpy.data.objects["GD_Trim Camera"]
+    context.scene.camera = bpy.data.objects.get("GD_Trim Camera")
 
         ## VIEW LAYER PROPERTIES ##
 
@@ -410,7 +348,9 @@ def export_and_preview_setup(self, context):
 
     # Save - Sampling (Set per bake map)
     self.savedWorkbenchSampling = context.scene.display.render_aa
-    self.savedEeveeSampling = eevee.taa_render_samples
+    self.savedWorkbenchVPSampling = context.scene.display.viewport_aa
+    self.savedEeveeRenderSampling = eevee.taa_render_samples
+    self.savedEeveeSampling = eevee.taa_samples
 
     # Save & Set - Bloom
     self.savedUseBloom = eevee.use_bloom
@@ -449,13 +389,10 @@ def export_and_preview_setup(self, context):
 
     image_settings = render.image_settings
 
-    # Save & Set - Dimensions
-    self.savedResX = render.resolution_x
-    self.savedResY = render.resolution_y
-
+    # Set - Dimensions (Don't bother saving these)
     render.resolution_x = grabDoc.exportResX
     render.resolution_y = grabDoc.exportResY
-    render.resolution_percentage = 100 # Don't bother saving this
+    render.resolution_percentage = 100
 
     # Save & Set - Output
     self.savedColorMode = image_settings.color_mode
@@ -467,7 +404,7 @@ def export_and_preview_setup(self, context):
         self.savedCompression = image_settings.compression
         image_settings.compression = grabDoc.imageComp
 
-    if grabDoc.imageType == 'TIFF':
+    elif grabDoc.imageType == 'TIFF':
         self.savedCompression = image_settings.tiff_codec
         image_settings.tiff_codec = grabDoc.imageCompTIFF
 
@@ -553,7 +490,9 @@ def export_refresh(self, context):
 
     # Refresh - Sampling
     context.scene.display.render_aa = self.savedWorkbenchSampling
-    context.scene.eevee.taa_render_samples = self.savedEeveeSampling
+    context.scene.display.viewport_aa = self.savedWorkbenchVPSampling
+    context.scene.eevee.taa_render_samples = self.savedEeveeRenderSampling
+    context.scene.eevee.taa_samples = self.savedEeveeSampling
 
     # Refresh - Bloom
     context.scene.eevee.use_bloom = self.savedUseBloom
@@ -577,10 +516,11 @@ def export_refresh(self, context):
     render.image_settings.color_mode = self.savedColorMode
     render.image_settings.file_format = self.savedFileFormat
 
-    if grabDoc.imageType == 'TIFF':
-        render.image_settings.tiff_codec = self.savedCompression
     if grabDoc.imageType == 'PNG':
         render.image_settings.compression = self.savedCompression
+
+    elif grabDoc.imageType == 'TIFF':
+        render.image_settings.tiff_codec = self.savedCompression
 
     if grabDoc.imageType != 'TARGA':
         render.image_settings.color_depth = self.savedColorDepth
@@ -591,10 +531,6 @@ def export_refresh(self, context):
     context.scene.use_nodes = self.savedUseCompositingNodes
 
     render.dither_intensity = self.savedDitherIntensity
-
-    # Refresh - Dimensions
-    render.resolution_x = self.savedResX
-    render.resolution_y = self.savedResY
 
         ## VIEWPORT SHADING ##
 
@@ -629,142 +565,66 @@ def export_refresh(self, context):
             ob.hide_viewport = False
 
 
-################################################################################################################
-# ID SETUP & CLEANUP
-################################################################################################################
-
-
-class GRABDOC_OT_quick_id_setup(OpInfo, Operator):
-    """Quickly sets up materials on all objects within the cameras view spectrum"""
-    bl_idname = "grab_doc.quick_id_setup"
-    bl_label = "Auto ID Full Scene"
+class GRABDOC_OT_setup_scene(OpInfo, Operator):
+    """Setup / Refresh your current scene. Useful if you messed up something within the GrabDoc collections that you don't know how to properly revert"""
+    bl_idname = "grab_doc.setup_scene"
+    bl_label = "Setup / Refresh GrabDoc Scene"
 
     def execute(self, context):
-        if context.active_object:
-            bpy.ops.object.mode_set(mode='OBJECT')
-
-        for mat in bpy.data.materials:
-            if mat.name.startswith("GD_RANDOM"):
-                bpy.data.materials.remove(mat)
-
-        get_rendered_objects(self, context)
-
-        for ob in context.view_layer.objects:
-            add_mat = True
-            if ob.name in self.render_list and not ob.name.startswith('GD_'):
-                for slot in ob.material_slots:
-                    if slot.name.startswith('GD_ID'):
-                        add_mat = False
-                        break
-
-                if add_mat:
-                    mat = bpy.data.materials.new(f"GD_RANDOM_ID.{randint(0, 100000000)}")
-                    mat.use_nodes = True
-
-                    # Set - viewport color
-                    mat.diffuse_color = random(), random(), random(), 1
-
-                    bsdf_node = mat.node_tree.nodes.get('Principled BSDF')
-                    bsdf_node.inputs[0].default_value = mat.diffuse_color
-                        
-                    ob.active_material_index = 0
-                    ob.active_material = mat
-
-        for mat in bpy.data.materials:
-            if mat.name.startswith('GD_ID') or mat.name.startswith('GD_RANDOM'):
-                if not mat.users:
-                    bpy.data.materials.remove(mat)
+        scene_setup_and_refresh(self, context)
         return{'FINISHED'}
 
 
-class GRABDOC_OT_quick_id_selected(OpInfo, Operator):
-    """Adds a new single material with a random color to the selected objects"""
-    bl_idname = "grab_doc.quick_id_selected"
-    bl_label = "Add ID to Selected"
-
-    @classmethod
-    def poll(cls, context):
-        return context.selected_objects
+class GRABDOC_OT_remove_setup(OpInfo, Operator):
+    """Completely removes every element of GrabDoc from the scene, not including images reimported after bakes"""
+    bl_idname = "grab_doc.remove_setup"
+    bl_label = "Remove Setup"
 
     def execute(self, context):
-        if context.active_object:
-            bpy.ops.object.mode_set(mode='OBJECT')
+        # Remove GD Node Groups
+        for group in bpy.data.node_groups:
+            if group.name in ('GD_Normals', 'GD_Height', 'GD_Ambient Occlusion', 'GD_Alpha'):
+                bpy.data.node_groups.remove(group)
 
-        mat = bpy.data.materials.new(f"GD_ID.{randint(0, 100000000)}")
-        mat.diffuse_color = random(), random(), random(), 1
-        mat.use_nodes = True
+        objectsColl = "GrabDoc Objects (put objects here)"
+        if objectsColl in bpy.data.collections:
+            for ob in bpy.data.collections[objectsColl].all_objects:
+                # Move object to the master collection
+                context.scene.collection.objects.link(ob)
 
-        bsdf_node = mat.node_tree.nodes.get('Principled BSDF')
-        bsdf_node.inputs[0].default_value = mat.diffuse_color
+                # Remove the objects from the grabdoc collection
+                ob.users_collection[0].objects.unlink(ob)
 
-        for ob in context.selected_objects:
-            if ob.type in ('MESH', 'CURVE'):                       
-                ob.active_material_index = 0
-                ob.active_material = mat
+            bpy.data.collections.remove(bpy.data.collections[objectsColl])
 
-        for mat in bpy.data.materials:
-            if mat.name.startswith('GD_ID') or mat.name.startswith('GD_RANDOM'):
-                if not mat.users:
-                    bpy.data.materials.remove(mat)
-        return{'FINISHED'}
+        # Remove objects accidentally placed by the user in the GD collection into the master collection
+        gdColl = "GrabDoc (do not touch contents)"
+        if gdColl in bpy.data.collections:
+            for ob in bpy.data.collections[gdColl].all_objects:
+                if ob.name not in ('GD_Background Plane', 'GD_Orient Guide', 'GD_Trim Camera'):
+                    # Move object to the master collection
+                    context.scene.collection.objects.link(ob)
 
+                    # Remove the objects from the grabdoc collection
+                    ob.users_collection[0].objects.unlink(ob)
 
-class GRABDOC_OT_quick_remove_random_mats(OpInfo, Operator):
-    """Remove all randomly generated GrabDoc ID materials from the scene"""
-    bl_idname = "grab_doc.quick_remove_random_mats"
-    bl_label = "All"
+            bpy.data.collections.remove(bpy.data.collections["GrabDoc (do not touch contents)"])
 
-    def execute(self, context):
-        if context.active_object:
-            bpy.ops.object.mode_set(mode='OBJECT')
+        # Remove all GD objects, references & cameras
+        if "GD_Reference" in bpy.data.materials:
+            bpy.data.materials.remove(bpy.data.materials["GD_Reference"])
 
-        for mat in bpy.data.materials:
-            if mat.name.startswith("GD_RANDOM"):
-                bpy.data.materials.remove(mat)
-        return{'FINISHED'}
+        for ob in bpy.data.objects:
+            if ob.name in ("GD_Height Guide", "GD_Orient Guide", "GD_Background Plane"):
+                bpy.data.meshes.remove(bpy.data.meshes[ob.name])
 
-
-class GRABDOC_OT_quick_remove_manual_mats(OpInfo, Operator):
-    """Remove all manually added GrabDoc ID materials from the scene"""
-    bl_idname = "grab_doc.quick_remove_manual_mats"
-    bl_label = "All"
-
-    def execute(self, context):
-        if context.active_object:
-            bpy.ops.object.mode_set(mode='OBJECT')
-
-        for mat in bpy.data.materials:
-            if mat.name.startswith("GD_ID"):
-                bpy.data.materials.remove(mat)
-        return{'FINISHED'}
-
-
-class GRABDOC_OT_quick_remove_selected_mats(OpInfo, Operator):
-    """Remove all GrabDoc ID materials based on the selected objects from the scene"""
-    bl_idname = "grab_doc.quick_remove_selected_mats"
-    bl_label = "Selected"
-
-    @classmethod
-    def poll(cls, context):
-        return context.selected_objects
-
-    def execute(self, context):
-        if context.active_object:
-            bpy.ops.object.mode_set(mode='OBJECT')
-
-        get_rendered_objects(self, context)
-
-        for ob in context.selected_objects:
-            if ob.type in ('MESH', 'CURVE'):
-                for slot in ob.material_slots:
-                    if slot.name.startswith('GD_ID'):
-                        bpy.data.materials.remove(bpy.data.materials[slot.name])
-                        break
+            elif ob.name == "GD_Trim Camera":
+                bpy.data.cameras.remove(bpy.data.cameras[ob.name])
         return{'FINISHED'}
 
 
 ################################################################################################################
-# MATERIAL SETUP & CLEANUP
+# INDIVIDUAL MATERIAL SETUP & CLEANUP
 ################################################################################################################
 
 
@@ -775,6 +635,7 @@ def normals_setup(self, context):
 
     render.engine = 'BLENDER_EEVEE'
     context.scene.eevee.taa_render_samples = grabDoc.samplesNormals
+    context.scene.eevee.taa_samples = grabDoc.samplesNormals
     render.image_settings.color_mode = 'RGBA'
     context.scene.display_settings.display_device = 'None'
 
@@ -814,7 +675,7 @@ def normals_reimport_as_mat(self, context):
         file_extension = '.tif'
     elif grabDoc.imageType == 'TARGA':
         file_extension = '.tga'
-    else:
+    else: # PNG
         file_extension = '.png'
 
     image_node = mat.node_tree.nodes.new('ShaderNodeTexImage')
@@ -843,6 +704,7 @@ def curvature_setup(self, context):
 
     scene.render.engine = 'BLENDER_WORKBENCH'
     scene.display.render_aa = grabDoc.samplesCurvature
+    scene.display.viewport_aa = grabDoc.samplesCurvature
     scene_shading.light = 'FLAT'
     scene_shading.color_type =  'SINGLE'
     scene.display_settings.display_device = 'sRGB'
@@ -891,12 +753,12 @@ def curvature_refresh(self, context):
 # AMBIENT OCCLUSION
 def occlusion_setup(self, context):
     grabDoc = context.scene.grabDoc
-    render = context.scene.render
     eevee = context.scene.eevee
     
-    render.engine = 'BLENDER_EEVEE'
+    context.scene.render.engine = 'BLENDER_EEVEE'
     eevee.taa_render_samples = grabDoc.samplesOcclusion
-    render.image_settings.color_mode = 'BW'
+    eevee.taa_samples = grabDoc.samplesOcclusion
+    context.scene.render.image_settings.color_mode = 'BW'
     context.scene.display_settings.display_device = 'None'
 
     # Save & Set - Overscan (Can help with screenspace effects)
@@ -976,6 +838,7 @@ def height_setup(self, context):
 
     render.engine = 'BLENDER_EEVEE'
     context.scene.eevee.taa_render_samples = grabDoc.samplesHeight
+    context.scene.eevee.taa_samples = grabDoc.samplesHeight
     render.image_settings.color_mode = 'BW'
     context.scene.display_settings.display_device = 'None'
 
@@ -989,17 +852,19 @@ def height_setup(self, context):
 
 # MATERIAL ID
 def id_setup(self, context):
+    grabDoc = context.scene.grabDoc
     render = context.scene.render
     scene_shading = bpy.data.scenes[str(context.scene.name)].display.shading
 
     render.engine = 'BLENDER_WORKBENCH'
-    context.scene.display.render_aa = context.scene.grabDoc.samplesMatID
+    context.scene.display.render_aa = grabDoc.samplesMatID
+    context.scene.display.viewport_aa = grabDoc.samplesMatID
     scene_shading.light = 'FLAT'
     render.image_settings.color_mode = 'RGBA'
     context.scene.display_settings.display_device = 'sRGB'
 
     # Choose the method of ID creation based on user preference
-    scene_shading.color_type = context.scene.grabDoc.methodMatID
+    scene_shading.color_type = grabDoc.methodMatID
 
 
 # ALPHA
@@ -1009,6 +874,7 @@ def alpha_setup(self, context):
 
     render.engine = 'BLENDER_EEVEE'
     context.scene.eevee.taa_render_samples = grabDoc.samplesAlpha
+    context.scene.eevee.taa_samples = grabDoc.samplesAlpha
     render.image_settings.color_mode = 'BW'
     context.scene.display_settings.display_device = 'None'
 
@@ -1016,7 +882,7 @@ def alpha_setup(self, context):
 
 
 ################################################################################################################
-# BAKER
+# MAP EXPORTER
 ################################################################################################################
 
 
@@ -1038,137 +904,6 @@ def grabdoc_export(self, context, exportSuffix):
     render.filepath = savedPath
 
 
-class GRABDOC_OT_offline_render(OpInfo, Operator):
-    """Renders the selected material and previews it inside Blender"""
-    bl_idname = "grab_doc.offline_render"
-    bl_label = ""
-    bl_options = {'INTERNAL'}
-
-    @classmethod
-    def poll(cls, context):
-        return(not context.scene.grabDoc.modalState)
-
-    render_type: EnumProperty(
-        items=(
-            ('normals', "Normals", ""),
-            ('curvature', "Curvature", ""),
-            ('occlusion', "Ambient Occlusion", ""),
-            ('height', "Height", ""),
-            ('ID', "Material ID", ""),
-            ('alpha', "Alpha", "")
-        ),
-        options={'HIDDEN'}
-    )
-    
-    def offline_render(self, context):
-        render = context.scene.render
-
-        # Get add-on paths
-        addon_path = os.path.dirname(__file__)
-        temp_folder_path = os.path.join(addon_path, "Temp")
-
-        # Create the directory 
-        if not os.path.exists(temp_folder_path):
-            os.mkdir(temp_folder_path)
-
-        image_name = 'GD_Render Result'
-
-        # Save & Set - file output path
-        savedPath = render.filepath
-
-        render.filepath = f'{temp_folder_path}\\{image_name}'
-
-        # Delete original image
-        if image_name in bpy.data.images:
-            bpy.data.images.remove(bpy.data.images[image_name])
-
-        # Render
-        bpy.ops.render.render(write_still = True)
-
-        # Load in the newly rendered image
-        new_image = bpy.data.images.load(f'{temp_folder_path}\\{image_name}.png')
-        new_image.name = image_name
-
-        # Refresh - file output path
-        render.filepath = savedPath
-
-        # Call user prefs window
-        bpy.ops.screen.userpref_show("INVOKE_DEFAULT")
-
-        # Change area & image type
-        area = context.window_manager.windows[-1].screen.areas[0]
-        area.type = "IMAGE_EDITOR"
-        area.spaces.active.image = bpy.data.images[image_name]
-
-    def execute(self, context):
-        # Declare propertygroup as var
-        grabDoc = context.scene.grabDoc
-
-        report_value, report_string = bad_setup_check(self, context, active_export=False)
-
-        if report_value:
-            self.report({'ERROR'}, report_string)
-            return{'CANCELLED'}
-        
-        export_and_preview_setup(self, context)
-
-        if context.active_object and context.object.type in ('MESH', 'CURVE', 'FONT', 'SURFACE', 'META', 'LATTICE', 'ARMATURE', 'CAMERA'):
-            activeCallback = context.active_object.name
-            modeCallback = context.object.mode
-
-            bpy.ops.object.mode_set(mode = 'OBJECT')
-            activeSelected = True
-
-        # Scale up BG Plane (helps overscan & border pixels)
-        plane_ob = bpy.data.objects["GD_Background Plane"]
-        plane_ob.scale[0] = plane_ob.scale[1] = 3
-
-        if self.render_type == "normals":
-            normals_setup(self, context)
-            self.offline_render(context)
-            cleanup_ng_from_mat(self, context, setup_type='GD_Normals')
-
-        elif self.render_type == "curvature":
-            curvature_setup(self, context)
-            self.offline_render(context)
-            curvature_refresh(self, context)
-
-        elif self.render_type == "occlusion":
-            occlusion_setup(self, context)
-            self.offline_render(context)
-            cleanup_ng_from_mat(self, context, setup_type='GD_Ambient Occlusion')
-            occlusion_refresh(self, context)
-
-        elif self.render_type == "height":
-            height_setup(self, context)
-            self.offline_render(context)
-            cleanup_ng_from_mat(self, context, setup_type='GD_Height')
-
-        elif self.render_type == "ID":
-            id_setup(self, context)
-            self.offline_render(context)
-
-        elif self.render_type == "alpha":
-            alpha_setup(self, context)
-            self.offline_render(context)
-            cleanup_ng_from_mat(self, context, setup_type='GD_Alpha')
-
-        # Scale down BG Plane (helps overscan & border pixels)
-        plane_ob = bpy.data.objects["GD_Background Plane"]
-        plane_ob.scale[0] = plane_ob.scale[1] = 1
-
-        # Refresh all original settings
-        export_refresh(self, context)
-
-        # Call for Original Context Mode (Use bpy.ops so that Blenders viewport refreshes)
-        if 'activeSelected' in locals():
-            context.view_layer.objects.active = bpy.data.objects[activeCallback]
-            bpy.ops.object.mode_set(mode = modeCallback)
-
-        self.report({'INFO'}, "Offline render completed!")
-        return{'FINISHED'}
-
-
 class GRABDOC_OT_export_maps(OpInfo, Operator):
     """Export all enabled bake maps"""
     bl_idname = "grab_doc.export_maps"
@@ -1180,7 +915,6 @@ class GRABDOC_OT_export_maps(OpInfo, Operator):
         return(not context.scene.grabDoc.modalState)
 
     def execute(self, context):
-        # Declare propertygroup as var
         grabDoc = context.scene.grabDoc
 
         report_value, report_string = bad_setup_check(self, context, active_export=True)
@@ -1295,6 +1029,139 @@ class GRABDOC_OT_export_maps(OpInfo, Operator):
 
 
 ################################################################################################################
+# OFFLINE RENDERER
+################################################################################################################
+
+
+class GRABDOC_OT_offline_render(OpInfo, Operator):
+    """Renders the selected material and previews it inside Blender"""
+    bl_idname = "grab_doc.offline_render"
+    bl_label = ""
+    bl_options = {'INTERNAL'}
+
+    @classmethod
+    def poll(cls, context):
+        return(not context.scene.grabDoc.modalState)
+
+    render_type: EnumProperty(
+        items=(
+            ('normals', "Normals", ""),
+            ('curvature', "Curvature", ""),
+            ('occlusion', "Ambient Occlusion", ""),
+            ('height', "Height", ""),
+            ('ID', "Material ID", ""),
+            ('alpha', "Alpha", "")
+        ),
+        options={'HIDDEN'}
+    )
+    
+    def offline_render(self, context):
+        render = context.scene.render
+
+        # Get add-on paths
+        addon_path = os.path.dirname(__file__)
+        temp_folder_path = os.path.join(addon_path, "Temp")
+
+        # Create the directory 
+        if not os.path.exists(temp_folder_path):
+            os.mkdir(temp_folder_path)
+
+        image_name = 'GD_Render Result'
+
+        # Save & Set - file output path
+        savedPath = render.filepath
+
+        render.filepath = f'{temp_folder_path}\\{image_name}'
+
+        # Delete original image
+        if image_name in bpy.data.images:
+            bpy.data.images.remove(bpy.data.images[image_name])
+
+        # Render
+        bpy.ops.render.render(write_still = True)
+
+        # Load in the newly rendered image
+        new_image = bpy.data.images.load(f'{temp_folder_path}\\{image_name}.png')
+        new_image.name = image_name
+
+        # Refresh - file output path
+        render.filepath = savedPath
+
+        # Call user prefs window
+        bpy.ops.screen.userpref_show("INVOKE_DEFAULT")
+
+        # Change area & image type
+        area = context.window_manager.windows[-1].screen.areas[0]
+        area.type = "IMAGE_EDITOR"
+        area.spaces.active.image = bpy.data.images[image_name]
+
+    def execute(self, context):
+        report_value, report_string = bad_setup_check(self, context, active_export=False)
+
+        if report_value:
+            self.report({'ERROR'}, report_string)
+            return{'CANCELLED'}
+        
+        export_and_preview_setup(self, context)
+
+        if context.active_object and context.object.type in ('MESH', 'CURVE', 'FONT', 'SURFACE', 'META', 'LATTICE', 'ARMATURE', 'CAMERA'):
+            activeCallback = context.active_object.name
+            modeCallback = context.object.mode
+
+            bpy.ops.object.mode_set(mode = 'OBJECT')
+            activeSelected = True
+
+        # Scale up BG Plane (helps overscan & border pixels)
+        plane_ob = bpy.data.objects["GD_Background Plane"]
+        plane_ob.scale[0] = plane_ob.scale[1] = 3
+
+        if self.render_type == "normals":
+            normals_setup(self, context)
+            self.offline_render(context)
+            cleanup_ng_from_mat(self, context, setup_type='GD_Normals')
+
+        elif self.render_type == "curvature":
+            curvature_setup(self, context)
+            self.offline_render(context)
+            curvature_refresh(self, context)
+
+        elif self.render_type == "occlusion":
+            occlusion_setup(self, context)
+            self.offline_render(context)
+            cleanup_ng_from_mat(self, context, setup_type='GD_Ambient Occlusion')
+            occlusion_refresh(self, context)
+
+        elif self.render_type == "height":
+            height_setup(self, context)
+            self.offline_render(context)
+            cleanup_ng_from_mat(self, context, setup_type='GD_Height')
+
+        elif self.render_type == "ID":
+            id_setup(self, context)
+            self.offline_render(context)
+
+        elif self.render_type == "alpha":
+            alpha_setup(self, context)
+            self.offline_render(context)
+            cleanup_ng_from_mat(self, context, setup_type='GD_Alpha')
+
+        # Scale down BG Plane (helps overscan & border pixels)
+        plane_ob = bpy.data.objects["GD_Background Plane"]
+        plane_ob.scale[0] = plane_ob.scale[1] = 1
+
+        # Refresh all original settings
+        export_refresh(self, context)
+
+        # Call for Original Context Mode (Use bpy.ops so that Blenders viewport refreshes)
+        if 'activeSelected' in locals():
+            context.view_layer.objects.active = bpy.data.objects[activeCallback]
+            bpy.ops.object.mode_set(mode = modeCallback)
+
+        self.report({'INFO'}, "Offline render completed!")
+        return{'FINISHED'}
+
+
+################################################################################################################
 # MAP PREVIEWER
 ################################################################################################################
 
@@ -1302,13 +1169,21 @@ class GRABDOC_OT_export_maps(OpInfo, Operator):
 def draw_callback_px(self, context):
     font_id = 0
 
+    # Special clause for Material ID preview 
+    if self.preview_type != 'ID':
+        render_text = self.preview_type.capitalize()
+    else:
+        render_text = "Material ID"
+
     blf.position(font_id, 15, 140, 0)
     blf.size(font_id, 26, 72)
-    blf.draw(font_id, f"{self.preview_type.capitalize()} Preview | 'ESC' to leave")
+    blf.color(font_id, 1, 1, 1, 1)
+    blf.draw(font_id, f"{render_text} Preview  ｜  [ESC] to exit")
 
-    blf.position(font_id, 15, 90, 0)
-    blf.size(font_id, 21, 72)
-    blf.draw(font_id, "You are currently in Map Preview mode!")
+    blf.position(font_id, 15, 80, 0)
+    blf.size(font_id, 28, 72)
+    blf.color(font_id, 1, 1, 0, 1)
+    blf.draw(font_id, "You are in Map Preview mode!")
 
 
 class GRABDOC_OT_leave_map_preview(Operator):
@@ -1402,10 +1277,12 @@ class GRABDOC_OT_map_preview(OpInfo, Operator):
             image_settings.color_depth = grabDoc.colorDepth
 
         if self.preview_type == "normals":
-            context.scene.eevee.taa_render_samples = grabDoc.samplesNormals
+            eevee.taa_render_samples = grabDoc.samplesNormals
+            eevee.taa_samples = grabDoc.samplesNormals
     
         elif self.preview_type == "curvature":
             context.scene.display.render_aa = grabDoc.samplesCurvature
+            context.scene.display.viewport_aa = grabDoc.samplesCurvature
             view_settings.look = grabDoc.contrastCurvature.replace('_', ' ')
 
             bpy.data.objects["GD_Background Plane"].color[3] = .9999
@@ -1416,6 +1293,8 @@ class GRABDOC_OT_map_preview(OpInfo, Operator):
 
         elif self.preview_type == "occlusion":
             eevee.taa_render_samples = grabDoc.samplesOcclusion
+            eevee.taa_samples = grabDoc.samplesOcclusion
+
             view_settings.look = grabDoc.contrastOcclusion.replace('_', ' ')
 
             ao_node = bpy.data.node_groups["GD_Ambient Occlusion"].nodes.get('Ambient Occlusion')
@@ -1427,17 +1306,20 @@ class GRABDOC_OT_map_preview(OpInfo, Operator):
 
         elif self.preview_type == "height":
             eevee.taa_render_samples = grabDoc.samplesHeight
+            eevee.taa_samples = grabDoc.samplesHeight
 
             view_settings.look = grabDoc.contrastHeight.replace('_', ' ')
 
-        elif self.preview_type == "alpha":
-            eevee.taa_render_samples = grabDoc.samplesAlpha
-
         elif self.preview_type == "ID":
             context.scene.display.render_aa = grabDoc.samplesMatID
+            context.scene.display.viewport_aa = grabDoc.samplesMatID
 
             # Choose the method of ID creation based on user preference
             scene_shading.color_type = grabDoc.methodMatID
+
+        elif self.preview_type == "alpha":
+            eevee.taa_render_samples = grabDoc.samplesAlpha
+            eevee.taa_samples = grabDoc.samplesAlpha
 
         # Exiting    
         if self.done:
@@ -1606,11 +1488,6 @@ class GRABDOC_OT_export_current_preview(OpInfo, Operator):
 classes = (
     GRABDOC_OT_setup_scene,
     GRABDOC_OT_remove_setup,
-    GRABDOC_OT_quick_id_setup,
-    GRABDOC_OT_quick_id_selected,
-    GRABDOC_OT_quick_remove_random_mats,
-    GRABDOC_OT_quick_remove_manual_mats,
-    GRABDOC_OT_quick_remove_selected_mats,
     GRABDOC_OT_offline_render,
     GRABDOC_OT_export_maps,
     GRABDOC_OT_map_preview_warning,

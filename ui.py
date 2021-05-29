@@ -59,7 +59,8 @@ class GRABDOC_PT_grabdoc(PanelInfo, Panel):
         row.operator("grab_doc.setup_scene", text = "Refresh Scene" if proper_scene_setup() else "Setup Scene", icon = "TOOL_SETTINGS")
 
         if proper_scene_setup():
-            row.operator("grab_doc.remove_setup", text = "", icon = "REMOVE")
+            row.scale_x = 1.1
+            row.operator("grab_doc.remove_setup", text = "", icon = "CANCEL")
             
             row = col.row(align = True)
             row.scale_y = .95
@@ -213,9 +214,15 @@ class GRABDOC_PT_view_edit_maps(PanelInfo, Panel):
             row.scale_y = 1.5
             row.operator("grab_doc.leave_modal", icon="CANCEL")
 
+            # Special clause for Material ID preview
+            if grabDoc.modalPreviewType != 'ID':
+                mat_preview_type = grabDoc.modalPreviewType.capitalize()
+            else:
+                mat_preview_type = "Material ID"
+
             row = col.row(align = True)
             row.scale_y = 1.1
-            row.operator("grab_doc.export_preview", text = f"Export {grabDoc.modalPreviewType.capitalize()}", icon = "EXPORT")
+            row.operator("grab_doc.export_preview", text = f"Export {mat_preview_type}", icon = "EXPORT")
 
             layout = col.box()
 
@@ -443,7 +450,7 @@ class GRABDOC_PT_id_settings(PanelInfo, Panel):
         row.separator(factor = .5)
         row.prop(grabDoc, 'exportMatID', text = "")
         
-        row.operator("grab_doc.preview_warning" if grabDoc.firstBakePreview else "grab_doc.preview_map", text = "ID Preview").preview_type = 'ID'
+        row.operator("grab_doc.preview_warning" if grabDoc.firstBakePreview else "grab_doc.preview_map", text = "Mat ID Preview").preview_type = 'ID'
 
         row.operator("grab_doc.offline_render", text = "", icon = "RENDER_STILL").render_type = 'ID'
         row.separator(factor = 1.3)
@@ -531,6 +538,8 @@ def alpha_ui(layout, context):
         col.prop(grabDoc, 'invertMaskAlpha', text = "Invert Mask")
         col.separator(factor=1.5)
         col.prop(grabDoc, 'samplesAlpha', text = "Samples")
+    else: # Marmoset
+        col.separator()
 
 
 ################################################################################################################

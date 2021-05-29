@@ -4,6 +4,7 @@ from bpy.types import Operator
 from .render_setup_utils import get_rendered_objects
 
 
+# EXPORT THE GRABDOC BACKGROUND PLANE FOR USE EXTERNALLY
 def export_bg_plane(self, context):
     # Save original selection
     savedSelection = context.selected_objects
@@ -26,6 +27,7 @@ def export_bg_plane(self, context):
         ob.select_set(True)
 
 
+# LOOK FOR GRABDOC OBJECTS TO DECIDE IF THE SCENE IS SETUP CORRECTLY
 def proper_scene_setup(is_setup=False):
     if "GrabDoc (do not touch contents)" in bpy.data.collections:
         if "GD_Background Plane" in bpy.data.objects and "GD_Background Plane" in bpy.data.objects:
@@ -33,11 +35,12 @@ def proper_scene_setup(is_setup=False):
     return is_setup
 
 
+# DETERMINE IF SPECIFIC PARTS OF THE SCENE ARE SET UP INCORRECTLY AND RETURN A DETAILED EXPLANATION OF THINGS TO CORRECT
 def bad_setup_check(self, context, active_export, report_value=False, report_string=""):
     grabDoc = context.scene.grabDoc
 
-    # Run this before other error checks as the following error checker contains dependencies
-    get_rendered_objects(self, context)
+    # Run this before other error checks as the following error checks contains dependencies
+    self.render_list = get_rendered_objects(self, context)
 
     # Look for Trim Camera (only thing required to render)
     if not "GD_Trim Camera" in context.view_layer.objects and not report_value:

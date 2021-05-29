@@ -15,6 +15,7 @@ import importlib
 module_names = (
     "ui",
     "operators",
+    "mat_id_ops",
     "marmoset_ops",
     "preferences",
     "generic_utils"
