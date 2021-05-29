@@ -14,7 +14,9 @@ def ng_setup(self, context):
         # Create group outputs
         group_outputs = ng_normal.nodes.new('NodeGroupOutput')
         ng_normal.outputs.new('NodeSocketShader','Output')
-        ng_normal.inputs.new('NodeSocketShader','Saved Input')
+        ng_normal.inputs.new('NodeSocketShader','Saved Surface')
+        ng_normal.inputs.new('NodeSocketShader','Saved Volume')
+        ng_normal.inputs.new('NodeSocketVector','Saved Displacement')
 
         # Create group nodes
         geo_node = ng_normal.nodes.new('ShaderNodeNewGeometry')
@@ -53,7 +55,9 @@ def ng_setup(self, context):
         # Create group outputs
         group_outputs = ng_ao.nodes.new('NodeGroupOutput')
         ng_ao.outputs.new('NodeSocketShader','Output')
-        ng_ao.inputs.new('NodeSocketShader','Saved Input')
+        ng_ao.inputs.new('NodeSocketShader','Saved Surface')
+        ng_ao.inputs.new('NodeSocketShader','Saved Volume')
+        ng_ao.inputs.new('NodeSocketVector','Saved Displacement')
 
         # Create group nodes
         ao_node = ng_ao.nodes.new('ShaderNodeAmbientOcclusion')
@@ -83,7 +87,9 @@ def ng_setup(self, context):
         # Create group outputs
         group_outputs = ng_height.nodes.new('NodeGroupOutput')
         ng_height.outputs.new('NodeSocketShader','Output')
-        ng_height.inputs.new('NodeSocketShader','Saved Input')
+        ng_height.inputs.new('NodeSocketShader','Saved Surface')
+        ng_height.inputs.new('NodeSocketShader','Saved Volume')
+        ng_height.inputs.new('NodeSocketVector','Saved Displacement')
 
         # Create group nodes
         camera_data_node = ng_height.nodes.new('ShaderNodeCameraData')
@@ -113,7 +119,9 @@ def ng_setup(self, context):
         # Create group outputs
         group_outputs = ng_alpha.nodes.new('NodeGroupOutput')
         ng_alpha.outputs.new('NodeSocketShader','Output')
-        ng_alpha.inputs.new('NodeSocketShader','Saved Input')
+        ng_alpha.inputs.new('NodeSocketShader','Saved Surface')
+        ng_alpha.inputs.new('NodeSocketShader','Saved Volume')
+        ng_alpha.inputs.new('NodeSocketVector','Saved Displacement')
 
         # Create group nodes
         camera_data_node = ng_alpha.nodes.new('ShaderNodeCameraData')
@@ -141,35 +149,6 @@ def ng_setup(self, context):
         link.new(invert_node.inputs["Color"], map_range_node.outputs["Result"])
         link.new(emission_node.inputs["Color"], invert_node.outputs["Color"])
         link.new(group_outputs.inputs["Output"], emission_node.outputs["Emission"])
-
-
-# REMOVE NODE GROUP & RETURN ORIGINAL LINKS IF THEY EXIST
-def cleanup_ng_from_mat(self, context, setup_type):
-    for mat in bpy.data.materials:
-        if not mat.use_nodes:
-            mat.use_nodes = True
-        
-        # If there is a GrabDoc created material, remove it
-        if mat.name == 'GD_Material (do not touch contents)':
-            bpy.data.materials.remove(mat)
-
-        # If a material has a GrabDoc created Node Group, remove it
-        elif setup_type in mat.node_tree.nodes:
-            for mat_node in mat.node_tree.nodes:
-                if mat_node.type == 'OUTPUT_MATERIAL' and mat_node.is_active_output:
-                    output_node = mat.node_tree.nodes.get(mat_node.name)
-                    break
-
-            GD_node_group = mat.node_tree.nodes.get(setup_type)
-
-            for input in GD_node_group.inputs:
-                for link in input.links:
-                    original_node_connection = mat.node_tree.nodes.get(link.from_node.name)
-                    original_node_socket = link.from_socket.name
-                    
-            mat.node_tree.links.new(output_node.inputs["Surface"], original_node_connection.outputs[original_node_socket])
-            
-            mat.node_tree.nodes.remove(GD_node_group)
 
 
 # CREATE & APPLY A MATERIAL TO OBJECTS WITHOUT ACTIVE MATERIALS
@@ -220,7 +199,7 @@ def add_ng_to_mat(self, context, setup_type):
                     mat_slot = bpy.data.materials.get(slot.name)
 
                     output_node = None
-                    original_node_connection = None
+                    original_node = None
 
                     if not mat_slot.use_nodes:
                         mat_slot.use_nodes = True
@@ -242,23 +221,64 @@ def add_ng_to_mat(self, context, setup_type):
                         GD_node_group.name = bpy.data.node_groups[setup_type].name
                         GD_node_group.hide = True
 
-                        original_node_found = False
-
                         # Get the original node link (if it exists)
                         for node_input in output_node.inputs:
                             for link in node_input.links:
-                                original_node_connection = mat_slot.node_tree.nodes.get(link.from_node.name)
+                                original_node = mat_slot.node_tree.nodes.get(link.from_node.name)
 
                                 # Link original connection to the Node Group
-                                mat_slot.node_tree.links.new(GD_node_group.inputs["Saved Input"], original_node_connection.outputs[link.from_socket.name])
+                                if node_input.name == 'Surface':
+                                    mat_slot.node_tree.links.new(GD_node_group.inputs["Saved Surface"], original_node.outputs[link.from_socket.name])
+                                elif node_input.name == 'Volume':
+                                    mat_slot.node_tree.links.new(GD_node_group.inputs["Saved Volume"], original_node.outputs[link.from_socket.name])
+                                elif node_input.name == 'Displacement':
+                                    mat_slot.node_tree.links.new(GD_node_group.inputs["Saved Displacement"], original_node.outputs[link.from_socket.name])
 
-                                original_node_found = True
+                        # Remove existing links on the output node
+                        if len(output_node.inputs['Volume'].links):
+                            for link in output_node.inputs['Volume'].links:
+                                mat_slot.node_tree.links.remove(link)
 
-                            if original_node_found:
-                                break
+                        if len(output_node.inputs['Displacement'].links):
+                            for link in output_node.inputs['Displacement'].links:
+                                mat_slot.node_tree.links.remove(link)
 
                         # Link Node Group to the output
                         mat_slot.node_tree.links.new(output_node.inputs["Surface"], GD_node_group.outputs["Output"])
+
+
+# REMOVE NODE GROUP & RETURN ORIGINAL LINKS IF THEY EXIST
+def cleanup_ng_from_mat(self, context, setup_type):
+    for mat in bpy.data.materials:
+        if not mat.use_nodes:
+            mat.use_nodes = True
+        
+        # If there is a GrabDoc created material, remove it
+        if mat.name == 'GD_Material (do not touch contents)':
+            bpy.data.materials.remove(mat)
+
+        # If a material has a GrabDoc created Node Group, remove it
+        elif setup_type in mat.node_tree.nodes:
+            for mat_node in mat.node_tree.nodes:
+                if mat_node.type == 'OUTPUT_MATERIAL' and mat_node.is_active_output:
+                    output_node = mat.node_tree.nodes.get(mat_node.name)
+                    break
+
+            GD_node_group = mat.node_tree.nodes.get(setup_type)
+
+            for input in GD_node_group.inputs:
+                for link in input.links:
+                    original_node_connection = mat.node_tree.nodes.get(link.from_node.name)
+                    original_node_socket = link.from_socket.name
+
+                    if input.name == 'Saved Surface':
+                        mat.node_tree.links.new(output_node.inputs["Surface"], original_node_connection.outputs[original_node_socket])
+                    elif input.name == 'Saved Volume':
+                        mat.node_tree.links.new(output_node.inputs["Volume"], original_node_connection.outputs[original_node_socket])
+                    elif input.name == 'Saved Displacement':
+                        mat.node_tree.links.new(output_node.inputs["Displacement"], original_node_connection.outputs[original_node_socket])
+            
+            mat.node_tree.nodes.remove(GD_node_group)
 
 
 # ##### BEGIN GPL LICENSE BLOCK #####
