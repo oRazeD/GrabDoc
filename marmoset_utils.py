@@ -10,10 +10,10 @@ def refresh_scene():
         with open(os.path.join(temps_path, "marmo_vars.json"), 'r') as openfile:
             marmo_json = json.load(openfile)
 
-        # Create baker object
+        ## BAKER SETUP
+
         baker = mset.BakerObject()
 
-        # Setting up the baker
         baker.outputPath = marmo_json["file_path"]
         baker.outputBits = marmo_json["bits_per_channel"]
         baker.outputSamples = marmo_json["samples"]
@@ -27,40 +27,8 @@ def refresh_scene():
         baker.outputWidth = marmo_json["resolution_x"]
         baker.outputHeight = marmo_json["resolution_y"]
 
-        # Disable all maps
-        for maps in baker.getAllMaps():
-            maps.enabled = False
-
-        # Configure maps
-        normalMap = baker.getMap("Normals")
-        normalMap.enabled = marmo_json["export_normals"]
-        normalMap.suffix = 'normal'
-        normalMap.flipY = marmo_json["flipy_normals"]
-        normalMap.flipX = False
-        normalMap.dither = False
-
-        curvatureMap = baker.getMap("Curvature")
-        curvatureMap.enabled = marmo_json["export_curvature"]
-
-        occlusionMap = baker.getMap("Ambient Occlusion")
-        occlusionMap.rayCount = marmo_json["ray_count_occlusion"]
-        occlusionMap.enabled = marmo_json["export_occlusion"]
-
-        heightMap = baker.getMap("Height")
-        heightMap.innerDistance = 0
-        heightMap.enabled = marmo_json["export_height"]
-        heightMap.outerDistance = marmo_json["cage_height"] / 2 - .02
-
-        #alphaMap = baker.getMap("Height")
-        #alphaMap.innerDistance = 0
-        #alphaMap.enabled = marmo_json["export_alpha"]
-        #alphaMap.outerDistance = .01
-
-        matIDMap = baker.getMap("Material ID")
-        matIDMap.enabled = marmo_json["export_matid"]
-
         # Import the models
-        baker.importModel(os.path.normpath(os.path.join(temps_path, "grabdoc_temp_model.fbx")))
+        baker.importModel(os.path.normpath(os.path.join(temps_path, "GD_temp_model.fbx")))
 
         # Set cage offset
         mset.findObject('Low').maxOffset = marmo_json["cage_height"] + .01
@@ -70,7 +38,7 @@ def refresh_scene():
             mset.findObject('Sky').loadSky(marmo_json["marmo_sky_path"])
 
         # Rotate all models 90 degrees
-        bakeGroup = mset.findObject('GrabDoc')
+        bakeGroup = mset.findObject('GD')
         bakeGroup.rotation = [90, 0, 0]
 
         # Make a folder for Mat ID materials
@@ -78,7 +46,49 @@ def refresh_scene():
             if mat.name.startswith("GD_"):
                 mat.setGroup('Mat ID')
 
-        # Baker
+        ## BAKE MAPS SETUP
+
+        for maps in baker.getAllMaps():
+            maps.enabled = False
+
+        # Extra bake pass for alpha map
+        if marmo_json["export_alpha"]:
+            alphaMap = baker.getMap("Height")
+            alphaMap.enabled = marmo_json["export_alpha"]
+            alphaMap.suffix = 'alpha'
+            alphaMap.innerDistance = 0
+            alphaMap.outerDistance = .01
+
+            if marmo_json["auto_bake"]:
+                baker.bake()
+
+                alphaMap.enabled = False
+
+        normalMap = baker.getMap("Normals")
+        normalMap.enabled = marmo_json["export_normal"]
+        normalMap.suffix = 'normal'
+        normalMap.flipY = marmo_json["flipy_normal"]
+        normalMap.flipX = False
+        normalMap.dither = False
+
+        curvatureMap = baker.getMap("Curvature")
+        curvatureMap.enabled = marmo_json["export_curvature"]
+
+        occlusionMap = baker.getMap("Ambient Occlusion")
+        occlusionMap.enabled = marmo_json["export_occlusion"]
+        occlusionMap.rayCount = marmo_json["ray_count_occlusion"]
+
+        heightMap = baker.getMap("Height")
+        heightMap.enabled = marmo_json["export_height"]
+        heightMap.suffix = 'height'
+        heightMap.innerDistance = 0
+        heightMap.outerDistance = marmo_json["cage_height"] / 2 - .02
+
+        matIDMap = baker.getMap("Material ID")
+        matIDMap.enabled = marmo_json["export_matid"]
+
+        ## BAKE & FINALIZE
+
         if marmo_json["auto_bake"]:
             baker.bake()
 
@@ -89,26 +99,27 @@ def refresh_scene():
             # Close marmo if the option is selected
             if marmo_json["close_after_bake"]:
                 mset.quit()
-            
-            # Hide the _High group
-            mset.findObject('High').visible = False
-            
-            # Scale up the high poly plane
-            mset.findObject('GrabDoc_high GD_Background Plane').scale = [300, 300, 300]
+            else:
+                # Hide the _High group
+                mset.findObject('High').visible = False
+                
+                # Scale up the high poly plane
+                mset.findObject('GD_high GD_Background Plane').scale = [300, 300, 300]
 
-            findDefault = mset.findMaterial("Default")
+                findDefault = mset.findMaterial("Default")
 
-            # Material preview
-            if marmo_json["export_normals"]:
-                findDefault.getSubroutine('surface').setField('Normal Map', marmo_json["file_path"][:-4] + '_normal' + '.png')
+                # Material preview
+                if marmo_json["export_normal"]:
+                    findDefault.getSubroutine('surface').setField('Normal Map', marmo_json["file_path"][:-4] + '_normal' + '.png')
 
-            if marmo_json["export_occlusion"]:
-                findDefault.setSubroutine('occlusion', 'Occlusion')
-                findDefault.getSubroutine('occlusion').setField('Occlusion Map', marmo_json["file_path"][:-4] + '_ao' + '.png')
+                if marmo_json["export_occlusion"]:
+                    findDefault.setSubroutine('occlusion', 'Occlusion')
+                    findDefault.getSubroutine('occlusion').setField('Occlusion Map', marmo_json["file_path"][:-4] + '_ao' + '.png')
 
-            # Rename bake material
-            findDefault.name = 'Bake Material'
+                # Rename bake material
+                findDefault.name = 'Bake Material'
 
+        # Remove the json file to signal the no rebakes need to take place until a new one is made
         os.remove(os.path.join(temps_path, "marmo_vars.json"))
 
 

@@ -9,7 +9,7 @@ from .render_setup_utils import find_tallest_object
 ################################################################################################################
 
 
-class GRABDOC_OT_send_to_marmo(OpInfo, bpy.types.Operator):
+class GrabDoc_OT_send_to_marmo(OpInfo, bpy.types.Operator):
     """Export your models, open & bake (if turned on) in Marmoset Toolbag utilizing the settings set within the 'View / Edit Maps' tab"""
     bl_idname = "grab_doc.bake_marmoset"
     bl_label = "Open / Refresh in Marmoset"
@@ -26,83 +26,12 @@ class GRABDOC_OT_send_to_marmo(OpInfo, bpy.types.Operator):
     def poll(cls, context):
         return(os.path.exists(context.scene.grabDoc.marmoEXE))
 
-    def execute(self, context):
+    def open_marmoset(self, context, temps_path, addon_path):
         grabDoc = context.scene.grabDoc
-
-        report_value, report_string = bad_setup_check(self, context, active_export=True)
-
-        if report_value:
-            self.report({'ERROR'}, report_string)
-            return{'CANCELLED'}
-
-        if grabDoc.imageType != "PNG":
-            self.report({'ERROR'}, "Non PNG formats are currently not supported for external baking in Marmoset")
-            return{'FINISHED'}
-
-        # Add-on root path 
-        addon_path = os.path.dirname(__file__)
-        
-        # Temporary model path 
-        temps_path = os.path.join(addon_path, "Temp")
-
-        # Create the directory 
-        if not os.path.exists(temps_path):
-            os.mkdir(temps_path)
-
-        selectedCallback = context.view_layer.objects.selected.keys()
-
-        if context.active_object:
-            bpy.ops.object.mode_set(mode = 'OBJECT')
-
-        if grabDoc.exportHeight and grabDoc.rangeTypeHeight == 'AUTO':
-            find_tallest_object(self, context)
-
-        for ob in context.view_layer.objects:
-            ob.select_set(False)
-            if ob.name in self.render_list and ob.visible_get():
-                ob.select_set(True)
-                if ob.name.startswith('GD_'):
-                    obCopy = ob.copy()
-                    context.collection.objects.link(obCopy)
-                    obCopy.name = "GrabDoc_high GD_Background Plane"
-
-                    ob.name = f"GrabDoc_low {ob.name}"
-                else:
-                    ob.name = f"GrabDoc_high {ob.name}"
-
-        # Reselect BG Plane high poly
-        bpy.data.objects['GrabDoc_high GD_Background Plane'].select_set(True)
-
-        for mat in bpy.data.materials:
-            if mat.name == "GD_Reference":
-                bpy.data.materials.remove(mat)
-
-        # Export models
-        bpy.ops.export_scene.fbx(
-            filepath=f"{temps_path}\\grabdoc_temp_model.fbx",
-            use_selection=True,
-            path_mode='ABSOLUTE'
-        )
-
-        if "GrabDoc_high GD_Background Plane" in bpy.data.objects:
-            bpy.data.objects.remove(bpy.data.objects["GrabDoc_high GD_Background Plane"])
-
-        for ob in context.selected_objects:
-            ob.select_set(False)
-
-            if ob.name == "GrabDoc_low GD_Background Plane":
-                ob.name = ob.name[12:]
-            else:
-                ob.name = ob.name[13:]
-            
-        for o in selectedCallback:
-            if ob.visible_get():
-                ob = context.scene.objects.get(o)
-                ob.select_set(True)
 
         # Create a dictionary of variables to transfer into Marmoset
         marmo_vars = {
-            'file_path': f'{grabDoc.exportPath}{grabDoc.exportName}.{grabDoc.imageType.lower()}',
+            'file_path': f'{grabDoc.exportPath}{grabDoc.exportName}.{grabDoc.imageType_marmo.lower()}',
             'file_path_no_ext': grabDoc.exportPath,
             'marmo_sky_path': f'{os.path.dirname(grabDoc.marmoEXE)}\\data\\sky\\Evening Clouds.tbsky',
 
@@ -115,8 +44,8 @@ class GRABDOC_OT_send_to_marmo(OpInfo, bpy.types.Operator):
             'close_after_bake': grabDoc.marmoClosePostBake,
             'open_folder': grabDoc.openFolderOnExport,
 
-            'export_normals': grabDoc.exportNormals & grabDoc.uiVisibilityNormals,
-            'flipy_normals': grabDoc.flipYNormals,
+            'export_normal': grabDoc.exportNormals & grabDoc.uiVisibilityNormals,
+            'flipy_normal': grabDoc.flipYNormals,
 
             'export_curvature': grabDoc.exportCurvature & grabDoc.uiVisibilityCurvature,
 
@@ -140,7 +69,7 @@ class GRABDOC_OT_send_to_marmo(OpInfo, bpy.types.Operator):
         marmo_json = json.dumps(marmo_vars, indent = 4)
 
         # Writing
-        with open(temps_path + "\\" + "marmo_vars.json", "w") as outfile:
+        with open(os.path.join(temps_path, "marmo_vars.json"), "w") as outfile:
             outfile.write(marmo_json)
         
         path_ext_only = os.path.basename(os.path.normpath(grabDoc.marmoEXE)).encode()
@@ -167,6 +96,87 @@ class GRABDOC_OT_send_to_marmo(OpInfo, bpy.types.Operator):
             self.report({'INFO'}, "Export completed! Opening Marmoset Toolbag...")
         return{'FINISHED'}
 
+    def execute(self, context):
+        grabDoc = context.scene.grabDoc
+
+        report_value, report_string = bad_setup_check(self, context, active_export=True)
+
+        if report_value:
+            self.report({'ERROR'}, report_string)
+            return{'CANCELLED'}
+
+        # Add-on root path 
+        addon_path = os.path.dirname(__file__)
+        
+        # Temporary model path 
+        temps_path = os.path.join(addon_path, "Temp")
+
+        # Create the directory 
+        if not os.path.exists(temps_path):
+            os.mkdir(temps_path)
+
+        selectedCallback = context.view_layer.objects.selected.keys()
+
+        if context.active_object:
+            bpy.ops.object.mode_set(mode = 'OBJECT')
+
+        if grabDoc.exportHeight and grabDoc.rangeTypeHeight == 'AUTO':
+            find_tallest_object(self, context)
+
+        # Set high poly naming
+        for ob in context.view_layer.objects:
+            ob.select_set(False)
+
+            if ob.name in self.render_list and ob.visible_get() and ob.name != 'GD_Background Plane':
+                ob.select_set(True)
+                
+                ob.name = f"GD_high {ob.name}"
+
+        # Get background plane low and high poly
+        bg_plane_ob = bpy.data.objects.get('GD_Background Plane')
+        bg_plane_ob.name = "GD_low GD_Background Plane"
+        bpy.data.collections["GrabDoc (do not touch contents)"].hide_select = False
+        bg_plane_ob.select_set(True)
+
+        # Copy the object, link into the scene & rename as high poly
+        bg_plane_ob_copy = bg_plane_ob.copy()
+        context.collection.objects.link(bg_plane_ob_copy)
+        bg_plane_ob_copy.name = "GD_high GD_Background Plane"
+        bg_plane_ob_copy.select_set(True)
+
+        # Remove reference material
+        for mat in bpy.data.materials:
+            if mat.name == "GD_Reference":
+                bpy.data.materials.remove(mat)
+
+        # Export models
+        bpy.ops.export_scene.fbx(
+            filepath=f"{temps_path}\\GD_temp_model.fbx",
+            use_selection=True,
+            path_mode='ABSOLUTE'
+        )
+
+        bpy.data.objects.remove(bg_plane_ob_copy)
+
+        for ob in context.selected_objects:
+            ob.select_set(False)
+
+            if ob.name == "GD_low GD_Background Plane":
+                ob.name = "GD_Background Plane"
+            else:
+                ob.name = ob.name[8:]
+
+        if not grabDoc.collSelectable:
+            bpy.data.collections["GrabDoc (do not touch contents)"].hide_select = True
+
+        for o in selectedCallback:
+            if ob.visible_get():
+                ob = context.scene.objects.get(o)
+                ob.select_set(True)
+
+        self.open_marmoset(context, temps_path, addon_path)
+        return{'FINISHED'}
+
 
 ################################################################################################################
 # REGISTRATION
@@ -174,11 +184,11 @@ class GRABDOC_OT_send_to_marmo(OpInfo, bpy.types.Operator):
 
 
 def register():
-    bpy.utils.register_class(GRABDOC_OT_send_to_marmo)
+    bpy.utils.register_class(GrabDoc_OT_send_to_marmo)
 
 
 def unregister():
-    bpy.utils.unregister_class(GRABDOC_OT_send_to_marmo)
+    bpy.utils.unregister_class(GrabDoc_OT_send_to_marmo)
 
 
 # ##### BEGIN GPL LICENSE BLOCK #####
