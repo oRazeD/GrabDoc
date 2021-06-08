@@ -145,12 +145,19 @@ class GRABDOC_PT_export(PanelInfo, Panel):
         row.prop(grabDoc, 'lockRes', icon_only = True, icon = "LOCKED" if grabDoc.lockRes else "UNLOCKED")
 
         row = box.row()
-        row.prop(grabDoc, "imageType")
+        if grabDoc.bakerType == 'Blender':
+            row.prop(grabDoc, "imageType")
+        else:
+            row.prop(grabDoc, "imageType_marmo")
 
         row.separator(factor = .5)
         
         row2 = row.row()
-        row2.enabled = False if grabDoc.imageType == "TARGA" else True
+        if grabDoc.imageType != "TARGA" or grabDoc.bakerType == 'Marmoset':
+            row2.enabled = True
+        else:
+            row2.enabled = False
+        
         row2.prop(grabDoc, "colorDepth", expand = True)
 
         if grabDoc.bakerType == 'Blender':
