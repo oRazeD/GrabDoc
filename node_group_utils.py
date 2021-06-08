@@ -16,7 +16,7 @@ def ng_setup(self, context):
         ng_normal.outputs.new('NodeSocketShader','Output')
         ng_normal.inputs.new('NodeSocketShader','Saved Surface')
         ng_normal.inputs.new('NodeSocketShader','Saved Volume')
-        ng_normal.inputs.new('NodeSocketVector','Saved Displacement')
+        ng_normal.inputs.new('NodeSocketShader','Saved Displacement')
 
         # Create group nodes
         geo_node = ng_normal.nodes.new('ShaderNodeNewGeometry')
@@ -57,7 +57,7 @@ def ng_setup(self, context):
         ng_ao.outputs.new('NodeSocketShader','Output')
         ng_ao.inputs.new('NodeSocketShader','Saved Surface')
         ng_ao.inputs.new('NodeSocketShader','Saved Volume')
-        ng_ao.inputs.new('NodeSocketVector','Saved Displacement')
+        ng_ao.inputs.new('NodeSocketShader','Saved Displacement')
 
         # Create group nodes
         ao_node = ng_ao.nodes.new('ShaderNodeAmbientOcclusion')
@@ -89,7 +89,7 @@ def ng_setup(self, context):
         ng_height.outputs.new('NodeSocketShader','Output')
         ng_height.inputs.new('NodeSocketShader','Saved Surface')
         ng_height.inputs.new('NodeSocketShader','Saved Volume')
-        ng_height.inputs.new('NodeSocketVector','Saved Displacement')
+        ng_height.inputs.new('NodeSocketShader','Saved Displacement')
 
         # Create group nodes
         camera_data_node = ng_height.nodes.new('ShaderNodeCameraData')
@@ -121,7 +121,7 @@ def ng_setup(self, context):
         ng_alpha.outputs.new('NodeSocketShader','Output')
         ng_alpha.inputs.new('NodeSocketShader','Saved Surface')
         ng_alpha.inputs.new('NodeSocketShader','Saved Volume')
-        ng_alpha.inputs.new('NodeSocketVector','Saved Displacement')
+        ng_alpha.inputs.new('NodeSocketShader','Saved Displacement')
 
         # Create group nodes
         camera_data_node = ng_alpha.nodes.new('ShaderNodeCameraData')
