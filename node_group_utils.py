@@ -6,9 +6,9 @@ def ng_setup(self, context):
     grabDoc = context.scene.grabDoc
 
     # NORMALS
-    if not 'GD_Normals' in bpy.data.node_groups:
+    if not 'GD_Normal' in bpy.data.node_groups:
         # Create node group
-        ng_normal = bpy.data.node_groups.new('GD_Normals', 'ShaderNodeTree')
+        ng_normal = bpy.data.node_groups.new('GD_Normal', 'ShaderNodeTree')
         ng_normal.use_fake_user = True
 
         # Create group outputs

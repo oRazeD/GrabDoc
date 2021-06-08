@@ -198,7 +198,7 @@ class GRABDOC_property_group(bpy.types.PropertyGroup):
             scene_shading.curvature_valley_factor = self.valleyCurvature
 
     def update_flip_y(self, context):
-        vec_multiply_node = bpy.data.node_groups["GD_Normals"].nodes.get('Vector Math')
+        vec_multiply_node = bpy.data.node_groups["GD_Normal"].nodes.get('Vector Math')
         vec_multiply_node.inputs[1].default_value[1] = -.5 if self.flipYNormals else .5
 
     def update_occlusion_gamma(self, context):
@@ -292,6 +292,13 @@ class GRABDOC_property_group(bpy.types.PropertyGroup):
             ('PNG', "PNG", ""),
             ('TIFF', "TIFF", ""),
             ('TARGA', "TGA", "")
+        ),
+        name="Format"
+    )
+
+    imageType_marmo: EnumProperty(
+        items=(
+            ('PNG', "PNG", ""),
         ),
         name="Format"
     )

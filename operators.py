@@ -518,7 +518,6 @@ def export_refresh(self, context):
 
     if grabDoc.imageType == 'PNG':
         render.image_settings.compression = self.savedCompression
-
     elif grabDoc.imageType == 'TIFF':
         render.image_settings.tiff_codec = self.savedCompression
 
@@ -583,7 +582,7 @@ class GRABDOC_OT_remove_setup(OpInfo, Operator):
     def execute(self, context):
         # Remove GD Node Groups
         for group in bpy.data.node_groups:
-            if group.name in ('GD_Normals', 'GD_Height', 'GD_Ambient Occlusion', 'GD_Alpha'):
+            if group.name in ('GD_Normal', 'GD_Height', 'GD_Ambient Occlusion', 'GD_Alpha'):
                 bpy.data.node_groups.remove(group)
 
         objectsColl = "GrabDoc Objects (put objects here)"
@@ -639,7 +638,7 @@ def normals_setup(self, context):
     render.image_settings.color_mode = 'RGBA'
     context.scene.display_settings.display_device = 'None'
 
-    add_ng_to_mat(self, context, setup_type='GD_Normals')
+    add_ng_to_mat(self, context, setup_type='GD_Normal')
 
 
 def normals_reimport_as_mat(self, context):
@@ -647,18 +646,18 @@ def normals_reimport_as_mat(self, context):
 
     # Remove pre-existing material
     for mat in bpy.data.materials:
-        if mat.name == f'{grabDoc.exportName}_normals':
+        if mat.name == f'{grabDoc.exportName}_normal':
             bpy.data.materials.remove(mat)
             break
 
     # Remove original image
     for image in bpy.data.images:
-        if image.name == f'{grabDoc.exportName}_normals':
+        if image.name == f'{grabDoc.exportName}_normal':
             bpy.data.images.remove(image)
             break
 
     # Create material
-    mat = bpy.data.materials.new(name=f'{grabDoc.exportName}_normals')
+    mat = bpy.data.materials.new(name=f'{grabDoc.exportName}_normal')
     mat.use_nodes = True
 
     output_node = mat.node_tree.nodes["Material Output"]
@@ -679,12 +678,12 @@ def normals_reimport_as_mat(self, context):
         file_extension = '.png'
 
     image_node = mat.node_tree.nodes.new('ShaderNodeTexImage')
-    image_node.image = bpy.data.images.load(f'{grabDoc.exportPath}{grabDoc.exportName}_normals{file_extension}')
+    image_node.image = bpy.data.images.load(f'{grabDoc.exportPath}{grabDoc.exportName}_normal{file_extension}')
     image_node.image.colorspace_settings.name = 'Linear'
     image_node.location = (-800,0)
 
     # Rename the newly imported image
-    bpy.data.images[f'{grabDoc.exportName}_normals{file_extension}'].name = f'{grabDoc.exportName}_normals'
+    bpy.data.images[f'{grabDoc.exportName}_normal{file_extension}'].name = f'{grabDoc.exportName}_normal'
 
     # Make links
     link = mat.node_tree.links
@@ -948,13 +947,13 @@ class GRABDOC_OT_export_maps(OpInfo, Operator):
 
         if grabDoc.uiVisibilityNormals and grabDoc.exportNormals:
             normals_setup(self, context)
-            grabdoc_export(self, context, exportSuffix="_normals")
+            grabdoc_export(self, context, exportSuffix="_normal")
 
             # Reimport the Normal map as a material (if the option is turned on)
             if context.scene.grabDoc.reimportAsMatNormals:
                 normals_reimport_as_mat(self, context)
 
-            cleanup_ng_from_mat(self, context, setup_type='GD_Normals')
+            cleanup_ng_from_mat(self, context, setup_type='GD_Normal')
 
         context.window_manager.progress_update(37.5)
 
@@ -1118,7 +1117,7 @@ class GRABDOC_OT_offline_render(OpInfo, Operator):
         if self.render_type == "normals":
             normals_setup(self, context)
             self.offline_render(context)
-            cleanup_ng_from_mat(self, context, setup_type='GD_Normals')
+            cleanup_ng_from_mat(self, context, setup_type='GD_Normal')
 
         elif self.render_type == "curvature":
             curvature_setup(self, context)
@@ -1326,7 +1325,7 @@ class GRABDOC_OT_map_preview(OpInfo, Operator):
             bpy.types.SpaceView3D.draw_handler_remove(self._handle, 'WINDOW')
 
             if self.preview_type == "normals":
-                cleanup_ng_from_mat(self, context, setup_type='GD_Normals')
+                cleanup_ng_from_mat(self, context, setup_type='GD_Normal')
             elif self.preview_type == "occlusion":
                 cleanup_ng_from_mat(self, context, setup_type='GD_Ambient Occlusion')
             elif self.preview_type == "height":
