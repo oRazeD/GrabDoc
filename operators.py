@@ -644,20 +644,22 @@ def normals_setup(self, context):
 def normals_reimport_as_mat(self, context):
     grabDoc = context.scene.grabDoc
 
+    mat_name = f'{grabDoc.exportName}_normal'
+
     # Remove pre-existing material
     for mat in bpy.data.materials:
-        if mat.name == f'{grabDoc.exportName}_normal':
+        if mat.name == mat_name:
             bpy.data.materials.remove(mat)
             break
 
     # Remove original image
     for image in bpy.data.images:
-        if image.name == f'{grabDoc.exportName}_normal':
+        if image.name == mat_name:
             bpy.data.images.remove(image)
             break
 
     # Create material
-    mat = bpy.data.materials.new(name=f'{grabDoc.exportName}_normal')
+    mat = bpy.data.materials.new(name=mat_name)
     mat.use_nodes = True
 
     output_node = mat.node_tree.nodes["Material Output"]
@@ -678,12 +680,12 @@ def normals_reimport_as_mat(self, context):
         file_extension = '.png'
 
     image_node = mat.node_tree.nodes.new('ShaderNodeTexImage')
-    image_node.image = bpy.data.images.load(f'{grabDoc.exportPath}{grabDoc.exportName}_normal{file_extension}')
+    image_node.image = bpy.data.images.load(f'{grabDoc.exportPath}{mat_name}{file_extension}')
     image_node.image.colorspace_settings.name = 'Linear'
     image_node.location = (-800,0)
 
     # Rename the newly imported image
-    bpy.data.images[f'{grabDoc.exportName}_normal{file_extension}'].name = f'{grabDoc.exportName}_normal'
+    bpy.data.images[f'{mat_name}{file_extension}'].name = mat_name
 
     # Make links
     link = mat.node_tree.links
@@ -718,7 +720,7 @@ def curvature_setup(self, context):
     self.savedCurveValleyFactor = scene_shading.curvature_valley_factor
     self.savedRidgeDistance = scene.display.matcap_ssao_distance
 
-    self.savedSingleList = [] # List for single_color because saving the variable on its own isn't enough (for some reason)
+    self.savedSingleList = [] # List for single_color because saving the variable on its own isn't enough for whatever reason
 
     for i in scene_shading.single_color:
         self.savedSingleList.append(i)
@@ -885,7 +887,7 @@ def alpha_setup(self, context):
 ################################################################################################################
 
 
-def grabdoc_export(self, context, exportSuffix):
+def grabdoc_export(self, context, export_suffix):
     grabDoc = context.scene.grabDoc
     render = context.scene.render
     
@@ -893,7 +895,7 @@ def grabdoc_export(self, context, exportSuffix):
     savedPath = render.filepath
 
     # Set - Output path to add-on path + add-on name + the type of map exported (file extensions handled automatically)
-    render.filepath = grabDoc.exportPath + grabDoc.exportName + exportSuffix
+    render.filepath = grabDoc.exportPath + grabDoc.exportName + '_' + export_suffix
 
     context.scene.camera = bpy.data.objects["GD_Trim Camera"]
 
@@ -947,7 +949,7 @@ class GRABDOC_OT_export_maps(OpInfo, Operator):
 
         if grabDoc.uiVisibilityNormals and grabDoc.exportNormals:
             normals_setup(self, context)
-            grabdoc_export(self, context, exportSuffix="_normal")
+            grabdoc_export(self, context, export_suffix=grabDoc.normals_suffix)
 
             # Reimport the Normal map as a material (if the option is turned on)
             if context.scene.grabDoc.reimportAsMatNormals:
@@ -959,14 +961,14 @@ class GRABDOC_OT_export_maps(OpInfo, Operator):
 
         if grabDoc.uiVisibilityCurvature and grabDoc.exportCurvature:
             curvature_setup(self, context)
-            grabdoc_export(self, context, exportSuffix="_curvature")
+            grabdoc_export(self, context, export_suffix=grabDoc.curvature_suffix)
             curvature_refresh(self, context)
 
         context.window_manager.progress_update(50)
 
         if grabDoc.uiVisibilityOcclusion and grabDoc.exportOcclusion:
             occlusion_setup(self, context)
-            grabdoc_export(self, context, exportSuffix="_ao")
+            grabdoc_export(self, context, export_suffix=grabDoc.occlusion_suffix)
 
             # Reimport the Normal map as a material if requested
             if context.scene.grabDoc.reimportAsMatOcclusion:
@@ -979,21 +981,21 @@ class GRABDOC_OT_export_maps(OpInfo, Operator):
 
         if grabDoc.uiVisibilityHeight and grabDoc.exportHeight:
             height_setup(self, context)
-            grabdoc_export(self, context, exportSuffix="_height")
+            grabdoc_export(self, context, export_suffix=grabDoc.height_suffix)
             cleanup_ng_from_mat(self, context, setup_type='GD_Height')
 
         context.window_manager.progress_update(75)
 
         if grabDoc.uiVisibilityAlpha and grabDoc.exportAlpha:
             alpha_setup(self, context)
-            grabdoc_export(self, context, exportSuffix="_alpha")
+            grabdoc_export(self, context, export_suffix=grabDoc.alpha_suffix)
             cleanup_ng_from_mat(self, context, setup_type='GD_Alpha')
 
         context.window_manager.progress_update(87.5)
 
         if grabDoc.uiVisibilityMatID and grabDoc.exportMatID:
             id_setup(self, context)
-            grabdoc_export(self, context, exportSuffix="_matID")
+            grabdoc_export(self, context, export_suffix=grabDoc.id_suffix)
 
         context.window_manager.progress_update(99)
 

@@ -355,14 +355,26 @@ class GRABDOC_property_group(bpy.types.PropertyGroup):
 
     flipYNormals: BoolProperty(name="Flip Y (-Y)", description="Flip the normal map Y direction", options={'SKIP_SAVE'}, update=update_flip_y)
 
+    normals_suffix: StringProperty(
+        name="",
+        description="The suffix of the exported bake map",
+        default="normal"
+    )
+
     samplesNormals: IntProperty(name="", default=128, min=1, max=500)
-    
+
     # Curvature
     exportCurvature: BoolProperty(default=True)
 
     ridgeCurvature: FloatProperty(name="", default=2, min=0, max=2, precision=3, step=.1, update=update_curvature, subtype='FACTOR')
 
     valleyCurvature: FloatProperty(name="", default=1.5, min=0, max=2, precision=3, step=.1, update=update_curvature, subtype='FACTOR')
+
+    curvature_suffix: StringProperty(
+        name="",
+        description="The suffix of the exported bake map",
+        default="curvature"
+    )
 
     contrastCurvature: EnumProperty(
         items=(
@@ -416,6 +428,12 @@ class GRABDOC_property_group(bpy.types.PropertyGroup):
         description="The distance AO rays travel",
         update=update_occlusion_distance
     )
+
+    occlusion_suffix: StringProperty(
+        name="",
+        description="The suffix of the exported bake map",
+        default="ao"
+    )
     
     samplesOcclusion: IntProperty(name="", default=128, min=1, max=500)
 
@@ -439,6 +457,21 @@ class GRABDOC_property_group(bpy.types.PropertyGroup):
 
     guideHeight: FloatProperty(name="", default=1, min=.01, soft_max=100, step=.03, subtype='DISTANCE', update=update_height_guide)
 
+    rangeTypeHeight: EnumProperty(
+        items=(
+            ('AUTO', "Auto", ""),
+            ('MANUAL', "Manual", "")
+        ),
+        update=update_manual_height_range,
+        description="Automatic or manual height range. Use manual if automatic is giving you incorrect results or if baking is really slow"
+    )
+
+    height_suffix: StringProperty(
+        name="",
+        description="The suffix of the exported bake map",
+        default="height"
+    )
+
     samplesHeight: IntProperty(name="", default=128, min=1, max=500)
 
     contrastHeight: EnumProperty(
@@ -452,21 +485,18 @@ class GRABDOC_property_group(bpy.types.PropertyGroup):
             ('Very_Low_Contrast', "Very Low", "")
         ),
         name="Height Contrast"
-    )     
-
-    rangeTypeHeight: EnumProperty(
-        items=(
-            ('AUTO', "Auto", ""),
-            ('MANUAL', "Manual", "")
-        ),
-        update=update_manual_height_range,
-        description="Automatic or manual height range. Use manual if automatic is giving you incorrect results or if baking is really slow"
-    )
+    ) 
 
     # Alpha
     exportAlpha: BoolProperty(update=scene_setup_and_refresh)
 
     invertMaskAlpha: BoolProperty(description="Invert the Alpha mask", update=update_alpha)
+
+    alpha_suffix: StringProperty(
+        name="",
+        description="The suffix of the exported bake map",
+        default="alpha"
+    )
 
     samplesAlpha: IntProperty(name="", default=128, min=1, max=500)
 
@@ -486,6 +516,12 @@ class GRABDOC_property_group(bpy.types.PropertyGroup):
             ('MATERIAL', "Material", "")
         ),
         default="MATERIAL"
+    )
+
+    id_suffix: StringProperty(
+        name="",
+        description="The suffix of the exported bake map",
+        default="matID"
     )
 
     samplesMatID: EnumProperty(

@@ -134,7 +134,9 @@ class GRABDOC_PT_export(PanelInfo, Panel):
         row.prop(grabDoc, 'bakerType', text = "Baker")
 
         row = box.row()
+        row.alert = not grabDoc.exportPath
         row.prop(grabDoc, 'exportPath', text = "Export Path")
+        row.alert = False
         row.operator("grab_doc.open_folder", text = '', icon = "FOLDER_REDIRECT")
 
         box.prop(grabDoc, "exportName", text = "Name")
@@ -289,9 +291,11 @@ def normals_ui(layout, context):
     if grabDoc.bakerType == 'Blender':
         col.separator(factor=.5)
         col.prop(grabDoc, 'reimportAsMatNormals', text = "Import as Material")
-
         col.separator(factor=1.5)
         col.prop(grabDoc, "samplesNormals", text = 'Sampling')
+
+    col.separator(factor=1.5)
+    col.prop(grabDoc, 'normals_suffix', text = "Suffix")
 
 
 class GRABDOC_PT_curvature_settings(PanelInfo, Panel):
@@ -331,13 +335,15 @@ def curvature_ui(layout, context):
         col.prop(grabDoc, 'ridgeCurvature', text = "Ridge")
         col.separator(factor=.5)
         col.prop(grabDoc, 'valleyCurvature', text = "Valley")
-
         col.separator(factor=1.5)
         col.prop(grabDoc, "samplesCurvature", text = "Sampling")
         col.separator(factor=.5)
         col.prop(grabDoc, 'contrastCurvature', text = "Contrast")
     else: # Marmoset
-        col.separator()
+        pass
+    
+    col.separator(factor=1.5)
+    col.prop(grabDoc, 'curvature_suffix', text = "Suffix")
 
 
 class GRABDOC_PT_occlusion_settings(PanelInfo, Panel):
@@ -383,11 +389,13 @@ def occlusion_ui(layout, context):
         col.prop(grabDoc, 'gammaOcclusion', text = "Intensity")
         col.separator(factor=.5)
         col.prop(grabDoc, 'distanceOcclusion', text = "Distance")
-
         col.separator(factor=1.5)
         col.prop(grabDoc, "samplesOcclusion", text = "Samples")
         col.separator(factor=.5)
         col.prop(grabDoc, 'contrastOcclusion', text = "Contrast")
+
+    col.separator(factor=1.5)
+    col.prop(grabDoc, 'occlusion_suffix', text = "Suffix")
 
 
 class GRABDOC_PT_height_settings(PanelInfo, Panel):
@@ -439,6 +447,9 @@ def height_ui(layout, context):
         col.prop(grabDoc, "samplesHeight", text = "Samples")
         col.separator(factor=.5)
         col.prop(grabDoc, 'contrastHeight', text = "Contrast")
+    
+    col.separator(factor=1.5)
+    col.prop(grabDoc, 'height_suffix', text = "Suffix")
 
 
 class GRABDOC_PT_id_settings(PanelInfo, Panel):
@@ -505,7 +516,10 @@ def id_ui(layout, context):
 
     if grabDoc.bakerType == 'Blender':
         col.separator(factor=1.5)
-        col.prop(grabDoc, "samplesMatID", text = "Samples") 
+        col.prop(grabDoc, "samplesMatID", text = "Samples")
+
+    col.separator(factor=1.5)
+    col.prop(grabDoc, 'id_suffix', text = "Suffix")
 
 
 class GRABDOC_PT_alpha_settings(PanelInfo, Panel):
@@ -546,7 +560,10 @@ def alpha_ui(layout, context):
         col.separator(factor=1.5)
         col.prop(grabDoc, 'samplesAlpha', text = "Samples")
     else: # Marmoset
-        col.separator()
+        pass
+    
+    col.separator(factor=1.5)
+    col.prop(grabDoc, 'alpha_suffix', text = "Suffix")
 
 
 ################################################################################################################
