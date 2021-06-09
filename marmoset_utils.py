@@ -55,7 +55,7 @@ def refresh_scene():
         if marmo_json["export_alpha"]:
             alphaMap = baker.getMap("Height")
             alphaMap.enabled = marmo_json["export_alpha"]
-            alphaMap.suffix = 'alpha'
+            alphaMap.suffix = marmo_json['suffix_alpha']
             alphaMap.innerDistance = 0
             alphaMap.outerDistance = .01
 
@@ -66,26 +66,29 @@ def refresh_scene():
 
         normalMap = baker.getMap("Normals")
         normalMap.enabled = marmo_json["export_normal"]
-        normalMap.suffix = 'normal'
+        normalMap.suffix = marmo_json['suffix_normal']
         normalMap.flipY = marmo_json["flipy_normal"]
         normalMap.flipX = False
         normalMap.dither = False
 
         curvatureMap = baker.getMap("Curvature")
         curvatureMap.enabled = marmo_json["export_curvature"]
+        curvatureMap.suffix = marmo_json['suffix_curvature']
 
         occlusionMap = baker.getMap("Ambient Occlusion")
         occlusionMap.enabled = marmo_json["export_occlusion"]
+        occlusionMap.suffix = marmo_json['suffix_occlusion']
         occlusionMap.rayCount = marmo_json["ray_count_occlusion"]
 
         heightMap = baker.getMap("Height")
         heightMap.enabled = marmo_json["export_height"]
-        heightMap.suffix = 'height'
+        heightMap.suffix = marmo_json['suffix_height']
         heightMap.innerDistance = 0
         heightMap.outerDistance = marmo_json["cage_height"] / 2 - .02
 
         matIDMap = baker.getMap("Material ID")
         matIDMap.enabled = marmo_json["export_matid"]
+        matIDMap.suffix = marmo_json['suffix_id']
 
         ## BAKE & FINALIZE
 
@@ -110,11 +113,11 @@ def refresh_scene():
 
                 # Material preview
                 if marmo_json["export_normal"]:
-                    findDefault.getSubroutine('surface').setField('Normal Map', marmo_json["file_path"][:-4] + '_normal' + '.png')
+                    findDefault.getSubroutine('surface').setField('Normal Map', marmo_json["file_path"][:-4] + '_' + marmo_json['suffix_normal'] + '.png')
 
                 if marmo_json["export_occlusion"]:
                     findDefault.setSubroutine('occlusion', 'Occlusion')
-                    findDefault.getSubroutine('occlusion').setField('Occlusion Map', marmo_json["file_path"][:-4] + '_ao' + '.png')
+                    findDefault.getSubroutine('occlusion').setField('Occlusion Map', marmo_json["file_path"][:-4] + '_' + marmo_json['suffix_occlusion'] + '.png')
 
                 # Rename bake material
                 findDefault.name = 'Bake Material'

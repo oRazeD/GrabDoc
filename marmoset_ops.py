@@ -46,18 +46,24 @@ class GrabDoc_OT_send_to_marmo(OpInfo, bpy.types.Operator):
 
             'export_normal': grabDoc.exportNormals & grabDoc.uiVisibilityNormals,
             'flipy_normal': grabDoc.flipYNormals,
+            'suffix_normal': grabDoc.normals_suffix,
 
             'export_curvature': grabDoc.exportCurvature & grabDoc.uiVisibilityCurvature,
+            'suffix_curvature': grabDoc.curvature_suffix,
 
             'export_occlusion': grabDoc.exportOcclusion & grabDoc.uiVisibilityOcclusion,
             'ray_count_occlusion': grabDoc.marmoAORayCount,
+            'suffix_occlusion': grabDoc.occlusion_suffix,
 
             'export_height': grabDoc.exportHeight & grabDoc.uiVisibilityHeight,
             'cage_height': grabDoc.guideHeight * 100 * 2,
+            'suffix_height': grabDoc.height_suffix,
 
             'export_alpha': grabDoc.exportAlpha & grabDoc.uiVisibilityAlpha,
+            'suffix_alpha': grabDoc.alpha_suffix,
 
-            'export_matid': grabDoc.exportMatID & grabDoc.uiVisibilityMatID
+            'export_matid': grabDoc.exportMatID & grabDoc.uiVisibilityMatID,
+            'suffix_id': grabDoc.id_suffix
         }
 
         # Flip the slashes of the first Dict value (It's gross but I don't know how to do it any other way without an error in Marmoset)
