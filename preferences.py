@@ -45,6 +45,7 @@ class GRABDOC_OT_add_preset(AddPresetBase, bpy.types.Operator):
         "grabDoc.gridSubdivisions",
         "grabDoc.scalingSet",
 
+        "grabDoc.bakerType",
         "grabDoc.exportPath",
         "grabDoc.exportName",
         "grabDoc.exportResX",
@@ -64,19 +65,21 @@ class GRABDOC_OT_add_preset(AddPresetBase, bpy.types.Operator):
         "grabDoc.uiVisibilityCurvature",
         "grabDoc.uiVisibilityOcclusion",
         "grabDoc.uiVisibilityHeight",
-        "grabDoc.uiVisibilityMatID",
         "grabDoc.uiVisibilityAlpha",
+        "grabDoc.uiVisibilityMatID",
 
         "grabDoc.exportNormals",
         "grabDoc.reimportAsMatNormals",
         "grabDoc.flipYNormals",
         "grabDoc.samplesNormals",
+        "grabDoc.normals_suffix",
 
         "grabDoc.exportCurvature",
         "grabDoc.ridgeCurvature",
         "grabDoc.valleyCurvature",
         "grabDoc.samplesCurvature",
         "grabDoc.contrastCurvature",
+        "grabDoc.curvature_suffix",
 
         "grabDoc.exportOcclusion",
         "grabDoc.reimportAsMatOcclusion",
@@ -84,6 +87,7 @@ class GRABDOC_OT_add_preset(AddPresetBase, bpy.types.Operator):
         "grabDoc.distanceOcclusion",
         "grabDoc.samplesOcclusion",
         "grabDoc.contrastOcclusion",
+        "grabDoc.occlusion_suffix",
 
         "grabDoc.exportHeight",
         "grabDoc.rangeTypeHeight",
@@ -91,16 +95,17 @@ class GRABDOC_OT_add_preset(AddPresetBase, bpy.types.Operator):
         "grabDoc.invertMaskHeight",
         "grabDoc.samplesHeight",
         "grabDoc.contrastHeight",
+        "grabDoc.height_suffix",
         
         "grabDoc.exportAlpha",
         "grabDoc.invertMaskAlpha",
         "grabDoc.samplesAlpha",
+        "grabDoc.alpha_suffix",
 
         "grabDoc.exportMatID",
         "grabDoc.methodMatID",
         "grabDoc.samplesMatID",
-
-        "grabDoc.bakerType",
+        "grabDoc.id_suffix",
 
         "grabDoc.marmoEXE",
         "grabDoc.marmoAutoBake",
@@ -253,6 +258,10 @@ class GRABDOC_property_group(bpy.types.PropertyGroup):
         if self.modalState:
             bpy.data.objects["GD_Background Plane"].active_material = bpy.data.materials['GD_Material (do not touch contents)']
 
+    def update_export_path(self, context):
+        if self.exportPath != '' and not os.path.exists(self.exportPath):
+            self.exportPath = ''
+
     ### PROPERTIES ###
 
     ## SETUP SETTINGS
@@ -278,7 +287,7 @@ class GRABDOC_property_group(bpy.types.PropertyGroup):
         name="Baker"    
     )
 
-    exportPath: StringProperty(name="", default="", description="", subtype='DIR_PATH')
+    exportPath: StringProperty(name="", default="", description="", subtype='DIR_PATH', update=update_export_path)
     
     exportResX: IntProperty(name="", default=2048, min=4, soft_max=8192, update=update_res_x)
     exportResY: IntProperty(name="", default=2048, min=4, soft_max=8192, update=update_res_y)
