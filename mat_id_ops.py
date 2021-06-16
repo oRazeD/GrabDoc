@@ -74,7 +74,7 @@ class GRABDOC_OT_quick_id_selected(OpInfo, Operator):
                 ob.active_material = mat
 
         for mat in bpy.data.materials:
-            if mat.name.startswith('GD_ID') or mat.name.startswith('GD_RANDOM') and not mat.users:
+            if mat.name.startswith('GD_ID') and not mat.users or mat.name.startswith('GD_RANDOM') and not mat.users:
                 bpy.data.materials.remove(mat)
         return{'FINISHED'}
 
