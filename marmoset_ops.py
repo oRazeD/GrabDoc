@@ -115,7 +115,7 @@ class GrabDoc_OT_send_to_marmo(OpInfo, bpy.types.Operator):
         addon_path = os.path.dirname(__file__)
         
         # Temporary model path 
-        temps_path = os.path.join(addon_path, "Temp")
+        temps_path = os.path.join(addon_path, "temp")
 
         # Create the directory 
         if not os.path.exists(temps_path):
@@ -142,6 +142,7 @@ class GrabDoc_OT_send_to_marmo(OpInfo, bpy.types.Operator):
         bg_plane_ob = bpy.data.objects.get('GD_Background Plane')
         bg_plane_ob.name = "GD_low GD_Background Plane"
         bpy.data.collections["GrabDoc (do not touch contents)"].hide_select = False
+        bg_plane_ob.hide_select = False
         bg_plane_ob.select_set(True)
 
         # Copy the object, link into the scene & rename as high poly
