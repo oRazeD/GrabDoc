@@ -287,7 +287,7 @@ class GRABDOC_property_group(bpy.types.PropertyGroup):
         name="Baker"    
     )
 
-    exportPath: StringProperty(name="", default="", description="", subtype='DIR_PATH', update=update_export_path)
+    exportPath: StringProperty(name="", default=" ", description="", subtype='DIR_PATH', update=update_export_path)
     
     exportResX: IntProperty(name="", default=2048, min=4, soft_max=8192, update=update_res_x)
     exportResY: IntProperty(name="", default=2048, min=4, soft_max=8192, update=update_res_y)
