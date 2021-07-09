@@ -13,6 +13,8 @@ def export_bg_plane(self, context):
     bpy.ops.object.select_all(action='DESELECT')
 
     # Select bg plane, export and deselect bg plane
+    bpy.data.collections["GrabDoc (do not touch contents)"].hide_select = False
+    bpy.data.objects["GD_Background Plane"].hide_select = False
     bpy.data.objects["GD_Background Plane"].select_set(True)
     
     bpy.ops.export_scene.fbx(
@@ -25,6 +27,9 @@ def export_bg_plane(self, context):
     # Refresh original selection
     for ob in savedSelection:
         ob.select_set(True)
+
+    if not context.scene.grabDoc.collSelectable:
+        bpy.data.collections["GrabDoc (do not touch contents)"].hide_select = False
 
 
 # LOOK FOR GRABDOC OBJECTS TO DECIDE IF THE SCENE IS SETUP CORRECTLY
