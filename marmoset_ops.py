@@ -31,8 +31,8 @@ class GrabDoc_OT_send_to_marmo(OpInfo, bpy.types.Operator):
 
         # Create a dictionary of variables to transfer into Marmoset
         marmo_vars = {
-            'file_path': f'{grabDoc.exportPath}{grabDoc.exportName}.{grabDoc.imageType_marmo.lower()}',
-            'file_path_no_ext': grabDoc.exportPath,
+            'file_path': f'{bpy.path.abspath(grabDoc.exportPath)}{grabDoc.exportName}.{grabDoc.imageType_marmo.lower()}',
+            'file_path_no_ext': bpy.path.abspath(grabDoc.exportPath),
             'marmo_sky_path': f'{os.path.dirname(grabDoc.marmoEXE)}\\data\\sky\\Evening Clouds.tbsky',
 
             'resolution_x': grabDoc.exportResX,

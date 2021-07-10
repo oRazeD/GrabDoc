@@ -680,7 +680,7 @@ def normals_reimport_as_mat(self, context):
         file_extension = '.png'
 
     image_node = mat.node_tree.nodes.new('ShaderNodeTexImage')
-    image_node.image = bpy.data.images.load(f'{grabDoc.exportPath}{mat_name}{file_extension}')
+    image_node.image = bpy.data.images.load(f'{bpy.path.abspath(grabDoc.exportPath)}{mat_name}{file_extension}')
     image_node.image.colorspace_settings.name = 'Linear'
     image_node.location = (-800,0)
 
@@ -820,7 +820,7 @@ def occlusion_reimport_as_mat(self, context):
         file_extension = '.png'
 
     image_node = mat.node_tree.nodes.new('ShaderNodeTexImage')
-    image_node.image = bpy.data.images.load(f'{grabDoc.exportPath}{grabDoc.exportName}_AO{file_extension}')
+    image_node.image = bpy.data.images.load(f'{bpy.path.abspath(grabDoc.exportPath)}{grabDoc.exportName}_AO{file_extension}')
     image_node.location = (-300,0)
 
     # Rename the newly imported image
@@ -895,7 +895,7 @@ def grabdoc_export(self, context, export_suffix):
     savedPath = render.filepath
 
     # Set - Output path to add-on path + add-on name + the type of map exported (file extensions handled automatically)
-    render.filepath = grabDoc.exportPath + grabDoc.exportName + '_' + export_suffix
+    render.filepath = bpy.path.abspath(grabDoc.exportPath) + grabDoc.exportName + '_' + export_suffix
 
     context.scene.camera = bpy.data.objects["GD_Trim Camera"]
 
@@ -1017,7 +1017,7 @@ class GRABDOC_OT_export_maps(OpInfo, Operator):
         context.window_manager.progress_update(98)
 
         if grabDoc.openFolderOnExport:
-            bpy.ops.wm.path_open(filepath = grabDoc.exportPath)
+            bpy.ops.wm.path_open(filepath = bpy.path.abspath(grabDoc.exportPath))
 
         # End the timer
         end = time.time()
@@ -1451,7 +1451,7 @@ class GRABDOC_OT_export_current_preview(OpInfo, Operator):
         savedPath = render.filepath
 
         # Set - Output path to add-on path + add-on name + the type of map exported (file extensions get handled automatically)
-        render.filepath = grabDoc.exportPath + grabDoc.exportName + f"_{grabDoc.modalPreviewType}"
+        render.filepath = bpy.path.abspath(grabDoc.exportPath) + grabDoc.exportName + f"_{grabDoc.modalPreviewType}"
 
         bpy.ops.render.render(write_still = True)
 
@@ -1471,7 +1471,7 @@ class GRABDOC_OT_export_current_preview(OpInfo, Operator):
         
         # Open export path location if requested
         if grabDoc.openFolderOnExport:
-            bpy.ops.wm.path_open(filepath = grabDoc.exportPath)
+            bpy.ops.wm.path_open(filepath = bpy.path.abspath(grabDoc.exportPath))
 
         # End the timer
         end = time.time()

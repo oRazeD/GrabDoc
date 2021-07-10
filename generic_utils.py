@@ -18,7 +18,7 @@ def export_bg_plane(self, context):
     bpy.data.objects["GD_Background Plane"].select_set(True)
     
     bpy.ops.export_scene.fbx(
-        filepath=f'{os.path.join(context.scene.grabDoc.exportPath, context.scene.grabDoc.exportName)}_plane.fbx',
+        filepath=f'{os.path.join(bpy.path.abspath(context.scene.grabDoc.exportPath), context.scene.grabDoc.exportName)}_plane.fbx',
         use_selection=True
     )
 
@@ -78,7 +78,7 @@ def bad_setup_check(self, context, active_export, report_value=False, report_str
 
     if active_export:
         # Check for export path
-        if not os.path.exists(grabDoc.exportPath) and not report_value:
+        if not os.path.exists(bpy.path.abspath(grabDoc.exportPath)) and not report_value:
             report_value = True
             report_string = "There is no export path set"
 
@@ -138,7 +138,7 @@ class GRABDOC_OT_open_folder(OpInfo, Operator):
 
     def execute(self, context):
         try:
-            bpy.ops.wm.path_open(filepath = context.scene.grabDoc.exportPath)
+            bpy.ops.wm.path_open(filepath = bpy.path.abspath(context.scene.grabDoc.exportPath))
         except RuntimeError:
             self.report({'ERROR'}, "No valid file path set")
         return{'FINISHED'}

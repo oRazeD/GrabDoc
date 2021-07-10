@@ -134,7 +134,7 @@ class GRABDOC_PT_export(PanelInfo, Panel):
         row.prop(grabDoc, 'bakerType', text = "Baker")
 
         row = box.row()
-        row.alert = not os.path.exists(grabDoc.exportPath)
+        row.alert = not os.path.exists(bpy.path.abspath(grabDoc.exportPath))
         row.prop(grabDoc, 'exportPath', text = "Export Path")
         row.alert = False
         row.operator("grab_doc.open_folder", text = '', icon = "FOLDER_REDIRECT")

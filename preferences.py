@@ -259,7 +259,7 @@ class GRABDOC_property_group(bpy.types.PropertyGroup):
             bpy.data.objects["GD_Background Plane"].active_material = bpy.data.materials['GD_Material (do not touch contents)']
 
     def update_export_path(self, context):
-        if self.exportPath != '' and not os.path.exists(self.exportPath):
+        if self.exportPath != '' and not os.path.exists(bpy.path.abspath(self.exportPath)):
             self.exportPath = ''
 
     ### PROPERTIES ###
