@@ -16,7 +16,7 @@ def refresh_scene():
 
         baker.outputPath = marmo_json["file_path"]
         baker.outputBits = marmo_json["bits_per_channel"]
-        baker.outputSamples = marmo_json["samples"]
+
         baker.edgePadding = "None"
         baker.outputSoften = 0.5
         baker.useHiddenMeshes = True
@@ -26,6 +26,11 @@ def refresh_scene():
         baker.multipleTextureSets = False
         baker.outputWidth = marmo_json["resolution_x"]
         baker.outputHeight = marmo_json["resolution_y"]
+
+        if mset.getToolbagVersion() < 4000 and marmo_json["samples"] == 64:
+            baker.outputSamples = 16
+        else:
+            baker.outputSamples = marmo_json["samples"]
 
         # Import the models
         baker.importModel(os.path.normpath(os.path.join(temps_path, "GD_temp_model.fbx")))
@@ -113,11 +118,11 @@ def refresh_scene():
 
                 # Material preview
                 if marmo_json["export_normal"]:
-                    findDefault.getSubroutine('surface').setField('Normal Map', marmo_json["file_path"][:-4] + '_' + marmo_json['suffix_normal'] + '.png')
+                    findDefault.getSubroutine('surface').setField('Normal Map', marmo_json["file_path"][:-4] + '_' + marmo_json['suffix_normal'] + '.' + marmo_json['file_ext'])
 
                 if marmo_json["export_occlusion"]:
                     findDefault.setSubroutine('occlusion', 'Occlusion')
-                    findDefault.getSubroutine('occlusion').setField('Occlusion Map', marmo_json["file_path"][:-4] + '_' + marmo_json['suffix_occlusion'] + '.png')
+                    findDefault.getSubroutine('occlusion').setField('Occlusion Map', marmo_json["file_path"][:-4] + '_' + marmo_json['suffix_occlusion'] + '.' + marmo_json['file_ext'])
 
                 # Rename bake material
                 findDefault.name = 'Bake Material'

@@ -308,6 +308,7 @@ class GRABDOC_property_group(bpy.types.PropertyGroup):
     imageType_marmo: EnumProperty(
         items=(
             ('PNG', "PNG", ""),
+            ('PSD', "PSD", ""),
         ),
         name="Format"
     )
@@ -584,10 +585,12 @@ class GRABDOC_property_group(bpy.types.PropertyGroup):
         items=(
             ('1', "1x", ""),
             ('4', "4x", ""),
-            ('16', "16x", "")
+            ('16', "16x", ""),
+            ('64', "64x", "")
         ),
         default="16",
-        name="Marmoset Samples"
+        name="Marmoset Samples",
+        description='The amount of samples rendered per pixel. 64x samples will NOT work in Marmoset 3 and will default to 16x samples'
     )
 
     marmoAORayCount: IntProperty(default=512, min=32, soft_max=4096)
