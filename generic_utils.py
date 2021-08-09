@@ -6,6 +6,8 @@ from .render_setup_utils import get_rendered_objects
 
 # EXPORT THE GRABDOC BACKGROUND PLANE FOR USE EXTERNALLY
 def export_bg_plane(self, context):
+    grabDoc = context.scene.grabDoc
+
     # Save original selection
     savedSelection = context.selected_objects
 
@@ -18,7 +20,7 @@ def export_bg_plane(self, context):
     bpy.data.objects["GD_Background Plane"].select_set(True)
     
     bpy.ops.export_scene.fbx(
-        filepath=f'{os.path.join(bpy.path.abspath(context.scene.grabDoc.exportPath), context.scene.grabDoc.exportName)}_plane.fbx',
+        filepath=f'{os.path.join(bpy.path.abspath(grabDoc.exportPath), grabDoc.exportName)}_plane.fbx',
         use_selection=True
     )
 
@@ -28,7 +30,7 @@ def export_bg_plane(self, context):
     for ob in savedSelection:
         ob.select_set(True)
 
-    if not context.scene.grabDoc.collSelectable:
+    if not grabDoc.collSelectable:
         bpy.data.collections["GrabDoc (do not touch contents)"].hide_select = False
 
 
@@ -165,7 +167,7 @@ class GRABDOC_OT_view_cam(OpInfo, Operator):
                 bpy.ops.view3d.view_camera()
         except:
             traceback.print_exc()
-            self.report({'ERROR'}, "Exit camera failed, please contact the developer with the error code listed in the console. ethan.simon.3d@gmail.com")
+            self.report({'ERROR'}, "Exit camera failed, please email the developer with the error code listed in the console. ethan.simon.3d@gmail.com")
 
         self.from_modal = False
         return{'FINISHED'}

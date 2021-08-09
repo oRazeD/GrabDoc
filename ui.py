@@ -37,6 +37,7 @@ class GRABDOC_OT_config_maps(bpy.types.Operator):
         layout.prop(grabDoc, 'uiVisibilityHeight', text = "Height")
         layout.prop(grabDoc, 'uiVisibilityMatID', text = "Material ID")
         layout.prop(grabDoc, 'uiVisibilityAlpha', text = "Alpha")
+        layout.prop(grabDoc, 'uiVisibilityAlbedo', text = "Albedo")
 
 
 class GRABDOC_PT_grabdoc(PanelInfo, Panel):
@@ -566,6 +567,43 @@ def alpha_ui(layout, context):
     col.prop(grabDoc, 'alpha_suffix', text = "Suffix")
 
 
+class GRABDOC_PT_albedo_settings(PanelInfo, Panel):
+    bl_label = ''
+    bl_parent_id = "GRABDOC_PT_view_edit_maps"
+    bl_options = {'HEADER_LAYOUT_EXPAND', 'DEFAULT_CLOSED'}
+
+    @classmethod
+    def poll(cls, context):
+        return not context.scene.grabDoc.modalState and context.scene.grabDoc.uiVisibilityAlbedo
+
+    def draw_header(self, context):
+        grabDoc = context.scene.grabDoc
+
+        row = self.layout.row(align = True)
+        row.separator(factor = .5)
+        row.prop(grabDoc, 'exportAlpha', text = "")
+
+        row.operator("grab_doc.preview_warning" if grabDoc.firstBakePreview else "grab_doc.preview_map", text = "Albedo Preview").preview_type = 'albedo'
+
+        row.operator("grab_doc.offline_render", text = "", icon = "RENDER_STILL").render_type = 'albedo'
+        row.separator(factor = 1.3)
+
+    def draw(self, context):
+        albedo_ui(self.layout, context)
+
+
+def albedo_ui(layout, context):
+    grabDoc = context.scene.grabDoc
+
+    layout.use_property_split = True
+    layout.use_property_decorate = False
+
+    col = layout.column()
+    
+    col.separator(factor=1.5)
+    col.prop(grabDoc, 'albedo_suffix', text = "Suffix")
+
+
 ################################################################################################################
 # REGISTRATION
 ################################################################################################################
@@ -581,7 +619,8 @@ classes = (
     GRABDOC_PT_occlusion_settings,
     GRABDOC_PT_height_settings,
     GRABDOC_PT_id_settings,
-    GRABDOC_PT_alpha_settings
+    GRABDOC_PT_alpha_settings,
+    GRABDOC_PT_albedo_settings
 )
 
 

@@ -67,6 +67,7 @@ class GRABDOC_OT_add_preset(AddPresetBase, bpy.types.Operator):
         "grabDoc.uiVisibilityHeight",
         "grabDoc.uiVisibilityAlpha",
         "grabDoc.uiVisibilityMatID",
+        "grabDoc.uiVisibilityAlbedo",
 
         "grabDoc.exportNormals",
         "grabDoc.reimportAsMatNormals",
@@ -106,6 +107,11 @@ class GRABDOC_OT_add_preset(AddPresetBase, bpy.types.Operator):
         "grabDoc.methodMatID",
         "grabDoc.samplesMatID",
         "grabDoc.id_suffix",
+        
+        "grabDoc.exportAlbedo",
+        "grabDoc.invertMaskAlbedo",
+        "grabDoc.samplesAlbedo",
+        "grabDoc.albedo_suffix",
 
         "grabDoc.marmoEXE",
         "grabDoc.marmoAutoBake",
@@ -355,6 +361,7 @@ class GRABDOC_property_group(bpy.types.PropertyGroup):
     uiVisibilityHeight: BoolProperty(default=True)
     uiVisibilityMatID: BoolProperty(default=True)
     uiVisibilityAlpha: BoolProperty(default=True)
+    uiVisibilityAlbedo: BoolProperty(default=True)
 
     ## BAKE MAP SETTINGS
 
@@ -548,6 +555,17 @@ class GRABDOC_property_group(bpy.types.PropertyGroup):
         name="Mat ID Samples"
     )
 
+    # Albedo
+    exportAlbedo: BoolProperty(update=scene_setup_and_refresh)
+
+    albedo_suffix: StringProperty(
+        name="",
+        description="The suffix of the exported bake map",
+        default="albedo"
+    )
+
+    samplesAlbedo: IntProperty(name="", default=128, min=1, max=500)
+
     ## MAP PREVIEW
 
     firstBakePreview: BoolProperty(default=True)
@@ -564,7 +582,8 @@ class GRABDOC_property_group(bpy.types.PropertyGroup):
             ('occlusion', "Ambient Occlusion", ""),
             ('height', "Height", ""),
             ('alpha', "Alpha", ""),
-            ('ID', "Material ID", "")
+            ('ID', "Material ID", ""),
+            ('albedo', "Albedo", ""),
         )
     )
 

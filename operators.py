@@ -882,6 +882,20 @@ def alpha_setup(self, context):
     add_ng_to_mat(self, context, setup_type='GD_Alpha')
 
 
+# ALBEDO
+def albedo_setup(self, context):
+    grabDoc = context.scene.grabDoc
+    render = context.scene.render
+
+    render.engine = 'BLENDER_EEVEE'
+    context.scene.eevee.taa_render_samples = grabDoc.samplesAlbedo
+    context.scene.eevee.taa_samples = grabDoc.samplesAlbedo
+    render.image_settings.color_mode = 'RGBA'
+    context.scene.display_settings.display_device = 'sRGB'
+
+    add_ng_to_mat(self, context, setup_type='GD_Albedo')
+
+
 ################################################################################################################
 # MAP EXPORTER
 ################################################################################################################
@@ -925,13 +939,34 @@ class GRABDOC_OT_export_maps(OpInfo, Operator):
         if report_value:
             self.report({'ERROR'}, report_string)
             return{'CANCELLED'}
-        
+
         # Start execution timer
         start = time.time()
 
         # Live UI timer (updated manually as progress is made)
         context.window_manager.progress_begin(0, 9999)
-        
+
+        # System for dynamically deciding the progress percentage
+        operation_counter = 3
+
+        if grabDoc.uiVisibilityNormals and grabDoc.exportNormals:
+            operation_counter += 1
+        if grabDoc.uiVisibilityCurvature and grabDoc.exportCurvature:
+            operation_counter += 1
+        if grabDoc.uiVisibilityOcclusion and grabDoc.exportOcclusion:
+            operation_counter += 1
+        if grabDoc.uiVisibilityHeight and grabDoc.exportHeight:
+            operation_counter += 1
+        if grabDoc.uiVisibilityAlpha and grabDoc.exportAlpha:
+            operation_counter += 1
+        if grabDoc.uiVisibilityMatID and grabDoc.exportMatID:
+            operation_counter += 1
+        if grabDoc.uiVisibilityAlbedo and grabDoc.exportAlbedo:
+            operation_counter += 1
+
+        percentage_division = 100 / operation_counter
+        percent_till_completed = 0
+
         export_and_preview_setup(self, context)
 
         if context.active_object and context.object.type in ('MESH', 'CURVE', 'FONT', 'SURFACE', 'META', 'LATTICE', 'ARMATURE', 'CAMERA'):
@@ -945,7 +980,8 @@ class GRABDOC_OT_export_maps(OpInfo, Operator):
         plane_ob = bpy.data.objects["GD_Background Plane"]
         plane_ob.scale[0] = plane_ob.scale[1] = 3
 
-        context.window_manager.progress_update(12.5)
+        percent_till_completed += percentage_division
+        context.window_manager.progress_update(percent_till_completed)
 
         if grabDoc.uiVisibilityNormals and grabDoc.exportNormals:
             normals_setup(self, context)
@@ -957,14 +993,16 @@ class GRABDOC_OT_export_maps(OpInfo, Operator):
 
             cleanup_ng_from_mat(self, context, setup_type='GD_Normal')
 
-        context.window_manager.progress_update(37.5)
+            percent_till_completed += percentage_division
+            context.window_manager.progress_update(percent_till_completed)
 
         if grabDoc.uiVisibilityCurvature and grabDoc.exportCurvature:
             curvature_setup(self, context)
             grabdoc_export(self, context, export_suffix=grabDoc.curvature_suffix)
             curvature_refresh(self, context)
 
-        context.window_manager.progress_update(50)
+            percent_till_completed += percentage_division
+            context.window_manager.progress_update(percent_till_completed)
 
         if grabDoc.uiVisibilityOcclusion and grabDoc.exportOcclusion:
             occlusion_setup(self, context)
@@ -977,27 +1015,39 @@ class GRABDOC_OT_export_maps(OpInfo, Operator):
             cleanup_ng_from_mat(self, context, setup_type='GD_Ambient Occlusion')
             occlusion_refresh(self, context)
 
-        context.window_manager.progress_update(62.5)
+            percent_till_completed += percentage_division
+            context.window_manager.progress_update(percent_till_completed)
 
         if grabDoc.uiVisibilityHeight and grabDoc.exportHeight:
             height_setup(self, context)
             grabdoc_export(self, context, export_suffix=grabDoc.height_suffix)
             cleanup_ng_from_mat(self, context, setup_type='GD_Height')
 
-        context.window_manager.progress_update(75)
+            percent_till_completed += percentage_division
+            context.window_manager.progress_update(percent_till_completed)
 
         if grabDoc.uiVisibilityAlpha and grabDoc.exportAlpha:
             alpha_setup(self, context)
             grabdoc_export(self, context, export_suffix=grabDoc.alpha_suffix)
             cleanup_ng_from_mat(self, context, setup_type='GD_Alpha')
 
-        context.window_manager.progress_update(87.5)
+            percent_till_completed += percentage_division
+            context.window_manager.progress_update(percent_till_completed)
 
         if grabDoc.uiVisibilityMatID and grabDoc.exportMatID:
             id_setup(self, context)
             grabdoc_export(self, context, export_suffix=grabDoc.id_suffix)
 
-        context.window_manager.progress_update(99)
+            percent_till_completed += percentage_division
+            context.window_manager.progress_update(percent_till_completed)
+
+        if grabDoc.uiVisibilityAlbedo and grabDoc.exportAlbedo:
+            albedo_setup(self, context)
+            grabdoc_export(self, context, export_suffix=grabDoc.albedo_suffix)
+            cleanup_ng_from_mat(self, context, setup_type='GD_Albedo')
+
+        percent_till_completed += percentage_division
+        context.window_manager.progress_update(percent_till_completed)
 
         # Scale down BG Plane (helps overscan & border pixels)
         plane_ob = bpy.data.objects["GD_Background Plane"]
@@ -1014,7 +1064,8 @@ class GRABDOC_OT_export_maps(OpInfo, Operator):
             context.view_layer.objects.active = bpy.data.objects[activeCallback]
             bpy.ops.object.mode_set(mode = modeCallback)
 
-        context.window_manager.progress_update(98)
+        percent_till_completed += percentage_division
+        context.window_manager.progress_update(percent_till_completed)
 
         if grabDoc.openFolderOnExport:
             bpy.ops.wm.path_open(filepath = bpy.path.abspath(grabDoc.exportPath))
@@ -1051,7 +1102,8 @@ class GRABDOC_OT_offline_render(OpInfo, Operator):
             ('occlusion', "Ambient Occlusion", ""),
             ('height', "Height", ""),
             ('ID', "Material ID", ""),
-            ('alpha', "Alpha", "")
+            ('alpha', "Alpha", ""),
+            ('albedo', "Albedo", ""),
         ),
         options={'HIDDEN'}
     )
@@ -1146,6 +1198,11 @@ class GRABDOC_OT_offline_render(OpInfo, Operator):
             self.offline_render(context)
             cleanup_ng_from_mat(self, context, setup_type='GD_Alpha')
 
+        elif self.render_type == "albedo":
+            alpha_setup(self, context)
+            self.offline_render(context)
+            cleanup_ng_from_mat(self, context, setup_type='GD_Albedo')
+
         # Scale down BG Plane (helps overscan & border pixels)
         plane_ob = bpy.data.objects["GD_Background Plane"]
         plane_ob.scale[0] = plane_ob.scale[1] = 1
@@ -1211,6 +1268,7 @@ class GRABDOC_OT_map_preview_warning(OpInfo, Operator):
             ('occlusion', "", ""),
             ('height', "", ""),
             ('alpha', "", ""),
+            ('albedo',"",""),
             ('ID', "", "")
         ),
         options={'HIDDEN'}
@@ -1251,6 +1309,7 @@ class GRABDOC_OT_map_preview(OpInfo, Operator):
             ('occlusion', "", ""),
             ('height', "", ""),
             ('alpha', "", ""),
+            ('albedo',"",""),
             ('ID', "", "")
         ),
         options={'HIDDEN'}
@@ -1271,7 +1330,7 @@ class GRABDOC_OT_map_preview(OpInfo, Operator):
 
         if grabDoc.imageType == 'TIFF':
             image_settings.tiff_codec = grabDoc.imageCompTIFF
-        if grabDoc.imageType == 'PNG':
+        elif grabDoc.imageType == 'PNG':
             image_settings.compression = grabDoc.imageComp
 
         if grabDoc.imageType != 'TARGA':
@@ -1322,6 +1381,10 @@ class GRABDOC_OT_map_preview(OpInfo, Operator):
             eevee.taa_render_samples = grabDoc.samplesAlpha
             eevee.taa_samples = grabDoc.samplesAlpha
 
+        elif self.preview_type == "albedo":
+            eevee.taa_render_samples = grabDoc.samplesAlbedo
+            eevee.taa_samples = grabDoc.samplesAlbedo
+
         # Exiting    
         if self.done:
             bpy.types.SpaceView3D.draw_handler_remove(self._handle, 'WINDOW')
@@ -1334,6 +1397,8 @@ class GRABDOC_OT_map_preview(OpInfo, Operator):
                 cleanup_ng_from_mat(self, context, setup_type='GD_Height')
             elif self.preview_type == "alpha":
                 cleanup_ng_from_mat(self, context, setup_type='GD_Alpha')
+            elif self.preview_type == "albedo":
+                cleanup_ng_from_mat(self, context, setup_type='GD_Albedo')
 
             export_refresh(self, context)
 
@@ -1413,6 +1478,8 @@ class GRABDOC_OT_map_preview(OpInfo, Operator):
             height_setup(self, context)
         elif self.preview_type == 'alpha':
             alpha_setup(self, context)
+        elif self.preview_type == 'albedo':
+            albedo_setup(self, context)
         else: # ID
             id_setup(self, context)
 

@@ -150,6 +150,31 @@ def ng_setup(self, context):
         link.new(emission_node.inputs["Color"], invert_node.outputs["Color"])
         link.new(group_outputs.inputs["Output"], emission_node.outputs["Emission"])
 
+    # ALBEDO
+    if not 'GD_Albedo' in bpy.data.node_groups:
+        # Create node group
+        ng_albedo = bpy.data.node_groups.new('GD_Albedo', 'ShaderNodeTree')
+        ng_albedo.use_fake_user = True
+    
+        # Create group outputs
+        group_outputs = ng_albedo.nodes.new('NodeGroupOutput')
+        group_inputs = ng_albedo.nodes.new('NodeGroupInput')
+        group_inputs.location = (-400,0)
+        ng_albedo.outputs.new('NodeSocketShader','Output')
+        ng_albedo.inputs.new('NodeSocketColor', 'Color Input')
+        ng_albedo.inputs.new('NodeSocketShader','Saved Surface')
+        ng_albedo.inputs.new('NodeSocketShader','Saved Volume')
+        ng_albedo.inputs.new('NodeSocketShader','Saved Displacement')
+        
+        emission_node = ng_albedo.nodes.new('ShaderNodeEmission')
+        emission_node.location = (-200,0)
+
+        # Link materials
+        link = ng_albedo.links
+
+        link.new(emission_node.inputs["Color"], group_inputs.outputs["Color Input"])
+        link.new(group_outputs.inputs["Output"], emission_node.outputs["Emission"])
+
 
 # CREATE & APPLY A MATERIAL TO OBJECTS WITHOUT ACTIVE MATERIALS
 def create_apply_ng_mat(self, context):
@@ -226,6 +251,8 @@ def add_ng_to_mat(self, context, setup_type):
                             for link in node_input.links:
                                 original_node = mat_slot.node_tree.nodes.get(link.from_node.name)
 
+                                print(original_node.type)
+
                                 # Link original connection to the Node Group
                                 if node_input.name == 'Surface':
                                     mat_slot.node_tree.links.new(GD_node_group.inputs["Saved Surface"], original_node.outputs[link.from_socket.name])
@@ -233,6 +260,12 @@ def add_ng_to_mat(self, context, setup_type):
                                     mat_slot.node_tree.links.new(GD_node_group.inputs["Saved Volume"], original_node.outputs[link.from_socket.name])
                                 elif node_input.name == 'Displacement':
                                     mat_slot.node_tree.links.new(GD_node_group.inputs["Saved Displacement"], original_node.outputs[link.from_socket.name])
+
+                                # Situational links for maps like Albedo
+                                if setup_type == 'GD_Albedo' and original_node.type == 'BSDF_PRINCIPLED':
+                                    print(original_node.inputs["Base Color"])
+                                    #mat_slot.node_tree.links.new(GD_node_group.inputs["Color Input"], original_node.inputs[link.from_socket.name])
+
 
                         # Remove existing links on the output node
                         if len(output_node.inputs['Volume'].links):
