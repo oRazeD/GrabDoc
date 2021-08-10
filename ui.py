@@ -254,6 +254,9 @@ class GRABDOC_PT_view_edit_maps(PanelInfo, Panel):
             elif grabDoc.modalPreviewType == 'ID':
                 id_ui(layout, context)
 
+            elif grabDoc.modalPreviewType == 'albedo':
+                albedo_ui(layout, context)
+
 
 class GRABDOC_PT_normals_settings(PanelInfo, Panel):
     bl_label = ''
@@ -574,14 +577,14 @@ class GRABDOC_PT_albedo_settings(PanelInfo, Panel):
 
     @classmethod
     def poll(cls, context):
-        return not context.scene.grabDoc.modalState and context.scene.grabDoc.uiVisibilityAlbedo
+        return not context.scene.grabDoc.modalState and context.scene.grabDoc.uiVisibilityAlbedo and context.scene.grabDoc.bakerType == 'Blender'
 
     def draw_header(self, context):
         grabDoc = context.scene.grabDoc
 
         row = self.layout.row(align = True)
         row.separator(factor = .5)
-        row.prop(grabDoc, 'exportAlpha', text = "")
+        row.prop(grabDoc, 'exportAlbedo', text = "")
 
         row.operator("grab_doc.preview_warning" if grabDoc.firstBakePreview else "grab_doc.preview_map", text = "Albedo Preview").preview_type = 'albedo'
 
@@ -599,9 +602,13 @@ def albedo_ui(layout, context):
     layout.use_property_decorate = False
 
     col = layout.column()
-    
+        
+    col.separator(factor=1.5)
+    col.prop(grabDoc, 'samplesAlbedo', text = "Samples")
+
     col.separator(factor=1.5)
     col.prop(grabDoc, 'albedo_suffix', text = "Suffix")
+
 
 
 ################################################################################################################

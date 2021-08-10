@@ -551,7 +551,7 @@ class GRABDOC_property_group(bpy.types.PropertyGroup):
             ('16', "16 Samples", ""),
             ('32', "32 Samples", "")
         ),
-        default="32",
+        default="OFF",
         name="Mat ID Samples"
     )
 

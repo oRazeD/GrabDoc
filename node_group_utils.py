@@ -190,9 +190,6 @@ def create_apply_ng_mat(self, context):
         mat = self.mat
 
         mat.use_nodes = True
-        
-        # Remove unnecessary BSDF node
-        mat.node_tree.nodes.remove(mat.node_tree.nodes.get('Principled BSDF'))
 
     # Apply the material to the appropriate slot
     #
@@ -251,8 +248,6 @@ def add_ng_to_mat(self, context, setup_type):
                             for link in node_input.links:
                                 original_node = mat_slot.node_tree.nodes.get(link.from_node.name)
 
-                                print(original_node.type)
-
                                 # Link original connection to the Node Group
                                 if node_input.name == 'Surface':
                                     mat_slot.node_tree.links.new(GD_node_group.inputs["Saved Surface"], original_node.outputs[link.from_socket.name])
@@ -263,9 +258,20 @@ def add_ng_to_mat(self, context, setup_type):
 
                                 # Situational links for maps like Albedo
                                 if setup_type == 'GD_Albedo' and original_node.type == 'BSDF_PRINCIPLED':
-                                    print(original_node.inputs["Base Color"])
-                                    #mat_slot.node_tree.links.new(GD_node_group.inputs["Color Input"], original_node.inputs[link.from_socket.name])
+                                    node_found = False
 
+                                    for node_input in original_node.inputs:
+                                        if node_input.name == 'Base Color':
+                                            GD_node_group.inputs["Color Input"].default_value = node_input.default_value
+
+                                            for link in node_input.links:
+                                                node_found = True
+
+                                                mat_slot.node_tree.links.new(GD_node_group.inputs["Color Input"], link.from_node.outputs[link.from_socket.name])
+                                                break
+
+                                    if not node_found:
+                                        self.report({'WARNING'}, "Material slots found without links and will be rendered using the sockets default value.")
 
                         # Remove existing links on the output node
                         if len(output_node.inputs['Volume'].links):
