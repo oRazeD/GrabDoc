@@ -37,7 +37,7 @@ class GRABDOC_OT_config_maps(bpy.types.Operator):
         layout.prop(grabDoc, 'uiVisibilityHeight', text = "Height")
         layout.prop(grabDoc, 'uiVisibilityMatID', text = "Material ID")
         layout.prop(grabDoc, 'uiVisibilityAlpha', text = "Alpha")
-        layout.prop(grabDoc, 'uiVisibilityAlbedo', text = "Albedo")
+        layout.prop(grabDoc, 'uiVisibilityAlbedo', text = "Albedo (Blender Only)")
 
 
 class GRABDOC_PT_grabdoc(PanelInfo, Panel):

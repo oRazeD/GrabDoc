@@ -45,11 +45,11 @@ def find_tallest_object(self, context):
     tallest_vert = 0
 
     for ob in context.view_layer.objects:
-        if ob.name in self.render_list and ob.type == 'MESH':
-            if not ob.name.startswith('GD_'):
-                # Get global coordinates of vertices
-                global_vert_coords = [ob.matrix_world @ v.co for v in ob.data.vertices]
+        if ob.name in self.render_list and ob.type == 'MESH' and not ob.name.startswith('GD_'):
+            # Get global coordinates of vertices
+            global_vert_coords = [ob.matrix_world @ v.co for v in ob.data.vertices]
 
+            if len(global_vert_coords):
                 # Find the highest Z value amongst the object's verts
                 max_z_co = max([co.z for co in global_vert_coords])
                 
