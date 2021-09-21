@@ -91,7 +91,8 @@ def bad_setup_check(self, context, active_export, report_value=False, report_str
             grabDoc.exportOcclusion,
             grabDoc.exportHeight,
             grabDoc.exportMatID,
-            grabDoc.exportAlpha
+            grabDoc.exportAlpha,
+            grabDoc.exportAlbedo
         ]
 
         bake_map_vis = [
@@ -100,7 +101,8 @@ def bad_setup_check(self, context, active_export, report_value=False, report_str
             grabDoc.uiVisibilityOcclusion,
             grabDoc.uiVisibilityHeight,
             grabDoc.uiVisibilityMatID,
-            grabDoc.uiVisibilityAlpha
+            grabDoc.uiVisibilityAlpha,
+            grabDoc.uiVisibilityAlbedo
         ]
 
         if not True in bake_maps or not True in bake_map_vis:
