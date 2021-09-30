@@ -109,7 +109,6 @@ class GRABDOC_OT_add_preset(AddPresetBase, bpy.types.Operator):
         "grabDoc.id_suffix",
         
         "grabDoc.exportAlbedo",
-        "grabDoc.invertMaskAlbedo",
         "grabDoc.samplesAlbedo",
         "grabDoc.albedo_suffix",
 
