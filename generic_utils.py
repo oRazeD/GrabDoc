@@ -94,7 +94,7 @@ def bad_setup_check(self, context, active_export, report_value=False, report_str
             grabDoc.exportAlpha,
             grabDoc.exportAlbedo,
             grabDoc.exportRoughness,
-            grabDoc.exportMetalness,
+            grabDoc.exportMetalness
         ]
 
         bake_map_vis = [

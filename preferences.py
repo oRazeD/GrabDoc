@@ -540,14 +540,17 @@ class GRABDOC_property_group(bpy.types.PropertyGroup):
     methodMatID: EnumProperty(
         items=(
             ('RANDOM', "Random", ""),
-            ('MATERIAL', "Material", "")
-        )
+            ('MATERIAL', "Material", ""),
+            ('VERTEX', "Object / Vertex", "")
+        ),
+        name='ID Method'
     )
 
     fakeMethodMatID: EnumProperty( # Not actually used, just for UI representation
         items=(
             ('RANDOM', "Random", ""),
-            ('MATERIAL', "Material", "")
+            ('MATERIAL', "Material", ""),
+            ('VERTEX', "Object / Vertex", "")
         ),
         default="MATERIAL"
     )

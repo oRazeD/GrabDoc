@@ -43,7 +43,7 @@ def scene_setup_and_refresh(self, context):
 
     # Do some checks to see if the user wants to only render out the objects in a specific collection
     objectsColl = "GrabDoc Objects (put objects here)"
-    if context.scene.grabDoc.onlyRenderColl:
+    if grabDoc.onlyRenderColl:
         if not objectsColl in bpy.data.collections:
             bpy.data.collections.new(name = objectsColl)
             context.scene.collection.children.link(bpy.data.collections[objectsColl])

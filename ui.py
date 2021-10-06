@@ -498,9 +498,9 @@ def id_ui(layout, context):
     row = col.row()
     if grabDoc.bakerType == 'Marmoset':
         row.enabled = False
-        row.prop(grabDoc, "fakeMethodMatID", text = "ID Method", expand = True)
+        row.prop(grabDoc, "fakeMethodMatID", text = "ID Method")
     else:
-        row.prop(grabDoc, "methodMatID", text = "ID Method", expand = True)
+        row.prop(grabDoc, "methodMatID", text = "ID Method")
 
     if grabDoc.methodMatID == "MATERIAL" or grabDoc.bakerType == 'Marmoset':
         col = layout.column()
