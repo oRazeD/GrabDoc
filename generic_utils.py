@@ -35,11 +35,11 @@ def export_bg_plane(self, context):
 
 
 # LOOK FOR GRABDOC OBJECTS TO DECIDE IF THE SCENE IS SETUP CORRECTLY
-def proper_scene_setup(is_setup=False):
+def proper_scene_setup(context):
     if "GrabDoc (do not touch contents)" in bpy.data.collections:
-        if "GD_Background Plane" in bpy.data.objects and "GD_Background Plane" in bpy.data.objects:
-            is_setup = True
-    return is_setup
+        if "GD_Background Plane" in context.scene.objects:
+            return True
+    return False
 
 
 # DETERMINE IF SPECIFIC PARTS OF THE SCENE ARE SET UP INCORRECTLY AND RETURN A DETAILED EXPLANATION OF THINGS TO CORRECT

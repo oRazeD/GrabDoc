@@ -46,7 +46,7 @@ class GRABDOC_PT_grabdoc(PanelInfo, Panel):
     bl_label = 'GrabDoc Hub'
 
     def draw_header_preset(self, context):
-        if proper_scene_setup():
+        if proper_scene_setup(context):
             GRABDOC_PT_presets.draw_panel_header(self.layout)
 
     def draw(self, context):
@@ -59,9 +59,9 @@ class GRABDOC_PT_grabdoc(PanelInfo, Panel):
         row = col.row(align = True)
         row.enabled = not grabDoc.modalState
         row.scale_y = 1.5
-        row.operator("grab_doc.setup_scene", text = "Refresh Scene" if proper_scene_setup() else "Setup Scene", icon = "TOOL_SETTINGS")
+        row.operator("grab_doc.setup_scene", text = "Refresh Scene" if proper_scene_setup(context) else "Setup Scene", icon = "TOOL_SETTINGS")
 
-        if proper_scene_setup():
+        if proper_scene_setup(context):
             row.scale_x = 1.1
             row.operator("grab_doc.remove_setup", text = "", icon = "CANCEL")
             
@@ -96,7 +96,7 @@ class GRABDOC_PT_export(PanelInfo, Panel):
     
     @classmethod
     def poll(cls, context):
-        return proper_scene_setup()
+        return proper_scene_setup(context)
 
     def draw(self, context):
         grabDoc = context.scene.grabDoc
@@ -199,7 +199,7 @@ class GRABDOC_PT_view_edit_maps(PanelInfo, Panel):
     
     @classmethod
     def poll(cls, context):
-        return proper_scene_setup()
+        return proper_scene_setup(context)
 
     def draw_header_preset(self, context):
         self.layout.operator("grab_doc.config_maps", emboss = False, text = "", icon = "SETTINGS")

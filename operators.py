@@ -1484,12 +1484,12 @@ class GRABDOC_OT_map_preview(OpInfo, Operator):
             grabDoc.bakerType = self.savedBakerType
 
             # Check for auto exit camera option (Keep this at the end of the stack to avoid pop in)
-            if grabDoc.autoExitCamera or not proper_scene_setup():
+            if grabDoc.autoExitCamera or not proper_scene_setup(context):
                 bpy.ops.grab_doc.view_cam(from_modal=True)
             return {'CANCELLED'}
 
         # Exit checking
-        if not grabDoc.modalState or event.type in {'ESC'} or not proper_scene_setup():
+        if not grabDoc.modalState or event.type in {'ESC'} or not proper_scene_setup(context):
             bpy.ops.grab_doc.leave_modal()
             self.done = True
             return {'PASS_THROUGH'}
