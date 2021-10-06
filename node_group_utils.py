@@ -175,6 +175,55 @@ def ng_setup(self, context):
         link.new(emission_node.inputs["Color"], group_inputs.outputs["Color Input"])
         link.new(group_outputs.inputs["Output"], emission_node.outputs["Emission"])
 
+    # ROUGHNESS
+    if not 'GD_Roughness' in bpy.data.node_groups:
+        # Create node group
+        ng_roughness = bpy.data.node_groups.new('GD_Roughness', 'ShaderNodeTree')
+        ng_roughness.use_fake_user = True
+    
+        # Create group outputs
+        group_outputs = ng_roughness.nodes.new('NodeGroupOutput')
+        group_inputs = ng_roughness.nodes.new('NodeGroupInput')
+        group_inputs.location = (-400,0)
+        ng_roughness.outputs.new('NodeSocketShader','Output')
+        ng_roughness.inputs.new('NodeSocketFloat', 'Roughness Input')
+        ng_roughness.inputs.new('NodeSocketShader','Saved Surface')
+        ng_roughness.inputs.new('NodeSocketShader','Saved Volume')
+        ng_roughness.inputs.new('NodeSocketShader','Saved Displacement')
+        
+        emission_node = ng_roughness.nodes.new('ShaderNodeEmission')
+        emission_node.location = (-200,0)
+
+        # Link materials
+        link = ng_roughness.links
+
+        link.new(emission_node.inputs["Color"], group_inputs.outputs["Roughness Input"])
+        link.new(group_outputs.inputs["Output"], emission_node.outputs["Emission"])
+
+    # METALNESS
+    if not 'GD_Metalness' in bpy.data.node_groups:
+        # Create node group
+        ng_roughness = bpy.data.node_groups.new('GD_Metalness', 'ShaderNodeTree')
+        ng_roughness.use_fake_user = True
+    
+        # Create group outputs
+        group_outputs = ng_roughness.nodes.new('NodeGroupOutput')
+        group_inputs = ng_roughness.nodes.new('NodeGroupInput')
+        group_inputs.location = (-400,0)
+        ng_roughness.outputs.new('NodeSocketShader','Output')
+        ng_roughness.inputs.new('NodeSocketFloat', 'Metalness Input')
+        ng_roughness.inputs.new('NodeSocketShader','Saved Surface')
+        ng_roughness.inputs.new('NodeSocketShader','Saved Volume')
+        ng_roughness.inputs.new('NodeSocketShader','Saved Displacement')
+        
+        emission_node = ng_roughness.nodes.new('ShaderNodeEmission')
+        emission_node.location = (-200,0)
+
+        # Link materials
+        link = ng_roughness.links
+
+        link.new(emission_node.inputs["Color"], group_inputs.outputs["Metalness Input"])
+        link.new(group_outputs.inputs["Output"], emission_node.outputs["Emission"])
 
 # CREATE & APPLY A MATERIAL TO OBJECTS WITHOUT ACTIVE MATERIALS
 def create_apply_ng_mat(self, context):
@@ -210,6 +259,8 @@ def add_ng_to_mat(self, context, setup_type):
     for self.ob in context.view_layer.objects:
         if self.ob.name in self.render_list:
             ob = self.ob
+
+            # TODO remove some indents
 
             if ob.name != "GD_Orient Guide":
                 # If no material slots found or empty mat slots found, assign a material to it
@@ -257,17 +308,35 @@ def add_ng_to_mat(self, context, setup_type):
                                     mat_slot.node_tree.links.new(GD_node_group.inputs["Saved Displacement"], original_node.outputs[link.from_socket.name])
 
                                 # Situational links for maps like Albedo
-                                if setup_type == 'GD_Albedo' and original_node.type == 'BSDF_PRINCIPLED':
+                                if setup_type in ('GD_Albedo', 'GD_Roughness', 'GD_Metalness') and original_node.type == 'BSDF_PRINCIPLED':
                                     node_found = False
 
                                     for node_input in original_node.inputs:
-                                        if node_input.name == 'Base Color':
+                                        if setup_type == 'GD_Albedo' and node_input.name == 'Base Color':
                                             GD_node_group.inputs["Color Input"].default_value = node_input.default_value
 
                                             for link in node_input.links:
                                                 node_found = True
 
                                                 mat_slot.node_tree.links.new(GD_node_group.inputs["Color Input"], link.from_node.outputs[link.from_socket.name])
+                                                break
+
+                                        elif setup_type == 'GD_Roughness' and node_input.name == 'Roughness':
+                                            GD_node_group.inputs["Roughness Input"].default_value = node_input.default_value
+
+                                            for link in node_input.links:
+                                                node_found = True
+
+                                                mat_slot.node_tree.links.new(GD_node_group.inputs["Roughness Input"], link.from_node.outputs[link.from_socket.name])
+                                                break
+
+                                        elif setup_type == 'GD_Metalness' and node_input.name == 'Metallic':
+                                            GD_node_group.inputs["Metalness Input"].default_value = node_input.default_value
+
+                                            for link in node_input.links:
+                                                node_found = True
+
+                                                mat_slot.node_tree.links.new(GD_node_group.inputs["Metalness Input"], link.from_node.outputs[link.from_socket.name])
                                                 break
 
                                     if not node_found:

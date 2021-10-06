@@ -12,9 +12,6 @@ class GRABDOC_OT_quick_id_setup(OpInfo, Operator):
     bl_label = "Auto ID Full Scene"
 
     def execute(self, context):
-        if context.active_object:
-            bpy.ops.object.mode_set(mode='OBJECT')
-
         for mat in bpy.data.materials:
             if mat.name.startswith("GD_RANDOM"):
                 bpy.data.materials.remove(mat)
@@ -23,6 +20,7 @@ class GRABDOC_OT_quick_id_setup(OpInfo, Operator):
 
         for ob in context.view_layer.objects:
             add_mat = True
+
             if ob.name in self.render_list and not ob.name.startswith('GD_'):
                 for slot in ob.material_slots:
                     if slot.name.startswith('GD_ID'):
@@ -38,12 +36,12 @@ class GRABDOC_OT_quick_id_setup(OpInfo, Operator):
 
                     bsdf_node = mat.node_tree.nodes.get('Principled BSDF')
                     bsdf_node.inputs[0].default_value = mat.diffuse_color
-                        
+
                     ob.active_material_index = 0
                     ob.active_material = mat
 
         for mat in bpy.data.materials:
-            if mat.name.startswith('GD_ID') and not mat.users or mat.name.startswith('GD_RANDOM') and not mat.users:
+            if (mat.name.startswith('GD_ID') or mat.name.startswith('GD_RANDOM')) and not mat.users:
                 bpy.data.materials.remove(mat)
         return{'FINISHED'}
 
@@ -58,9 +56,6 @@ class GRABDOC_OT_quick_id_selected(OpInfo, Operator):
         return context.selected_objects
 
     def execute(self, context):
-        if context.active_object:
-            bpy.ops.object.mode_set(mode='OBJECT')
-
         mat = bpy.data.materials.new(f"GD_ID.{randint(0, 100000000)}")
         mat.diffuse_color = random(), random(), random(), 1
         mat.use_nodes = True
@@ -69,12 +64,12 @@ class GRABDOC_OT_quick_id_selected(OpInfo, Operator):
         bsdf_node.inputs[0].default_value = mat.diffuse_color
 
         for ob in context.selected_objects:
-            if ob.type in ('MESH', 'CURVE'):                       
+            if ob.type in ('MESH', 'CURVE'):
                 ob.active_material_index = 0
                 ob.active_material = mat
 
         for mat in bpy.data.materials:
-            if mat.name.startswith('GD_ID') and not mat.users or mat.name.startswith('GD_RANDOM') and not mat.users:
+            if (mat.name.startswith('GD_ID') or mat.name.startswith('GD_RANDOM')) and not mat.users:
                 bpy.data.materials.remove(mat)
         return{'FINISHED'}
 
@@ -85,9 +80,6 @@ class GRABDOC_OT_quick_remove_random_mats(OpInfo, Operator):
     bl_label = "All"
 
     def execute(self, context):
-        if context.active_object:
-            bpy.ops.object.mode_set(mode='OBJECT')
-
         for mat in bpy.data.materials:
             if mat.name.startswith("GD_RANDOM"):
                 bpy.data.materials.remove(mat)
@@ -100,9 +92,6 @@ class GRABDOC_OT_quick_remove_manual_mats(OpInfo, Operator):
     bl_label = "All"
 
     def execute(self, context):
-        if context.active_object:
-            bpy.ops.object.mode_set(mode='OBJECT')
-
         for mat in bpy.data.materials:
             if mat.name.startswith("GD_ID"):
                 bpy.data.materials.remove(mat)
@@ -119,9 +108,6 @@ class GRABDOC_OT_quick_remove_selected_mats(OpInfo, Operator):
         return context.selected_objects
 
     def execute(self, context):
-        if context.active_object:
-            bpy.ops.object.mode_set(mode='OBJECT')
-
         for ob in context.selected_objects:
             if ob.type in ('MESH', 'CURVE'):
                 for slot in ob.material_slots:

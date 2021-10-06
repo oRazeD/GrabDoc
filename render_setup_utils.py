@@ -52,7 +52,7 @@ def find_tallest_object(self, context):
             # Find the highest Z value amongst the object's verts
             if len(global_vert_coords):
                 max_z_co = max([co.z for co in global_vert_coords])
-                
+
                 if max_z_co > tallest_vert:
                     tallest_vert = max_z_co
 

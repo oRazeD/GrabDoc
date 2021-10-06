@@ -25,7 +25,7 @@ class GRABDOC_OT_config_maps(bpy.types.Operator):
         return {'FINISHED'}
  
     def invoke(self, context, event):
-        return context.window_manager.invoke_props_dialog(self, width = 150)
+        return context.window_manager.invoke_props_dialog(self, width = 200)
  
     def draw(self, context):
         grabDoc = context.scene.grabDoc
@@ -38,6 +38,8 @@ class GRABDOC_OT_config_maps(bpy.types.Operator):
         layout.prop(grabDoc, 'uiVisibilityMatID', text = "Material ID")
         layout.prop(grabDoc, 'uiVisibilityAlpha', text = "Alpha")
         layout.prop(grabDoc, 'uiVisibilityAlbedo', text = "Albedo (Blender Only)")
+        layout.prop(grabDoc, 'uiVisibilityRoughness', text = "Roughness (Blender Only)")
+        layout.prop(grabDoc, 'uiVisibilityMetalness', text = "Metalness (Blender Only)")
 
 
 class GRABDOC_PT_grabdoc(PanelInfo, Panel):
@@ -157,11 +159,10 @@ class GRABDOC_PT_export(PanelInfo, Panel):
         
         row2 = row.row()
         if grabDoc.imageType != "TARGA" or grabDoc.bakerType == 'Marmoset':
-            row2.enabled = True
+            row2.prop(grabDoc, "colorDepth", expand = True)
         else:
             row2.enabled = False
-        
-        row2.prop(grabDoc, "colorDepth", expand = True)
+            row2.prop(grabDoc, "fakeColorDepth", expand = True)
 
         if grabDoc.bakerType == 'Blender':
             if grabDoc.imageType != "TARGA":
@@ -257,6 +258,11 @@ class GRABDOC_PT_view_edit_maps(PanelInfo, Panel):
             elif grabDoc.modalPreviewType == 'albedo':
                 albedo_ui(layout, context)
 
+            elif grabDoc.modalPreviewType == 'roughness':
+                roughness_ui(layout, context)
+
+            elif grabDoc.modalPreviewType == 'metalness':
+                metalness_ui(layout, context)
 
 class GRABDOC_PT_normals_settings(PanelInfo, Panel):
     bl_label = ''
@@ -299,7 +305,7 @@ def normals_ui(layout, context):
         col.prop(grabDoc, "samplesNormals", text = 'Sampling')
 
     col.separator(factor=1.5)
-    col.prop(grabDoc, 'normals_suffix', text = "Suffix")
+    col.prop(grabDoc, 'suffixNormals', text = "Suffix")
 
 
 class GRABDOC_PT_curvature_settings(PanelInfo, Panel):
@@ -347,7 +353,7 @@ def curvature_ui(layout, context):
         pass
     
     col.separator(factor=1.5)
-    col.prop(grabDoc, 'curvature_suffix', text = "Suffix")
+    col.prop(grabDoc, 'suffixCurvature', text = "Suffix")
 
 
 class GRABDOC_PT_occlusion_settings(PanelInfo, Panel):
@@ -399,7 +405,7 @@ def occlusion_ui(layout, context):
         col.prop(grabDoc, 'contrastOcclusion', text = "Contrast")
 
     col.separator(factor=1.5)
-    col.prop(grabDoc, 'occlusion_suffix', text = "Suffix")
+    col.prop(grabDoc, 'suffixOcclusion', text = "Suffix")
 
 
 class GRABDOC_PT_height_settings(PanelInfo, Panel):
@@ -453,7 +459,7 @@ def height_ui(layout, context):
         col.prop(grabDoc, 'contrastHeight', text = "Contrast")
     
     col.separator(factor=1.5)
-    col.prop(grabDoc, 'height_suffix', text = "Suffix")
+    col.prop(grabDoc, 'suffixHeight', text = "Suffix")
 
 
 class GRABDOC_PT_id_settings(PanelInfo, Panel):
@@ -523,7 +529,7 @@ def id_ui(layout, context):
         col.prop(grabDoc, "samplesMatID", text = "Samples")
 
     col.separator(factor=1.5)
-    col.prop(grabDoc, 'id_suffix', text = "Suffix")
+    col.prop(grabDoc, 'suffixID', text = "Suffix")
 
 
 class GRABDOC_PT_alpha_settings(PanelInfo, Panel):
@@ -567,7 +573,7 @@ def alpha_ui(layout, context):
         pass
     
     col.separator(factor=1.5)
-    col.prop(grabDoc, 'alpha_suffix', text = "Suffix")
+    col.prop(grabDoc, 'suffixAlpha', text = "Suffix")
 
 
 class GRABDOC_PT_albedo_settings(PanelInfo, Panel):
@@ -607,8 +613,87 @@ def albedo_ui(layout, context):
     col.prop(grabDoc, 'samplesAlbedo', text = "Samples")
 
     col.separator(factor=1.5)
-    col.prop(grabDoc, 'albedo_suffix', text = "Suffix")
+    col.prop(grabDoc, 'suffixAlbedo', text = "Suffix")
 
+
+class GRABDOC_PT_roughness_settings(PanelInfo, Panel):
+    bl_label = ''
+    bl_parent_id = "GRABDOC_PT_view_edit_maps"
+    bl_options = {'HEADER_LAYOUT_EXPAND', 'DEFAULT_CLOSED'}
+
+    @classmethod
+    def poll(cls, context):
+        return not context.scene.grabDoc.modalState and context.scene.grabDoc.uiVisibilityRoughness and context.scene.grabDoc.bakerType == 'Blender'
+
+    def draw_header(self, context):
+        grabDoc = context.scene.grabDoc
+
+        row = self.layout.row(align = True)
+        row.separator(factor = .5)
+        row.prop(grabDoc, 'exportRoughness', text = "")
+
+        row.operator("grab_doc.preview_warning" if grabDoc.firstBakePreview else "grab_doc.preview_map", text = "Roughness Preview").preview_type = 'roughness'
+
+        row.operator("grab_doc.offline_render", text = "", icon = "RENDER_STILL").render_type = 'roughness'
+        row.separator(factor = 1.3)
+
+    def draw(self, context):
+        roughness_ui(self.layout, context)
+
+
+def roughness_ui(layout, context):
+    grabDoc = context.scene.grabDoc
+
+    layout.use_property_split = True
+    layout.use_property_decorate = False
+
+    col = layout.column()
+        
+    col.separator(factor=1.5)
+    col.prop(grabDoc, 'samplesRoughness', text = "Samples")
+
+    col.separator(factor=1.5)
+    col.prop(grabDoc, 'suffixRoughness', text = "Suffix")
+
+
+class GRABDOC_PT_metalness_settings(PanelInfo, Panel):
+    bl_label = ''
+    bl_parent_id = "GRABDOC_PT_view_edit_maps"
+    bl_options = {'HEADER_LAYOUT_EXPAND', 'DEFAULT_CLOSED'}
+
+    @classmethod
+    def poll(cls, context):
+        return not context.scene.grabDoc.modalState and context.scene.grabDoc.uiVisibilityMetalness and context.scene.grabDoc.bakerType == 'Blender'
+
+    def draw_header(self, context):
+        grabDoc = context.scene.grabDoc
+
+        row = self.layout.row(align = True)
+        row.separator(factor = .5)
+        row.prop(grabDoc, 'exportMetalness', text = "")
+
+        row.operator("grab_doc.preview_warning" if grabDoc.firstBakePreview else "grab_doc.preview_map", text = "Metalness Preview").preview_type = 'metalness'
+
+        row.operator("grab_doc.offline_render", text = "", icon = "RENDER_STILL").render_type = 'metalness'
+        row.separator(factor = 1.3)
+
+    def draw(self, context):
+        metalness_ui(self.layout, context)
+
+
+def metalness_ui(layout, context):
+    grabDoc = context.scene.grabDoc
+
+    layout.use_property_split = True
+    layout.use_property_decorate = False
+
+    col = layout.column()
+        
+    col.separator(factor=1.5)
+    col.prop(grabDoc, 'samplesMetalness', text = "Samples")
+
+    col.separator(factor=1.5)
+    col.prop(grabDoc, 'suffixMetalness', text = "Suffix")
 
 
 ################################################################################################################
@@ -627,7 +712,9 @@ classes = (
     GRABDOC_PT_height_settings,
     GRABDOC_PT_id_settings,
     GRABDOC_PT_alpha_settings,
-    GRABDOC_PT_albedo_settings
+    GRABDOC_PT_albedo_settings,
+    GRABDOC_PT_roughness_settings,
+    GRABDOC_PT_metalness_settings
 )
 
 

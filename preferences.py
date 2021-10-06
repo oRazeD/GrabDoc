@@ -73,14 +73,14 @@ class GRABDOC_OT_add_preset(AddPresetBase, bpy.types.Operator):
         "grabDoc.reimportAsMatNormals",
         "grabDoc.flipYNormals",
         "grabDoc.samplesNormals",
-        "grabDoc.normals_suffix",
+        "grabDoc.suffixNormals",
 
         "grabDoc.exportCurvature",
         "grabDoc.ridgeCurvature",
         "grabDoc.valleyCurvature",
         "grabDoc.samplesCurvature",
         "grabDoc.contrastCurvature",
-        "grabDoc.curvature_suffix",
+        "grabDoc.suffixCurvature",
 
         "grabDoc.exportOcclusion",
         "grabDoc.reimportAsMatOcclusion",
@@ -88,7 +88,7 @@ class GRABDOC_OT_add_preset(AddPresetBase, bpy.types.Operator):
         "grabDoc.distanceOcclusion",
         "grabDoc.samplesOcclusion",
         "grabDoc.contrastOcclusion",
-        "grabDoc.occlusion_suffix",
+        "grabDoc.suffixOcclusion",
 
         "grabDoc.exportHeight",
         "grabDoc.rangeTypeHeight",
@@ -96,21 +96,29 @@ class GRABDOC_OT_add_preset(AddPresetBase, bpy.types.Operator):
         "grabDoc.invertMaskHeight",
         "grabDoc.samplesHeight",
         "grabDoc.contrastHeight",
-        "grabDoc.height_suffix",
+        "grabDoc.suffixHeight",
         
         "grabDoc.exportAlpha",
         "grabDoc.invertMaskAlpha",
         "grabDoc.samplesAlpha",
-        "grabDoc.alpha_suffix",
+        "grabDoc.suffixAlpha",
 
         "grabDoc.exportMatID",
         "grabDoc.methodMatID",
         "grabDoc.samplesMatID",
-        "grabDoc.id_suffix",
+        "grabDoc.suffixID",
         
         "grabDoc.exportAlbedo",
         "grabDoc.samplesAlbedo",
-        "grabDoc.albedo_suffix",
+        "grabDoc.suffixAlbedo",
+
+        "grabDoc.exportRoughness",
+        "grabDoc.samplesRoughness",
+        "grabDoc.suffixRoughness",
+
+        "grabDoc.exportMetalness",
+        "grabDoc.samplesMetalness",
+        "grabDoc.suffixMetalness",
 
         "grabDoc.marmoEXE",
         "grabDoc.marmoAutoBake",
@@ -324,7 +332,15 @@ class GRABDOC_property_group(bpy.types.PropertyGroup):
             ('8', "8", "")
         )
     )
-    
+
+    fakeColorDepth: EnumProperty(
+        items=(
+            ('16', "16", ""),
+            ('8', "8", "")
+        ),
+        default='8'
+    )
+
     imageComp: IntProperty(
         name="",
         default=50,
@@ -360,7 +376,9 @@ class GRABDOC_property_group(bpy.types.PropertyGroup):
     uiVisibilityHeight: BoolProperty(default=True)
     uiVisibilityMatID: BoolProperty(default=True)
     uiVisibilityAlpha: BoolProperty(default=True)
-    uiVisibilityAlbedo: BoolProperty(default=True)
+    uiVisibilityAlbedo: BoolProperty(default=False)
+    uiVisibilityRoughness: BoolProperty(default=False)
+    uiVisibilityMetalness: BoolProperty(default=False)
 
     ## BAKE MAP SETTINGS
 
@@ -371,13 +389,13 @@ class GRABDOC_property_group(bpy.types.PropertyGroup):
 
     flipYNormals: BoolProperty(name="Flip Y (-Y)", description="Flip the normal map Y direction", options={'SKIP_SAVE'}, update=update_flip_y)
 
-    normals_suffix: StringProperty(
+    suffixNormals: StringProperty(
         name="",
         description="The suffix of the exported bake map",
         default="normal"
     )
 
-    samplesNormals: IntProperty(name="", default=128, min=1, max=500)
+    samplesNormals: IntProperty(name="", default=128, min=1, max=512)
 
     # Curvature
     exportCurvature: BoolProperty(default=True)
@@ -386,7 +404,7 @@ class GRABDOC_property_group(bpy.types.PropertyGroup):
 
     valleyCurvature: FloatProperty(name="", default=1.5, min=0, max=2, precision=3, step=.1, update=update_curvature, subtype='FACTOR')
 
-    curvature_suffix: StringProperty(
+    suffixCurvature: StringProperty(
         name="",
         description="The suffix of the exported bake map",
         default="curvature"
@@ -408,7 +426,7 @@ class GRABDOC_property_group(bpy.types.PropertyGroup):
     samplesCurvature: EnumProperty(
         items=(
             ('OFF', "No Anti-Aliasing", ""),
-            ('FXAA', "Single Pass Anti-Aliasing", ""),
+            ('FXAA', "1 Sample", ""),
             ('5', "5 Samples", ""),
             ('8', "8 Samples", ""),
             ('11', "11 Samples", ""),
@@ -445,13 +463,13 @@ class GRABDOC_property_group(bpy.types.PropertyGroup):
         update=update_occlusion_distance
     )
 
-    occlusion_suffix: StringProperty(
+    suffixOcclusion: StringProperty(
         name="",
         description="The suffix of the exported bake map",
         default="ao"
     )
     
-    samplesOcclusion: IntProperty(name="", default=128, min=1, max=500)
+    samplesOcclusion: IntProperty(name="", default=128, min=1, max=512)
 
     contrastOcclusion: EnumProperty(
         items=(
@@ -482,13 +500,13 @@ class GRABDOC_property_group(bpy.types.PropertyGroup):
         description="Automatic or manual height range. Use manual if automatic is giving you incorrect results or if baking is really slow"
     )
 
-    height_suffix: StringProperty(
+    suffixHeight: StringProperty(
         name="",
         description="The suffix of the exported bake map",
         default="height"
     )
 
-    samplesHeight: IntProperty(name="", default=128, min=1, max=500)
+    samplesHeight: IntProperty(name="", default=128, min=1, max=512)
 
     contrastHeight: EnumProperty(
         items=(
@@ -508,13 +526,13 @@ class GRABDOC_property_group(bpy.types.PropertyGroup):
 
     invertMaskAlpha: BoolProperty(description="Invert the Alpha mask", update=update_alpha)
 
-    alpha_suffix: StringProperty(
+    suffixAlpha: StringProperty(
         name="",
         description="The suffix of the exported bake map",
         default="alpha"
     )
 
-    samplesAlpha: IntProperty(name="", default=128, min=1, max=500)
+    samplesAlpha: IntProperty(name="", default=128, min=1, max=512)
 
     # MatID
     exportMatID: BoolProperty(default=True)
@@ -534,7 +552,7 @@ class GRABDOC_property_group(bpy.types.PropertyGroup):
         default="MATERIAL"
     )
 
-    id_suffix: StringProperty(
+    suffixID: StringProperty(
         name="",
         description="The suffix of the exported bake map",
         default="matID"
@@ -543,7 +561,7 @@ class GRABDOC_property_group(bpy.types.PropertyGroup):
     samplesMatID: EnumProperty(
         items=(
             ('OFF', "No Anti-Aliasing", ""),
-            ('FXAA', "Single Pass Anti-Aliasing", ""),
+            ('FXAA', "1 Sample", ""),
             ('5', "5 Samples", ""),
             ('8', "8 Samples", ""),
             ('11', "11 Samples", ""),
@@ -557,14 +575,36 @@ class GRABDOC_property_group(bpy.types.PropertyGroup):
     # Albedo
     exportAlbedo: BoolProperty(update=scene_setup_and_refresh)
 
-    albedo_suffix: StringProperty(
+    suffixAlbedo: StringProperty(
         name="",
         description="The suffix of the exported bake map",
         default="albedo"
     )
 
-    samplesAlbedo: IntProperty(name="", default=128, min=1, max=500)
+    samplesAlbedo: IntProperty(name="", default=128, min=1, max=512)
 
+    # Roughness
+    exportRoughness: BoolProperty(update=scene_setup_and_refresh)
+
+    suffixRoughness: StringProperty(
+        name="",
+        description="The suffix of the exported bake map",
+        default="roughness"
+    )
+
+    samplesRoughness: IntProperty(name="", default=128, min=1, max=512)
+
+    # Metalness
+    exportMetalness: BoolProperty(update=scene_setup_and_refresh)
+
+    suffixMetalness: StringProperty(
+        name="",
+        description="The suffix of the exported bake map",
+        default="metalness"
+    )
+
+    samplesMetalness: IntProperty(name="", default=128, min=1, max=512)
+    
     ## MAP PREVIEW
 
     firstBakePreview: BoolProperty(default=True)
@@ -580,9 +620,11 @@ class GRABDOC_property_group(bpy.types.PropertyGroup):
             ('curvature', "Curvature", ""),
             ('occlusion', "Ambient Occlusion", ""),
             ('height', "Height", ""),
-            ('alpha', "Alpha", ""),
             ('ID', "Material ID", ""),
+            ('alpha', "Alpha", ""),
             ('albedo', "Albedo", ""),
+            ('roughness', "Roughness", ""),
+            ('metalness', "Metalness", "")
         )
     )
 

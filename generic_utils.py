@@ -92,7 +92,9 @@ def bad_setup_check(self, context, active_export, report_value=False, report_str
             grabDoc.exportHeight,
             grabDoc.exportMatID,
             grabDoc.exportAlpha,
-            grabDoc.exportAlbedo
+            grabDoc.exportAlbedo,
+            grabDoc.exportRoughness,
+            grabDoc.exportMetalness,
         ]
 
         bake_map_vis = [
@@ -102,7 +104,9 @@ def bad_setup_check(self, context, active_export, report_value=False, report_str
             grabDoc.uiVisibilityHeight,
             grabDoc.uiVisibilityMatID,
             grabDoc.uiVisibilityAlpha,
-            grabDoc.uiVisibilityAlbedo
+            grabDoc.uiVisibilityAlbedo,
+            grabDoc.uiVisibilityRoughness,
+            grabDoc.uiVisibilityMetalness
         ]
 
         if not True in bake_maps or not True in bake_map_vis:
@@ -169,7 +173,7 @@ class GRABDOC_OT_view_cam(OpInfo, Operator):
                 bpy.ops.view3d.view_camera()
         except:
             traceback.print_exc()
-            self.report({'ERROR'}, "Exit camera failed, please email the developer with the error code listed in the console. ethan.simon.3d@gmail.com")
+            self.report({'ERROR'}, "Exit camera failed, please email the developer with the error code listed in the console @ ethan.simon.3d@gmail.com")
 
         self.from_modal = False
         return{'FINISHED'}
