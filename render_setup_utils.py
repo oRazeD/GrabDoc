@@ -21,7 +21,7 @@ def get_rendered_objects(self, context):
 
                 if is_in_viewing_spectrum(global_bbox_center):
                     render_list.append(ob.name)
-    return render_list
+    return set(render_list)
 
 
 # DECIDE WHETHER A GIVEN OBJECT IS WITHIN THE CAMERAS VIEWING SPECTRUM

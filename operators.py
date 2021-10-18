@@ -1438,10 +1438,10 @@ class GRABDOC_OT_map_preview(OpInfo, Operator):
             eevee.taa_render_samples = eevee.taa_samples = grabDoc.samplesAlbedo
 
         elif self.preview_type == "roughness":
-            eevee.taa_render_samples = eevee.taa_samples = grabDoc.samplesAlbedo
+            eevee.taa_render_samples = eevee.taa_samples = grabDoc.samplesRoughness
 
         elif self.preview_type == "metalness":
-            eevee.taa_render_samples = eevee.taa_samples = grabDoc.samplesAlbedo
+            eevee.taa_render_samples = eevee.taa_samples = grabDoc.samplesMetalness
 
         # TODO update the node group input values for Albedo, Roughness, Metallic, Mixed Normal, etc
 
@@ -1567,7 +1567,7 @@ class GRABDOC_OT_export_current_preview(OpInfo, Operator):
 
     @classmethod
     def poll(cls, context):
-        return(context.scene.grabDoc.modalState)
+        return context.scene.grabDoc.modalState
 
     def execute(self, context):
         grabDoc = context.scene.grabDoc

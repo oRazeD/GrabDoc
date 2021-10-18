@@ -68,9 +68,24 @@ class GRABDOC_PT_grabdoc(PanelInfo, Panel):
             row = col.row(align = True)
             row.scale_y = .95
 
-            row.prop(grabDoc, "collSelectable", text = "Select", icon = 'RESTRICT_SELECT_OFF' if grabDoc.collSelectable else 'RESTRICT_SELECT_ON')
-            row.prop(grabDoc, "collVisible", text = "Visible", icon = 'HIDE_OFF' if grabDoc.collVisible else 'HIDE_ON')
-            row.prop(grabDoc, "collRendered", text = "Render", icon = 'RESTRICT_RENDER_OFF' if grabDoc.collRendered else 'RESTRICT_RENDER_ON')
+            row.prop(
+                grabDoc,
+                "collSelectable",
+                text = "Select",
+                icon = 'RESTRICT_SELECT_OFF' if grabDoc.collSelectable else 'RESTRICT_SELECT_ON'
+            )
+            row.prop(
+                grabDoc,
+                "collVisible",
+                text = "Visible",
+                icon = 'HIDE_OFF' if grabDoc.collVisible else 'HIDE_ON'
+            )
+            row.prop(
+                grabDoc,
+                "collRendered",
+                text = "Render",
+                icon = 'RESTRICT_RENDER_OFF' if grabDoc.collRendered else 'RESTRICT_RENDER_ON'
+            )
 
             box = col.box()
             box.use_property_split = True
@@ -127,7 +142,11 @@ class GRABDOC_PT_export(PanelInfo, Panel):
 
                 row = col.row(align=True)
                 row.scale_y = 1.5
-                row.operator("grab_doc.bake_marmoset", text = "Bake in Marmoset" if grabDoc.marmoAutoBake else "Open in Marmoset", icon = "EXPORT").send_type = 'open'
+                row.operator(
+                    "grab_doc.bake_marmoset",
+                    text="Bake in Marmoset" if grabDoc.marmoAutoBake else "Open in Marmoset",
+                    icon="EXPORT"
+                ).send_type = 'open'
                 row.operator("grab_doc.bake_marmoset", text = "", icon = 'FILE_REFRESH').send_type = 'refresh'
 
         box = col.box()
@@ -180,9 +199,24 @@ class GRABDOC_PT_export(PanelInfo, Panel):
         box.use_property_split = False
 
         col = box.column(align = True)
-        col.prop(grabDoc, "onlyRenderColl", text = "Use Bake Group", icon='CHECKBOX_HLT' if grabDoc.onlyRenderColl else 'CHECKBOX_DEHLT')
-        col.prop(grabDoc, "exportPlane", text = 'Export Plane as FBX', icon='CHECKBOX_HLT' if grabDoc.exportPlane else 'CHECKBOX_DEHLT')
-        col.prop(grabDoc, "openFolderOnExport", text = "Open Folder on Export", icon='CHECKBOX_HLT' if grabDoc.openFolderOnExport else 'CHECKBOX_DEHLT')
+        col.prop(
+            grabDoc,
+            "onlyRenderColl",
+            text="Use Bake Group",
+            icon='CHECKBOX_HLT' if grabDoc.onlyRenderColl else 'CHECKBOX_DEHLT'
+        )
+        col.prop(
+            grabDoc,
+            "exportPlane",
+            text='Export Plane as FBX',
+            icon='CHECKBOX_HLT' if grabDoc.exportPlane else 'CHECKBOX_DEHLT'
+        )
+        col.prop(
+            grabDoc,
+            "openFolderOnExport",
+            text="Open Folder on Export",
+            icon='CHECKBOX_HLT' if grabDoc.openFolderOnExport else 'CHECKBOX_DEHLT'
+        )
 
         if grabDoc.bakerType == 'Marmoset':
             col = box.column(align = True)
@@ -190,7 +224,12 @@ class GRABDOC_PT_export(PanelInfo, Panel):
 
             col = col.column(align = True)
             col.enabled = True if grabDoc.marmoAutoBake else False
-            col.prop(grabDoc, 'marmoClosePostBake', text='Close Toolbag after Baking', icon='CHECKBOX_HLT' if grabDoc.marmoClosePostBake else 'CHECKBOX_DEHLT')
+            col.prop(
+                grabDoc,
+                'marmoClosePostBake',
+                text='Close Toolbag after Baking',
+                icon='CHECKBOX_HLT' if grabDoc.marmoClosePostBake else 'CHECKBOX_DEHLT'
+            )
 
 
 class GRABDOC_PT_view_edit_maps(PanelInfo, Panel):
@@ -280,7 +319,10 @@ class GRABDOC_PT_normals_settings(PanelInfo, Panel):
         row.separator(factor = .5)
         row.prop(grabDoc, 'exportNormals', text = "")
 
-        row.operator("grab_doc.preview_warning" if grabDoc.firstBakePreview else "grab_doc.preview_map", text = "Normals Preview").preview_type = 'normals'
+        row.operator(
+            "grab_doc.preview_warning" if grabDoc.firstBakePreview else "grab_doc.preview_map",
+            text = "Normals Preview"
+        ).preview_type = 'normals'
         
         row.operator("grab_doc.offline_render", text = "", icon = "RENDER_STILL").render_type = 'normals'
         row.separator(factor = 1.3)
@@ -324,7 +366,10 @@ class GRABDOC_PT_curvature_settings(PanelInfo, Panel):
         row.separator(factor = .5)
         row.prop(grabDoc, 'exportCurvature', text = "")
         
-        row.operator("grab_doc.preview_warning" if grabDoc.firstBakePreview else "grab_doc.preview_map", text = "Curvature Preview").preview_type = 'curvature'
+        row.operator(
+            "grab_doc.preview_warning" if grabDoc.firstBakePreview else "grab_doc.preview_map",
+            text = "Curvature Preview"
+        ).preview_type = 'curvature'
 
         row.operator("grab_doc.offline_render", text = "", icon = "RENDER_STILL").render_type = 'curvature'
         row.separator(factor = 1.3)
@@ -372,7 +417,10 @@ class GRABDOC_PT_occlusion_settings(PanelInfo, Panel):
         row.separator(factor = .5)
         row.prop(grabDoc, 'exportOcclusion', text = "")
 
-        row.operator("grab_doc.preview_warning" if grabDoc.firstBakePreview else "grab_doc.preview_map", text = "Occlusion Preview").preview_type = 'occlusion'
+        row.operator(
+            "grab_doc.preview_warning" if grabDoc.firstBakePreview else "grab_doc.preview_map",
+            text = "Occlusion Preview"
+        ).preview_type = 'occlusion'
 
         row.operator("grab_doc.offline_render", text = "", icon = "RENDER_STILL").render_type = 'occlusion'
         row.separator(factor = 1.3)
@@ -424,7 +472,10 @@ class GRABDOC_PT_height_settings(PanelInfo, Panel):
         row.separator(factor = .5)
         row.prop(grabDoc, 'exportHeight', text = "")
 
-        row.operator("grab_doc.preview_warning" if grabDoc.firstBakePreview else "grab_doc.preview_map", text = "Height Preview").preview_type = 'height'
+        row.operator(
+            "grab_doc.preview_warning" if grabDoc.firstBakePreview else "grab_doc.preview_map",
+            text = "Height Preview"
+        ).preview_type = 'height'
 
         row.operator("grab_doc.offline_render", text = "", icon = "RENDER_STILL").render_type = 'height'
         row.separator(factor = 1.3)
@@ -478,7 +529,10 @@ class GRABDOC_PT_id_settings(PanelInfo, Panel):
         row.separator(factor = .5)
         row.prop(grabDoc, 'exportMatID', text = "")
         
-        row.operator("grab_doc.preview_warning" if grabDoc.firstBakePreview else "grab_doc.preview_map", text = "Mat ID Preview").preview_type = 'ID'
+        row.operator(
+            "grab_doc.preview_warning" if grabDoc.firstBakePreview else "grab_doc.preview_map",
+            text = "Mat ID Preview"
+        ).preview_type = 'ID'
 
         row.operator("grab_doc.offline_render", text = "", icon = "RENDER_STILL").render_type = 'ID'
         row.separator(factor = 1.3)
@@ -548,7 +602,10 @@ class GRABDOC_PT_alpha_settings(PanelInfo, Panel):
         row.separator(factor = .5)
         row.prop(grabDoc, 'exportAlpha', text = "")
 
-        row.operator("grab_doc.preview_warning" if grabDoc.firstBakePreview else "grab_doc.preview_map", text = "Alpha Preview").preview_type = 'alpha'
+        row.operator(
+            "grab_doc.preview_warning" if grabDoc.firstBakePreview else "grab_doc.preview_map",
+            text = "Alpha Preview"
+        ).preview_type = 'alpha'
 
         row.operator("grab_doc.offline_render", text = "", icon = "RENDER_STILL").render_type = 'alpha'
         row.separator(factor = 1.3)
@@ -583,7 +640,9 @@ class GRABDOC_PT_albedo_settings(PanelInfo, Panel):
 
     @classmethod
     def poll(cls, context):
-        return not context.scene.grabDoc.modalState and context.scene.grabDoc.uiVisibilityAlbedo and context.scene.grabDoc.bakerType == 'Blender'
+        grabDoc = context.scene.grabDoc
+
+        return not grabDoc.modalState and grabDoc.uiVisibilityAlbedo and grabDoc.bakerType == 'Blender'
 
     def draw_header(self, context):
         grabDoc = context.scene.grabDoc
@@ -592,7 +651,10 @@ class GRABDOC_PT_albedo_settings(PanelInfo, Panel):
         row.separator(factor = .5)
         row.prop(grabDoc, 'exportAlbedo', text = "")
 
-        row.operator("grab_doc.preview_warning" if grabDoc.firstBakePreview else "grab_doc.preview_map", text = "Albedo Preview").preview_type = 'albedo'
+        row.operator(
+            "grab_doc.preview_warning" if grabDoc.firstBakePreview else "grab_doc.preview_map",
+            text = "Albedo Preview"
+        ).preview_type = 'albedo'
 
         row.operator("grab_doc.offline_render", text = "", icon = "RENDER_STILL").render_type = 'albedo'
         row.separator(factor = 1.3)
@@ -623,7 +685,9 @@ class GRABDOC_PT_roughness_settings(PanelInfo, Panel):
 
     @classmethod
     def poll(cls, context):
-        return not context.scene.grabDoc.modalState and context.scene.grabDoc.uiVisibilityRoughness and context.scene.grabDoc.bakerType == 'Blender'
+        grabDoc = context.scene.grabDoc
+
+        return not grabDoc.modalState and grabDoc.uiVisibilityRoughness and grabDoc.bakerType == 'Blender'
 
     def draw_header(self, context):
         grabDoc = context.scene.grabDoc
@@ -632,7 +696,10 @@ class GRABDOC_PT_roughness_settings(PanelInfo, Panel):
         row.separator(factor = .5)
         row.prop(grabDoc, 'exportRoughness', text = "")
 
-        row.operator("grab_doc.preview_warning" if grabDoc.firstBakePreview else "grab_doc.preview_map", text = "Roughness Preview").preview_type = 'roughness'
+        row.operator(
+            "grab_doc.preview_warning" if grabDoc.firstBakePreview else "grab_doc.preview_map",
+            text = "Roughness Preview"
+        ).preview_type = 'roughness'
 
         row.operator("grab_doc.offline_render", text = "", icon = "RENDER_STILL").render_type = 'roughness'
         row.separator(factor = 1.3)
@@ -663,7 +730,9 @@ class GRABDOC_PT_metalness_settings(PanelInfo, Panel):
 
     @classmethod
     def poll(cls, context):
-        return not context.scene.grabDoc.modalState and context.scene.grabDoc.uiVisibilityMetalness and context.scene.grabDoc.bakerType == 'Blender'
+        grabDoc = context.scene.grabDoc
+
+        return not grabDoc.modalState and grabDoc.uiVisibilityMetalness and grabDoc.bakerType == 'Blender'
 
     def draw_header(self, context):
         grabDoc = context.scene.grabDoc
@@ -672,7 +741,10 @@ class GRABDOC_PT_metalness_settings(PanelInfo, Panel):
         row.separator(factor = .5)
         row.prop(grabDoc, 'exportMetalness', text = "")
 
-        row.operator("grab_doc.preview_warning" if grabDoc.firstBakePreview else "grab_doc.preview_map", text = "Metalness Preview").preview_type = 'metalness'
+        row.operator(
+            "grab_doc.preview_warning" if grabDoc.firstBakePreview else "grab_doc.preview_map",
+            text = "Metalness Preview"
+        ).preview_type = 'metalness'
 
         row.operator("grab_doc.offline_render", text = "", icon = "RENDER_STILL").render_type = 'metalness'
         row.separator(factor = 1.3)

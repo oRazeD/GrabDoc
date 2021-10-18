@@ -65,9 +65,11 @@ class GRABDOC_OT_add_preset(AddPresetBase, bpy.types.Operator):
         "grabDoc.uiVisibilityCurvature",
         "grabDoc.uiVisibilityOcclusion",
         "grabDoc.uiVisibilityHeight",
-        "grabDoc.uiVisibilityAlpha",
         "grabDoc.uiVisibilityMatID",
+        "grabDoc.uiVisibilityAlpha",
         "grabDoc.uiVisibilityAlbedo",
+        "grabDoc.uiVisibilityRoughness",
+        "grabDoc.uiVisibilityMetalness",
 
         "grabDoc.exportNormals",
         "grabDoc.reimportAsMatNormals",
@@ -139,7 +141,7 @@ class GRABDOC_OT_add_preset(AddPresetBase, bpy.types.Operator):
 class GRABDOC_OT_check_for_update(bpy.types.Operator):
     bl_idname = "updater_gd.check_for_update"
     bl_label = ""
-    bl_options = {'REGISTER', 'UNDO'}
+    bl_options = {'INTERNAL', 'REGISTER', 'UNDO'}
 
     def execute(self, context):
         updater.check_for_update_now()
@@ -387,7 +389,12 @@ class GRABDOC_property_group(bpy.types.PropertyGroup):
 
     reimportAsMatNormals: BoolProperty(description="Reimport the Normal map as a material for use in Blender")
 
-    flipYNormals: BoolProperty(name="Flip Y (-Y)", description="Flip the normal map Y direction", options={'SKIP_SAVE'}, update=update_flip_y)
+    flipYNormals: BoolProperty(
+        name="Flip Y (-Y)",
+        description="Flip the normal map Y direction",
+        options={'SKIP_SAVE'},
+        update=update_flip_y
+    )
 
     suffixNormals: StringProperty(
         name="",
@@ -400,9 +407,27 @@ class GRABDOC_property_group(bpy.types.PropertyGroup):
     # Curvature
     exportCurvature: BoolProperty(default=True)
 
-    ridgeCurvature: FloatProperty(name="", default=2, min=0, max=2, precision=3, step=.1, update=update_curvature, subtype='FACTOR')
+    ridgeCurvature: FloatProperty(
+        name="",
+        default=2,
+        min=0,
+        max=2,
+        precision=3,
+        step=.1,
+        update=update_curvature,
+        subtype='FACTOR'
+    )
 
-    valleyCurvature: FloatProperty(name="", default=1.5, min=0, max=2, precision=3, step=.1, update=update_curvature, subtype='FACTOR')
+    valleyCurvature: FloatProperty(
+        name="",
+        default=1.5,
+        min=0,
+        max=2,
+        precision=3,
+        step=.1,
+        update=update_curvature,
+        subtype='FACTOR'
+    )
 
     suffixCurvature: StringProperty(
         name="",
@@ -487,7 +512,10 @@ class GRABDOC_property_group(bpy.types.PropertyGroup):
     # Height
     exportHeight: BoolProperty(default=True, update=scene_setup_and_refresh)
 
-    invertMaskHeight: BoolProperty(description="Invert the Height mask, this is useful if you are sculpting into a plane mesh", update=update_height_guide)
+    invertMaskHeight: BoolProperty(
+        description="Invert the Height mask, this is useful if you are sculpting into a plane mesh",
+        update=update_height_guide
+    )
 
     guideHeight: FloatProperty(name="", default=1, min=.01, soft_max=100, step=.03, subtype='DISTANCE', update=update_height_guide)
 
