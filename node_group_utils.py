@@ -5,6 +5,8 @@ import bpy
 def ng_setup(self, context):
     grabDoc = context.scene.grabDoc
 
+    # TODO painfully manual process, maybe figure out how to make a factory that works with specific use cases?
+
     # NORMALS
     if not 'GD_Normal' in bpy.data.node_groups:
         # Create node group
@@ -243,9 +245,10 @@ def create_apply_ng_mat(self, context):
     # Apply the material to the appropriate slot
     #
     # Search through all material slots, if any slots have no name that means they have no material
-    # & therefore should have one added. While this does need to run every time this is called it 
-    # should only really need to be used once per in add-on use. We do not want to remove empty
-    # material slots as they can be used for masking off materials.
+    # & therefore should have one added. While this does run every time this is called it should
+    # only really need to be used once per in add-on use.
+    # 
+    # We do not want to remove empty material slots as they can be used for masking off materials.
     for slot in self.ob.material_slots:
         if slot.name == '':
             self.ob.material_slots[slot.name].material = mat
@@ -255,12 +258,26 @@ def create_apply_ng_mat(self, context):
 
 
 # ADD NODE GROUP TO ALL MATERIALS, SAVE ORIGINAL LINKS & LINK NODE GROUP TO MATERIAL OUTPUT
+def bsdf_link_factory(input_name, node_group, original_node, mat_slot):
+    node_found = False
+
+    for node_input in original_node.inputs:
+        node_group.inputs[input_name].default_value = node_input.default_value
+
+        for link in node_input.links:
+            node_found = True
+
+            mat_slot.node_tree.links.new(node_group.inputs[input_name], link.from_node.outputs[link.from_socket.name])
+            break
+
+    return node_found
+
 def add_ng_to_mat(self, context, setup_type):
     for self.ob in context.view_layer.objects:
         if self.ob.name in self.render_list:
             ob = self.ob
 
-            # TODO remove some indents
+            # TODO remove some indents if possible
 
             if ob.name != "GD_Orient Guide":
                 # If no material slots found or empty mat slots found, assign a material to it
@@ -294,12 +311,12 @@ def add_ng_to_mat(self, context, setup_type):
                         GD_node_group.name = bpy.data.node_groups[setup_type].name
                         GD_node_group.hide = True
 
-                        # Get the original node link (if it exists)
+                        # Handle node linking
                         for node_input in output_node.inputs:
                             for link in node_input.links:
                                 original_node = mat_slot.node_tree.nodes.get(link.from_node.name)
 
-                                # Link original connection to the Node Group
+                                # Link original connections to the Node Group
                                 if node_input.name == 'Surface':
                                     mat_slot.node_tree.links.new(GD_node_group.inputs["Saved Surface"], original_node.outputs[link.from_socket.name])
                                 elif node_input.name == 'Volume':
@@ -307,37 +324,33 @@ def add_ng_to_mat(self, context, setup_type):
                                 elif node_input.name == 'Displacement':
                                     mat_slot.node_tree.links.new(GD_node_group.inputs["Saved Displacement"], original_node.outputs[link.from_socket.name])
 
-                                # Situational links for maps like Albedo
+                                # Links for maps that feed information from the Principled BSDF
                                 if setup_type in ('GD_Albedo', 'GD_Roughness', 'GD_Metalness') and original_node.type == 'BSDF_PRINCIPLED':
                                     node_found = False
 
-                                    for node_input in original_node.inputs:
-                                        if setup_type == 'GD_Albedo' and node_input.name == 'Base Color':
-                                            GD_node_group.inputs["Color Input"].default_value = node_input.default_value
+                                    if setup_type == 'GD_Albedo' and node_input.name == 'Base Color':
+                                        node_found = bsdf_link_factory(
+                                            input_name='Color Input',
+                                            node_group=GD_node_group,
+                                            original_node=original_node,
+                                            mat_slot=mat_slot
+                                        )
+                                    
+                                    elif setup_type == 'GD_Roughness' and node_input.name == 'Roughness':
+                                        node_found = bsdf_link_factory(
+                                            input_name='Roughness Input',
+                                            node_group=GD_node_group,
+                                            original_node=original_node,
+                                            mat_slot=mat_slot
+                                        )
 
-                                            for link in node_input.links:
-                                                node_found = True
-
-                                                mat_slot.node_tree.links.new(GD_node_group.inputs["Color Input"], link.from_node.outputs[link.from_socket.name])
-                                                break
-
-                                        elif setup_type == 'GD_Roughness' and node_input.name == 'Roughness':
-                                            GD_node_group.inputs["Roughness Input"].default_value = node_input.default_value
-
-                                            for link in node_input.links:
-                                                node_found = True
-
-                                                mat_slot.node_tree.links.new(GD_node_group.inputs["Roughness Input"], link.from_node.outputs[link.from_socket.name])
-                                                break
-
-                                        elif setup_type == 'GD_Metalness' and node_input.name == 'Metallic':
-                                            GD_node_group.inputs["Metalness Input"].default_value = node_input.default_value
-
-                                            for link in node_input.links:
-                                                node_found = True
-
-                                                mat_slot.node_tree.links.new(GD_node_group.inputs["Metalness Input"], link.from_node.outputs[link.from_socket.name])
-                                                break
+                                    elif setup_type == 'GD_Metalness' and node_input.name == 'Metallic':
+                                        node_found = bsdf_link_factory(
+                                            input_name='Metalness Input',
+                                            node_group=GD_node_group,
+                                            original_node=original_node,
+                                            mat_slot=mat_slot
+                                        )
 
                                     if not node_found:
                                         self.report({'WARNING'}, "Material slots found without links and will be rendered using the sockets default value.")
