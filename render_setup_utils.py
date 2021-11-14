@@ -58,7 +58,7 @@ def find_tallest_object(self, context):
 
     # Set the heights guide to the tallest found point
     if tallest_vert:
-        context.scene.grabDoc.guideHeight = tallest_vert
+        context.scene.grabDoc.guideHeight = tallest_vert - bpy.data.objects.get('GD_Background Plane').location[2]
 
 
 # ##### BEGIN GPL LICENSE BLOCK #####
