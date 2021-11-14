@@ -46,7 +46,7 @@ def proper_scene_setup(context):
 def bad_setup_check(self, context, active_export, report_value=False, report_string=""):
     grabDoc = context.scene.grabDoc
 
-    # Run this before other error checks as the following error checks contains dependencies
+    # Run this before other error checks as the following error checks contain dependencies
     self.render_list = get_rendered_objects(self, context)
 
     # Look for Trim Camera (only thing required to render)
@@ -62,7 +62,7 @@ def bad_setup_check(self, context, active_export, report_value=False, report_str
         
     # Checks for rendered objects that contain the Displace modifier or are 'CURVE' type objects
     #
-    # TODO This just calls if the height map is turned on, not if they are
+    # TODO This calls if the height map is turned on, not if they are
     # actually previewing it in Map Preview. This is bad, find a workaround
     if grabDoc.exportHeight and not report_value:
         for ob in context.view_layer.objects:
@@ -73,10 +73,9 @@ def bad_setup_check(self, context, active_export, report_value=False, report_str
                         report_string = "When using Displace modifiers & baking Height you must use the 'Manual' 0-1 Range option.\n\n 'Auto' 0-1 Range cannot account for modifier geometry, this goes for all modifiers but is only required for displacement."
                         break
 
-                if not report_value:
-                    if ob.type == 'CURVE':
-                        report_value = True
-                        report_string = "Curves are not fully supported. When baking Height you must use the 'Manual' 0-1 Range option for accurate results." 
+                if not report_value and ob.type == 'CURVE':
+                    report_value = True
+                    report_string = "Curve objects are not fully supported. When baking Height you must use the 'Manual' 0-1 Range option for accurate results." 
 
     if active_export:
         # Check for export path

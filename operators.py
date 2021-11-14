@@ -372,18 +372,18 @@ def export_and_preview_setup(self, context):
     eevee.gtao_quality = .5
 
     # Save & Set - Color Management
-    viewSettings = context.scene.view_settings
+    view_settings = context.scene.view_settings
 
     self.savedDisplayDevice = context.scene.display_settings.display_device
-    self.savedViewTransform = viewSettings.view_transform
-    self.savedContrastType = viewSettings.look
-    self.savedExposure = viewSettings.exposure
-    self.savedGamma = viewSettings.gamma 
+    self.savedViewTransform = view_settings.view_transform
+    self.savedContrastType = view_settings.look
+    self.savedExposure = view_settings.exposure
+    self.savedGamma = view_settings.gamma 
 
-    viewSettings.view_transform = 'Standard'
-    viewSettings.look = 'None'
-    viewSettings.exposure = 0
-    viewSettings.gamma = 1
+    view_settings.view_transform = 'Standard'
+    view_settings.look = 'None'
+    view_settings.exposure = 0
+    view_settings.gamma = 1
 
     # Save & Set - Performance 
     if bpy.app.version >= (2, 83, 0):
@@ -405,17 +405,15 @@ def export_and_preview_setup(self, context):
 
     image_settings.file_format = grabDoc.imageType
 
-    if grabDoc.imageType == 'PNG':
-        self.savedCompression = image_settings.compression
-        image_settings.compression = grabDoc.imageComp
+    if grabDoc.imageType == 'OPEN_EXR':
+        image_settings.color_depth = grabDoc.colorDepthEXR
+    elif grabDoc.imageType != 'TARGA':
+        image_settings.color_depth = grabDoc.colorDepthPNG
 
-    elif grabDoc.imageType == 'TIFF':
-        self.savedCompression = image_settings.tiff_codec
-        image_settings.tiff_codec = grabDoc.imageCompTIFF
-
-    if grabDoc.imageType != 'TARGA':
-        self.savedColorDepth = image_settings.color_depth
-        image_settings.color_depth = grabDoc.colorDepth
+    if grabDoc.imageType == "PNG":
+        image_settings.compression = grabDoc.imageCompPNG
+    
+    self.savedColorDepth = image_settings.color_depth
 
     # Save & Set - Post Processing
     self.savedUseSequencer = render.use_sequencer
@@ -423,9 +421,7 @@ def export_and_preview_setup(self, context):
     self.savedDitherIntensity = render.dither_intensity
     self.savedUseCompositingNodes = context.scene.use_nodes
 
-    render.use_sequencer = False
-    render.use_compositing = False
-    context.scene.use_nodes = False
+    render.use_sequencer = render.use_compositing = context.scene.use_nodes = False
     render.dither_intensity = 0
 
         ## VIEWPORT SHADING ##
@@ -443,12 +439,8 @@ def export_and_preview_setup(self, context):
     self.savedOutline = scene_shading.show_object_outline
     self.savedShowSpec = scene_shading.show_specular_highlight
 
-    scene_shading.show_backface_culling = False
-    scene_shading.show_xray = False
-    scene_shading.show_shadows = False
-    scene_shading.show_cavity = False
-    scene_shading.use_dof = False
-    scene_shading.show_object_outline = False
+    scene_shading.show_backface_culling = scene_shading.show_xray = scene_shading.show_shadows = False
+    scene_shading.show_cavity = scene_shading.use_dof = scene_shading.show_object_outline = False
     scene_shading.show_specular_highlight = False
 
         ## PLANE REFERENCE ##
@@ -508,13 +500,13 @@ def export_refresh(self, context):
     scene.eevee.use_bloom = self.savedUseBloom
 
     # Refresh - Color Management
-    viewSettings = scene.view_settings
+    view_settings = scene.view_settings
 
-    viewSettings.look = self.savedContrastType
+    view_settings.look = self.savedContrastType
     scene.display_settings.display_device = self.savedDisplayDevice
-    viewSettings.view_transform = self.savedViewTransform
-    viewSettings.exposure = self.savedExposure
-    viewSettings.gamma = self.savedGamma
+    view_settings.view_transform = self.savedViewTransform
+    view_settings.exposure = self.savedExposure
+    view_settings.gamma = self.savedGamma
 
     # Refresh - Performance
     if bpy.app.version >= (2, 83, 0):
@@ -523,16 +515,9 @@ def export_refresh(self, context):
         ## OUTPUT PROPERTIES ##
 
     # Refresh - Output
+    render.image_settings.color_depth = self.savedColorDepth
     render.image_settings.color_mode = self.savedColorMode
     render.image_settings.file_format = self.savedFileFormat
-
-    if grabDoc.imageType == 'PNG':
-        render.image_settings.compression = self.savedCompression
-    elif grabDoc.imageType == 'TIFF':
-        render.image_settings.tiff_codec = self.savedCompression
-
-    if grabDoc.imageType != 'TARGA':
-        render.image_settings.color_depth = self.savedColorDepth
 
     # Refresh - Post Processing
     render.use_sequencer = self.savedUseSequencer
@@ -958,7 +943,7 @@ class GRABDOC_OT_export_maps(OpInfo, Operator):
 
     @classmethod
     def poll(cls, context):
-        return(not context.scene.grabDoc.modalState)
+        return not context.scene.grabDoc.modalState
 
     def execute(self, context):
         grabDoc = context.scene.grabDoc
@@ -1138,7 +1123,7 @@ class GRABDOC_OT_offline_render(OpInfo, Operator):
 
     @classmethod
     def poll(cls, context):
-        return(not context.scene.grabDoc.modalState)
+        return not context.scene.grabDoc.modalState
 
     render_type: EnumProperty(
         items=(
@@ -1180,7 +1165,7 @@ class GRABDOC_OT_offline_render(OpInfo, Operator):
         # Render
         bpy.ops.render.render(write_still = True)
 
-        # Load in the newly rendered image
+        # Load in the newly rendered image TODO might not work with non png formats?
         new_image = bpy.data.images.load(f'{temp_folder_path}\\{image_name}.png')
         new_image.name = image_name
 
@@ -1376,7 +1361,7 @@ class GRABDOC_OT_map_preview(OpInfo, Operator):
     def modal(self, context, event):
         scene = context.scene
         grabDoc = scene.grabDoc
-        viewSettings = scene.view_settings
+        view_settings = scene.view_settings
         scene_shading = bpy.data.scenes[str(scene.name)].display.shading
         eevee = scene.eevee
 
@@ -1387,20 +1372,18 @@ class GRABDOC_OT_map_preview(OpInfo, Operator):
 
         image_settings.file_format = grabDoc.imageType
 
-        if grabDoc.imageType == 'TIFF':
-            image_settings.tiff_codec = grabDoc.imageCompTIFF
-        elif grabDoc.imageType == 'PNG':
-            image_settings.compression = grabDoc.imageComp
+        if grabDoc.imageType == 'OPEN_EXR':
+            image_settings.color_depth = grabDoc.colorDepthEXR
 
-        if grabDoc.imageType != 'TARGA':
-            image_settings.color_depth = grabDoc.colorDepth
+        elif grabDoc.imageType != 'TARGA':
+            image_settings.color_depth = grabDoc.colorDepthPNG
 
         if self.preview_type == "normals":
             eevee.taa_render_samples = eevee.taa_samples = grabDoc.samplesNormals
     
         elif self.preview_type == "curvature":
             scene.display.render_aa = scene.display.viewport_aa = grabDoc.samplesCurvature
-            viewSettings.look = grabDoc.contrastCurvature.replace('_', ' ')
+            view_settings.look = grabDoc.contrastCurvature.replace('_', ' ')
 
             bpy.data.objects["GD_Background Plane"].color[3] = .9999
 
@@ -1411,7 +1394,7 @@ class GRABDOC_OT_map_preview(OpInfo, Operator):
         elif self.preview_type == "occlusion":
             eevee.taa_render_samples = eevee.taa_samples = grabDoc.samplesOcclusion
 
-            viewSettings.look = grabDoc.contrastOcclusion.replace('_', ' ')
+            view_settings.look = grabDoc.contrastOcclusion.replace('_', ' ')
 
             ao_node = bpy.data.node_groups["GD_Ambient Occlusion"].nodes.get('Ambient Occlusion')
             ao_node.inputs[1].default_value = grabDoc.distanceOcclusion
@@ -1423,7 +1406,7 @@ class GRABDOC_OT_map_preview(OpInfo, Operator):
         elif self.preview_type == "height":
             eevee.taa_render_samples = eevee.taa_samples = grabDoc.samplesHeight
 
-            viewSettings.look = grabDoc.contrastHeight.replace('_', ' ')
+            view_settings.look = grabDoc.contrastHeight.replace('_', ' ')
 
         elif self.preview_type == "ID":
             scene.display.render_aa = scene.display.viewport_aa = grabDoc.samplesMatID
@@ -1443,7 +1426,7 @@ class GRABDOC_OT_map_preview(OpInfo, Operator):
         elif self.preview_type == "metalness":
             eevee.taa_render_samples = eevee.taa_samples = grabDoc.samplesMetalness
 
-        # TODO update the node group input values for Albedo, Roughness, Metallic, Mixed Normal, etc
+        # TODO update the node group input values for Mixed Normal
 
         # Exiting    
         if self.done:

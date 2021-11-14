@@ -177,20 +177,26 @@ class GRABDOC_PT_export(PanelInfo, Panel):
         row.separator(factor = .5)
         
         row2 = row.row()
-        if grabDoc.imageType != "TARGA" or grabDoc.bakerType == 'Marmoset':
-            row2.prop(grabDoc, "colorDepth", expand = True)
+        if grabDoc.imageType == "OPEN_EXR":
+            row2.prop(grabDoc, "colorDepthEXR", expand = True)
+        elif grabDoc.imageType != "TARGA" or grabDoc.bakerType == 'Marmoset':
+            row2.prop(grabDoc, "colorDepthPNG", expand = True)
         else:
             row2.enabled = False
-            row2.prop(grabDoc, "fakeColorDepth", expand = True)
+            row2.prop(grabDoc, "colorDepthTGA", expand = True)
 
         if grabDoc.bakerType == 'Blender':
             if grabDoc.imageType != "TARGA":
+                image_settings = context.scene.render.image_settings
+
                 row = box.row(align = True)
 
                 if grabDoc.imageType == "PNG":
-                    row.prop(grabDoc, "imageComp", text = "Compression")
+                    row.prop(grabDoc, "imageCompPNG", text = "Compression")
+                elif grabDoc.imageType == "OPEN_EXR":
+                    row.prop(image_settings, "exr_codec", text = "Codec")
                 else: # TIFF
-                    row.prop(grabDoc, "imageCompTIFF", text = "Compression")
+                    row.prop(image_settings, "tiff_codec", text = "Codec")
         else: # Marmoset
             row = box.row(align = True)
             row.prop(grabDoc, "marmoSamples", text = "Sampling", expand = True)

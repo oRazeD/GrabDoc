@@ -24,7 +24,7 @@ class GrabDoc_OT_send_to_marmo(OpInfo, bpy.types.Operator):
 
     @classmethod
     def poll(cls, context):
-        return(os.path.exists(context.scene.grabDoc.marmoEXE))
+        return os.path.exists(context.scene.grabDoc.marmoEXE)
 
     def open_marmoset(self, context, temps_path, addon_path):
         grabDoc = context.scene.grabDoc
@@ -38,7 +38,7 @@ class GrabDoc_OT_send_to_marmo(OpInfo, bpy.types.Operator):
 
             'resolution_x': grabDoc.exportResX,
             'resolution_y': grabDoc.exportResY,
-            'bits_per_channel': int(grabDoc.colorDepth),
+            'bits_per_channel': int(grabDoc.colorDepthPNG),
             'samples': int(grabDoc.marmoSamples),
 
             'auto_bake': grabDoc.marmoAutoBake,
@@ -142,8 +142,7 @@ class GrabDoc_OT_send_to_marmo(OpInfo, bpy.types.Operator):
         # Get background plane low and high poly
         bg_plane_ob = bpy.data.objects.get('GD_Background Plane')
         bg_plane_ob.name = "GD_low GD_Background Plane"
-        bpy.data.collections["GrabDoc (do not touch contents)"].hide_select = False
-        bg_plane_ob.hide_select = False
+        bpy.data.collections["GrabDoc (do not touch contents)"].hide_select = bg_plane_ob.hide_select = False
         bg_plane_ob.select_set(True)
 
         # Copy the object, link into the scene & rename as high poly

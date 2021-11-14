@@ -52,9 +52,9 @@ class GRABDOC_OT_add_preset(AddPresetBase, bpy.types.Operator):
         "grabDoc.exportResY",
         "grabDoc.lockRes",
         "grabDoc.imageType",
-        "grabDoc.colorDepth",
-        "grabDoc.imageComp",
-        "grabDoc.imageCompTIFF",
+        "grabDoc.colorDepthPNG",
+        "grabDoc.colorDepthTGA",
+        "grabDoc.imageCompPNG",
 
         "grabDoc.onlyRenderColl",
         "grabDoc.exportPlane",        
@@ -126,7 +126,8 @@ class GRABDOC_OT_add_preset(AddPresetBase, bpy.types.Operator):
         "grabDoc.marmoAutoBake",
         "grabDoc.marmoClosePostBake",
         "grabDoc.marmoSamples",
-        "grabDoc.marmoAORayCount"
+        "grabDoc.marmoAORayCount",
+        "grabDoc.imageType_marmo"
     ]
 
     # Where to store the preset
@@ -315,35 +316,21 @@ class GRABDOC_property_group(bpy.types.PropertyGroup):
         items=(
             ('PNG', "PNG", ""),
             ('TIFF', "TIFF", ""),
-            ('TARGA', "TGA", "")
+            ('TARGA', "TGA", ""),
+            ('OPEN_EXR', "EXR", "")
         ),
         name="Format"
     )
 
-    imageType_marmo: EnumProperty(
-        items=(
-            ('PNG', "PNG", ""),
-            ('PSD', "PSD", ""),
-        ),
-        name="Format"
-    )
-    
-    colorDepth: EnumProperty(
+    # PNG
+    colorDepthPNG: EnumProperty(
         items=(
             ('16', "16", ""),
             ('8', "8", "")
         )
     )
 
-    fakeColorDepth: EnumProperty(
-        items=(
-            ('16', "16", ""),
-            ('8', "8", "")
-        ),
-        default='8'
-    )
-
-    imageComp: IntProperty(
+    imageCompPNG: IntProperty( # Use our own property so we can assign a new default
         name="",
         default=50,
         min=0,
@@ -351,16 +338,22 @@ class GRABDOC_property_group(bpy.types.PropertyGroup):
         description='Lossless Compression for smaller image sizes, but longer export times',
         subtype='PERCENTAGE'
     )
-    
-    imageCompTIFF: EnumProperty(
+
+    # EXR
+    colorDepthEXR: EnumProperty(
         items=(
-            ('NONE', "None", ""),
-            ('DEFLATE', "Deflate", ""),
-            ('LZW', "LZW", ""),
-            ('PACKBITS', "Pack Bits", "")
+            ('16', "16", ""),
+            ('32', "32", "")
+        )
+    )
+
+    # TGA
+    colorDepthTGA: EnumProperty(
+        items=(
+            ('16', "16", ""),
+            ('8', "8", "")
         ),
-        name='Compression',
-        default='DEFLATE'
+        default='8'
     )
 
     onlyRenderColl: BoolProperty(
@@ -685,6 +678,14 @@ class GRABDOC_property_group(bpy.types.PropertyGroup):
     )
 
     marmoAORayCount: IntProperty(default=512, min=32, soft_max=4096)
+
+    imageType_marmo: EnumProperty(
+        items=(
+            ('PNG', "PNG", ""),
+            ('PSD', "PSD", "")
+        ),
+        name="Format"
+    )
 
 
 ##################################
