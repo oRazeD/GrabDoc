@@ -1079,7 +1079,7 @@ class GRABDOC_OT_export_maps(OpInfo, Operator):
         percent_till_completed += percentage_division
         context.window_manager.progress_update(percent_till_completed)
 
-        # Scale down BG Plane (helps overscan & border pixels)
+        # Scale down BG Plane
         plane_ob = bpy.data.objects["GD_Background Plane"]
         plane_ob.scale[0] = plane_ob.scale[1] = 1
 
@@ -1571,6 +1571,10 @@ class GRABDOC_OT_export_current_preview(OpInfo, Operator):
         # Set - Output path to add-on path + add-on name + the type of map exported (file extensions get handled automatically)
         render.filepath = bpy.path.abspath(grabDoc.exportPath) + grabDoc.exportName + f"_{grabDoc.modalPreviewType}"
 
+        # Set - Scale up the plane
+        plane_ob = bpy.data.objects["GD_Background Plane"]
+        plane_ob.scale[0] = plane_ob.scale[1] = 3
+
         bpy.ops.render.render(write_still = True)
 
         # Refresh - file output path
@@ -1583,6 +1587,10 @@ class GRABDOC_OT_export_current_preview(OpInfo, Operator):
         # Reimport the Occlusion map as a material if requested
         elif grabDoc.modalPreviewType == 'occlusion' and grabDoc.reimportAsMatOcclusion:
             occlusion_reimport_as_mat(self, context)
+
+        # Refresh - Scale down the plane
+        plane_ob = bpy.data.objects["GD_Background Plane"]
+        plane_ob.scale[0] = plane_ob.scale[1] = 1
 
         if grabDoc.exportPlane:
             export_bg_plane(self, context)
