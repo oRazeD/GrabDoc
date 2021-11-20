@@ -408,7 +408,7 @@ def export_and_preview_setup(self, context):
     if grabDoc.imageType == 'OPEN_EXR':
         image_settings.color_depth = grabDoc.colorDepthEXR
     elif grabDoc.imageType != 'TARGA':
-        image_settings.color_depth = grabDoc.colorDepthPNG
+        image_settings.color_depth = grabDoc.colorDepth
 
     if grabDoc.imageType == "PNG":
         image_settings.compression = grabDoc.imageCompPNG
@@ -1376,7 +1376,7 @@ class GRABDOC_OT_map_preview(OpInfo, Operator):
             image_settings.color_depth = grabDoc.colorDepthEXR
 
         elif grabDoc.imageType != 'TARGA':
-            image_settings.color_depth = grabDoc.colorDepthPNG
+            image_settings.color_depth = grabDoc.colorDepth
 
         if self.preview_type == "normals":
             eevee.taa_render_samples = eevee.taa_samples = grabDoc.samplesNormals

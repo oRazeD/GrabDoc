@@ -24,21 +24,22 @@ class GrabDoc_OT_send_to_marmo(OpInfo, bpy.types.Operator):
 
     @classmethod
     def poll(cls, context):
-        return os.path.exists(context.scene.grabDoc.marmoEXE)
+        return os.path.exists(context.preferences.addons[__package__].preferences.marmoEXE)
 
     def open_marmoset(self, context, temps_path, addon_path):
         grabDoc = context.scene.grabDoc
+        marmo_exe = context.preferences.addons[__package__].preferences.marmoEXE
 
         # Create a dictionary of variables to transfer into Marmoset
         marmo_vars = {
             'file_path': f'{bpy.path.abspath(grabDoc.exportPath)}{grabDoc.exportName}.{grabDoc.imageType_marmo.lower()}',
             'file_ext': grabDoc.imageType_marmo.lower(),
             'file_path_no_ext': bpy.path.abspath(grabDoc.exportPath),
-            'marmo_sky_path': f'{os.path.dirname(grabDoc.marmoEXE)}\\data\\sky\\Evening Clouds.tbsky',
+            'marmo_sky_path': f'{os.path.dirname(marmo_exe)}\\data\\sky\\Evening Clouds.tbsky',
 
             'resolution_x': grabDoc.exportResX,
             'resolution_y': grabDoc.exportResY,
-            'bits_per_channel': int(grabDoc.colorDepthPNG),
+            'bits_per_channel': int(grabDoc.colorDepth),
             'samples': int(grabDoc.marmoSamples),
 
             'auto_bake': grabDoc.marmoAutoBake,
@@ -79,13 +80,13 @@ class GrabDoc_OT_send_to_marmo(OpInfo, bpy.types.Operator):
         with open(os.path.join(temps_path, "marmo_vars.json"), "w") as outfile:
             outfile.write(marmo_json)
         
-        path_ext_only = os.path.basename(os.path.normpath(grabDoc.marmoEXE)).encode()
+        path_ext_only = os.path.basename(os.path.normpath(marmo_exe)).encode()
 
         if grabDoc.exportPlane:
             export_bg_plane(self, context)
 
         subproc_args = [
-            grabDoc.marmoEXE,
+            marmo_exe,
             os.path.join(addon_path, "marmoset_utils.py")
         ]
 

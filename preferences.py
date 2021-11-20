@@ -52,7 +52,7 @@ class GRABDOC_OT_add_preset(AddPresetBase, bpy.types.Operator):
         "grabDoc.exportResY",
         "grabDoc.lockRes",
         "grabDoc.imageType",
-        "grabDoc.colorDepthPNG",
+        "grabDoc.colorDepth",
         "grabDoc.colorDepthTGA",
         "grabDoc.imageCompPNG",
 
@@ -122,7 +122,6 @@ class GRABDOC_OT_add_preset(AddPresetBase, bpy.types.Operator):
         "grabDoc.samplesMetalness",
         "grabDoc.suffixMetalness",
 
-        "grabDoc.marmoEXE",
         "grabDoc.marmoAutoBake",
         "grabDoc.marmoClosePostBake",
         "grabDoc.marmoSamples",
@@ -151,6 +150,14 @@ class GRABDOC_OT_check_for_update(bpy.types.Operator):
 
 class GRABDOC_MT_addon_prefs(bpy.types.AddonPreferences):
     bl_idname=__package__
+
+    # Store this here so the value is saved across project files
+    marmoEXE: StringProperty(
+        name="",
+        description="Changes the name of the exported file",
+        default="",
+        subtype="FILE_PATH"
+    )
 
     def draw(self, context):
         layout=self.layout
@@ -322,8 +329,8 @@ class GRABDOC_property_group(bpy.types.PropertyGroup):
         name="Format"
     )
 
-    # PNG
-    colorDepthPNG: EnumProperty(
+    # PNG/ALL
+    colorDepth: EnumProperty(
         items=(
             ('16', "16", ""),
             ('8', "8", "")
@@ -653,13 +660,6 @@ class GRABDOC_property_group(bpy.types.PropertyGroup):
     )
 
     ## MARMOSET BAKING
-
-    marmoEXE: StringProperty(
-        name="",
-        description="Changes the name of the exported file",
-        default="",
-        subtype="FILE_PATH"
-    )
 
     marmoAutoBake: BoolProperty(name="Auto bake", default=True)
 

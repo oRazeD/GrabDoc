@@ -121,6 +121,9 @@ class GRABDOC_PT_export(PanelInfo, Panel):
         layout.use_property_split = True
         layout.use_property_decorate = False
 
+        user_prefs = context.preferences.addons[__package__].preferences
+        marmo_exe = user_prefs.marmoEXE
+
         col = layout.column(align=True)
 
         if grabDoc.bakerType == 'Blender':
@@ -129,16 +132,16 @@ class GRABDOC_PT_export(PanelInfo, Panel):
             row.operator("grab_doc.export_maps", icon = "EXPORT")
         else: # Marmoset
             row = col.row()
-            if not os.path.exists(grabDoc.marmoEXE):
+            if not os.path.exists(marmo_exe):
                 row.alignment = 'CENTER'
                 row.label(text="Give Marmoset Toolbag .exe Path", icon = 'INFO')
 
                 row = col.row()
-                row.prop(grabDoc, 'marmoEXE', text = 'Toolbag .exe')
+                row.prop(user_prefs, 'marmoEXE', text = 'Toolbag .exe')
 
                 col.separator()
             else:
-                row.prop(grabDoc, 'marmoEXE', text = "Toolbag .exe")
+                row.prop(user_prefs, 'marmoEXE', text = "Toolbag .exe")
 
                 row = col.row(align=True)
                 row.scale_y = 1.5
@@ -180,7 +183,7 @@ class GRABDOC_PT_export(PanelInfo, Panel):
         if grabDoc.imageType == "OPEN_EXR":
             row2.prop(grabDoc, "colorDepthEXR", expand = True)
         elif grabDoc.imageType != "TARGA" or grabDoc.bakerType == 'Marmoset':
-            row2.prop(grabDoc, "colorDepthPNG", expand = True)
+            row2.prop(grabDoc, "colorDepth", expand = True)
         else:
             row2.enabled = False
             row2.prop(grabDoc, "colorDepthTGA", expand = True)
