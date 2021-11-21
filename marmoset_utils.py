@@ -3,7 +3,7 @@ import mset, os, json
 
 temps_path = os.path.join(os.path.dirname(mset.getPluginPath()), "Temp")
 
-def refresh_scene():
+def refresh_scene() -> None:
     if os.path.exists(os.path.join(temps_path, "marmo_vars.json")):
         mset.newScene()
 

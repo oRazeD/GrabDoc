@@ -12,7 +12,7 @@ from .render_setup_utils import find_tallest_object
 ################################################################################################################
 
 
-def scene_setup_and_refresh(self, context):
+def scene_setup_and_refresh(self, context) -> None:
     grabDoc = context.scene.grabDoc
     view_layer = context.view_layer
 
@@ -265,7 +265,7 @@ def scene_setup_and_refresh(self, context):
     grabDocColl.hide_render = not grabDoc.collRendered
 
 
-def manual_height_guide_point_cloud(ob_name, edges = [(0,4), (1,5), (2,6), (3,7), (4,5), (5,6), (6,7), (7,4)], faces = []):
+def manual_height_guide_point_cloud(ob_name: str, edges = [(0,4), (1,5), (2,6), (3,7), (4,5), (5,6), (6,7), (7,4)], faces = []) -> tuple:
     grabDoc = bpy.context.scene.grabDoc
 
     # Make a tuple for the planes vertex positions
@@ -298,7 +298,7 @@ def manual_height_guide_point_cloud(ob_name, edges = [(0,4), (1,5), (2,6), (3,7)
     return obNew
 
 
-def uv_orient_point_cloud(ob_name, vertices, edges = [(0,2), (0,1), (1,2)], faces = []):
+def uv_orient_point_cloud(ob_name: str, vertices, edges = [(0,2), (0,1), (1,2)], faces = []) -> bpy.types.Object:
     # Create new mesh & object data blocks
     meNew = bpy.data.meshes.new(ob_name)
     obNew = bpy.data.objects.new(ob_name, meNew)
@@ -470,7 +470,7 @@ def export_and_preview_setup(self, context):
             ob.hide_viewport = True
 
 
-def export_refresh(self, context):
+def export_refresh(self, context) -> None:
     scene = context.scene
     grabDoc = scene.grabDoc
     render = scene.render
@@ -623,7 +623,7 @@ class GRABDOC_OT_remove_setup(OpInfo, Operator):
 
 
 # NORMALS
-def normals_setup(self, context):
+def normals_setup(self, context) -> None:
     scene = context.scene
     render = scene.render
 
@@ -635,7 +635,7 @@ def normals_setup(self, context):
     add_ng_to_mat(self, context, setup_type='GD_Normal')
 
 
-def normals_reimport_as_mat(self, context):
+def normals_reimport_as_mat(self, context) -> None:
     grabDoc = context.scene.grabDoc
 
     mat_name = f'{grabDoc.exportName}_normal'
@@ -689,7 +689,7 @@ def normals_reimport_as_mat(self, context):
 
 
 # CURVATURE
-def curvature_setup(self, context):
+def curvature_setup(self, context) -> None:
     scene = context.scene
     grabDoc = scene.grabDoc
     scene_shading = bpy.data.scenes[str(scene.name)].display.shading
@@ -728,7 +728,7 @@ def curvature_setup(self, context):
     scene.display.matcap_ssao_distance = .075
 
 
-def curvature_refresh(self, context):
+def curvature_refresh(self, context) -> None:
     scene_shading = bpy.data.scenes[str(context.scene.name)].display.shading
 
     scene_shading.cavity_ridge_factor = self.savedCavityRidgeFactor
@@ -745,7 +745,7 @@ def curvature_refresh(self, context):
 
 
 # AMBIENT OCCLUSION
-def occlusion_setup(self, context):
+def occlusion_setup(self, context) -> None:
     scene = context.scene
     grabDoc = scene.grabDoc
     eevee = scene.eevee
@@ -770,7 +770,7 @@ def occlusion_setup(self, context):
     add_ng_to_mat(self, context, setup_type='GD_Ambient Occlusion')
 
 
-def occlusion_refresh(self, context):
+def occlusion_refresh(self, context) -> None:
     eevee = context.scene.eevee
 
     eevee.use_overscan = self.savedUseOverscan
@@ -781,7 +781,7 @@ def occlusion_refresh(self, context):
     eevee.gtao_quality = self.savedAOQuality
 
 
-def occlusion_reimport_as_mat(self, context):
+def occlusion_reimport_as_mat(self, context) -> None:
     grabDoc = context.scene.grabDoc
 
     # Remove pre-existing material
@@ -826,7 +826,7 @@ def occlusion_reimport_as_mat(self, context):
 
 
 # HEIGHT
-def height_setup(self, context):
+def height_setup(self, context) -> None:
     scene = context.scene
     grabDoc = scene.grabDoc
 
@@ -844,7 +844,7 @@ def height_setup(self, context):
 
 
 # MATERIAL ID
-def id_setup(self, context):
+def id_setup(self, context) -> None:
     scene = context.scene
     grabDoc = scene.grabDoc
     render = scene.render
@@ -861,7 +861,7 @@ def id_setup(self, context):
 
 
 # ALPHA
-def alpha_setup(self, context):
+def alpha_setup(self, context) -> None:
     scene = context.scene
     render = scene.render
 
@@ -874,7 +874,7 @@ def alpha_setup(self, context):
 
 
 # ALBEDO
-def albedo_setup(self, context):
+def albedo_setup(self, context) -> None:
     scene = context.scene
     render = scene.render
 
@@ -887,26 +887,26 @@ def albedo_setup(self, context):
 
 
 # ROUGHNESS
-def roughness_setup(self, context):
+def roughness_setup(self, context) -> None:
     scene = context.scene
     render = scene.render
 
     render.engine = 'BLENDER_EEVEE'
     scene.eevee.taa_render_samples = scene.eevee.taa_samples = scene.grabDoc.samplesRoughness
-    render.image_settings.color_mode = 'RGBA'
+    render.image_settings.color_mode = 'BW'
     scene.display_settings.display_device = 'sRGB'
 
     add_ng_to_mat(self, context, setup_type='GD_Roughness')
 
 
 # METALNESS
-def metalness_setup(self, context):
+def metalness_setup(self, context) -> None:
     scene = context.scene
     render = scene.render
 
     render.engine = 'BLENDER_EEVEE'
     scene.eevee.taa_render_samples = scene.eevee.taa_samples = scene.grabDoc.samplesMetalness
-    render.image_settings.color_mode = 'RGBA'
+    render.image_settings.color_mode = 'BW'
     scene.display_settings.display_device = 'sRGB'
 
     add_ng_to_mat(self, context, setup_type='GD_Metalness')
@@ -917,7 +917,7 @@ def metalness_setup(self, context):
 ################################################################################################################
 
 
-def grabdoc_export(self, context, export_suffix):
+def grabdoc_export(self, context, export_suffix: str) -> None:
     grabDoc = context.scene.grabDoc
     render = context.scene.render
     
@@ -1231,7 +1231,7 @@ class GRABDOC_OT_offline_render(OpInfo, Operator):
             cleanup_ng_from_mat(self, context, setup_type='GD_Alpha')
 
         elif self.render_type == "albedo":
-            alpha_setup(self, context)
+            albedo_setup(self, context)
             self.offline_render(context)
             cleanup_ng_from_mat(self, context, setup_type='GD_Albedo')
 
@@ -1266,7 +1266,7 @@ class GRABDOC_OT_offline_render(OpInfo, Operator):
 ################################################################################################################
 
 
-def draw_callback_px(self, context):
+def draw_callback_px(self, context) -> None:
     font_id = 0
 
     # Special clause for Material ID preview
@@ -1481,7 +1481,7 @@ class GRABDOC_OT_map_preview(OpInfo, Operator):
     def execute(self, context):
         grabDoc = context.scene.grabDoc
 
-        report_value, report_string = bad_setup_check(self, context, active_export = False)
+        report_value, report_string = bad_setup_check(self, context, active_export=False)
 
         if report_value:
             self.report({'ERROR'}, report_string)
@@ -1555,7 +1555,7 @@ class GRABDOC_OT_export_current_preview(OpInfo, Operator):
     def execute(self, context):
         grabDoc = context.scene.grabDoc
 
-        report_value, report_string = bad_setup_check(self, context, active_export = True)
+        report_value, report_string = bad_setup_check(self, context, active_export=True)
 
         if report_value:
             self.report({'ERROR'}, report_string)

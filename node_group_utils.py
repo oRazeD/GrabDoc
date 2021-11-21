@@ -1,8 +1,9 @@
 
 import bpy
+from bpy import types as type
 
-
-def ng_setup(self, context):
+def ng_setup(self, context) -> None:
+    '''TODO'''
     grabDoc = context.scene.grabDoc
 
     # TODO painfully manual process, maybe figure out how to make a factory that works with specific use cases?
@@ -227,8 +228,9 @@ def ng_setup(self, context):
         link.new(emission_node.inputs["Color"], group_inputs.outputs["Metalness Input"])
         link.new(group_outputs.inputs["Output"], emission_node.outputs["Emission"])
 
-# CREATE & APPLY A MATERIAL TO OBJECTS WITHOUT ACTIVE MATERIALS
-def create_apply_ng_mat(self, context):
+
+def create_apply_ng_mat(self, context) -> None:
+    '''Create & apply a material to objects without active materials'''
     mat_name = 'GD_Material (do not touch contents)'
 
     # Reuse GrabDoc created material if it already exists
@@ -257,119 +259,119 @@ def create_apply_ng_mat(self, context):
             self.ob.active_material = mat
 
 
-# ADD NODE GROUP TO ALL MATERIALS, SAVE ORIGINAL LINKS & LINK NODE GROUP TO MATERIAL OUTPUT
-def bsdf_link_factory(input_name, node_group, original_node, mat_slot):
+def bsdf_link_factory(input_name: str, node_group: type.ShaderNodeGroup, original_node_input: type.NodeSocket, mat_slot: type.Material) -> bool:
+    '''Add node group to all materials, save original links & link the node group to material output'''
     node_found = False
 
-    for node_input in original_node.inputs:
-        node_group.inputs[input_name].default_value = node_input.default_value
+    node_group.inputs[input_name].default_value = original_node_input.default_value
 
-        for link in node_input.links:
-            node_found = True
+    for link in original_node_input.links:
+        node_found = True
 
-            mat_slot.node_tree.links.new(node_group.inputs[input_name], link.from_node.outputs[link.from_socket.name])
-            break
+        mat_slot.node_tree.links.new(node_group.inputs[input_name], link.from_node.outputs[link.from_socket.name])
+        break
 
     return node_found
 
-def add_ng_to_mat(self, context, setup_type):
+
+def add_ng_to_mat(self, context, setup_type: str) -> None:
+    '''TODO'''
     for self.ob in context.view_layer.objects:
-        if self.ob.name in self.render_list:
-            ob = self.ob
+        if self.ob.name in self.render_list and self.ob.name != "GD_Orient Guide":
+            # If no material slots found or empty mat slots found, assign a material to it
+            if not len(self.ob.material_slots) or '' in self.ob.material_slots:
+                create_apply_ng_mat(self, context)
 
-            # TODO remove some indents if possible
+            # Cycle through all material slots
+            for slot in self.ob.material_slots:
+                mat_slot = bpy.data.materials.get(slot.name)
 
-            if ob.name != "GD_Orient Guide":
-                # If no material slots found or empty mat slots found, assign a material to it
-                if not len(ob.material_slots) or '' in ob.material_slots:
-                    create_apply_ng_mat(self, context)
+                output_node = None
+                original_node = None
 
-                # Cycle through all material slots
-                for slot in ob.material_slots:
-                    mat_slot = bpy.data.materials.get(slot.name)
+                if not mat_slot.use_nodes:
+                    mat_slot.use_nodes = True
 
-                    output_node = None
-                    original_node = None
+                if not setup_type in mat_slot.node_tree.nodes:
+                    # Get materials Output Material node
+                    for mat_node in mat_slot.node_tree.nodes:
+                        if mat_node.type == 'OUTPUT_MATERIAL' and mat_node.is_active_output:
+                            output_node = mat_slot.node_tree.nodes.get(mat_node.name)
+                            break
 
-                    if not mat_slot.use_nodes:
-                        mat_slot.use_nodes = True
+                    if not output_node:
+                        output_node = mat_slot.node_tree.nodes.new('ShaderNodeOutputMaterial')
 
-                    if not setup_type in mat_slot.node_tree.nodes:
-                        # Get materials Output Material node
-                        for mat_node in mat_slot.node_tree.nodes:
-                            if mat_node.type == 'OUTPUT_MATERIAL' and mat_node.is_active_output:
-                                output_node = mat_slot.node_tree.nodes.get(mat_node.name)
-                                break
+                    # Add node group to material
+                    GD_node_group = mat_slot.node_tree.nodes.new('ShaderNodeGroup')
+                    GD_node_group.node_tree = bpy.data.node_groups[setup_type]
+                    GD_node_group.location = (output_node.location[0], output_node.location[1] - 140)
+                    GD_node_group.name = bpy.data.node_groups[setup_type].name
+                    GD_node_group.hide = True
 
-                        if not output_node:
-                            output_node = mat_slot.node_tree.nodes.new('ShaderNodeOutputMaterial')
+                    # Handle node linking
+                    for node_input in output_node.inputs:
+                        for link in node_input.links:
+                            original_node = mat_slot.node_tree.nodes.get(link.from_node.name)
 
-                        # Add node group to material
-                        GD_node_group = mat_slot.node_tree.nodes.new('ShaderNodeGroup')
-                        GD_node_group.node_tree = bpy.data.node_groups[setup_type]
-                        GD_node_group.location = (output_node.location[0], output_node.location[1] - 140)
-                        GD_node_group.name = bpy.data.node_groups[setup_type].name
-                        GD_node_group.hide = True
+                            # Link original connections to the Node Group
+                            if node_input.name == 'Surface':
+                                mat_slot.node_tree.links.new(GD_node_group.inputs["Saved Surface"], original_node.outputs[link.from_socket.name])
+                            elif node_input.name == 'Volume':
+                                mat_slot.node_tree.links.new(GD_node_group.inputs["Saved Volume"], original_node.outputs[link.from_socket.name])
+                            elif node_input.name == 'Displacement':
+                                mat_slot.node_tree.links.new(GD_node_group.inputs["Saved Displacement"], original_node.outputs[link.from_socket.name])
 
-                        # Handle node linking
-                        for node_input in output_node.inputs:
-                            for link in node_input.links:
-                                original_node = mat_slot.node_tree.nodes.get(link.from_node.name)
+                            # Links for maps that feed information from the Principled BSDF
+                            if setup_type in ('GD_Albedo', 'GD_Roughness', 'GD_Metalness') and original_node.type == 'BSDF_PRINCIPLED':
+                                node_found = False
 
-                                # Link original connections to the Node Group
-                                if node_input.name == 'Surface':
-                                    mat_slot.node_tree.links.new(GD_node_group.inputs["Saved Surface"], original_node.outputs[link.from_socket.name])
-                                elif node_input.name == 'Volume':
-                                    mat_slot.node_tree.links.new(GD_node_group.inputs["Saved Volume"], original_node.outputs[link.from_socket.name])
-                                elif node_input.name == 'Displacement':
-                                    mat_slot.node_tree.links.new(GD_node_group.inputs["Saved Displacement"], original_node.outputs[link.from_socket.name])
+                                for original_node_input in original_node.inputs:
+                                    if node_found:
+                                        break
 
-                                # Links for maps that feed information from the Principled BSDF
-                                if setup_type in ('GD_Albedo', 'GD_Roughness', 'GD_Metalness') and original_node.type == 'BSDF_PRINCIPLED':
-                                    node_found = False
-
-                                    if setup_type == 'GD_Albedo' and node_input.name == 'Base Color':
+                                    if setup_type == 'GD_Albedo' and original_node_input.name == 'Base Color':
                                         node_found = bsdf_link_factory(
                                             input_name='Color Input',
                                             node_group=GD_node_group,
-                                            original_node=original_node,
+                                            original_node_input=original_node_input,
                                             mat_slot=mat_slot
                                         )
-                                    
-                                    elif setup_type == 'GD_Roughness' and node_input.name == 'Roughness':
+
+                                    elif setup_type == 'GD_Roughness' and original_node_input.name == 'Roughness':
                                         node_found = bsdf_link_factory(
                                             input_name='Roughness Input',
                                             node_group=GD_node_group,
-                                            original_node=original_node,
+                                            original_node_input=original_node_input,
                                             mat_slot=mat_slot
                                         )
 
-                                    elif setup_type == 'GD_Metalness' and node_input.name == 'Metallic':
+                                    elif setup_type == 'GD_Metalness' and original_node_input.name == 'Metallic':
                                         node_found = bsdf_link_factory(
                                             input_name='Metalness Input',
                                             node_group=GD_node_group,
-                                            original_node=original_node,
+                                            original_node_input=original_node_input,
                                             mat_slot=mat_slot
                                         )
 
-                                    if not node_found:
-                                        self.report({'WARNING'}, "Material slots found without links and will be rendered using the sockets default value.")
+                                if not node_found:
+                                    self.report({'WARNING'}, "Material slots found without links and will be rendered using the sockets default value.")
 
-                        # Remove existing links on the output node
-                        if len(output_node.inputs['Volume'].links):
-                            for link in output_node.inputs['Volume'].links:
-                                mat_slot.node_tree.links.remove(link)
+                    # Remove existing links on the output node
+                    if len(output_node.inputs['Volume'].links):
+                        for link in output_node.inputs['Volume'].links:
+                            mat_slot.node_tree.links.remove(link)
 
-                        if len(output_node.inputs['Displacement'].links):
-                            for link in output_node.inputs['Displacement'].links:
-                                mat_slot.node_tree.links.remove(link)
+                    if len(output_node.inputs['Displacement'].links):
+                        for link in output_node.inputs['Displacement'].links:
+                            mat_slot.node_tree.links.remove(link)
 
-                        # Link Node Group to the output
-                        mat_slot.node_tree.links.new(output_node.inputs["Surface"], GD_node_group.outputs["Output"])
+                    # Link Node Group to the output
+                    mat_slot.node_tree.links.new(output_node.inputs["Surface"], GD_node_group.outputs["Output"])
 
 
-# REMOVE NODE GROUP & RETURN ORIGINAL LINKS IF THEY EXIST
-def cleanup_ng_from_mat(self, context, setup_type):
+def cleanup_ng_from_mat(self, context, setup_type: str) -> None:
+    '''Remove node group & return original links if they exist'''
     for mat in bpy.data.materials:
         if not mat.use_nodes:
             mat.use_nodes = True

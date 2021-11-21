@@ -4,8 +4,8 @@ from bpy.types import Operator
 from .render_setup_utils import get_rendered_objects
 
 
-# EXPORT THE GRABDOC BACKGROUND PLANE FOR USE EXTERNALLY
-def export_bg_plane(self, context):
+def export_bg_plane(self, context) -> None:
+    '''EXPORT THE GRABDOC BACKGROUND PLANE FOR USE EXTERNALLY'''
     grabDoc = context.scene.grabDoc
 
     # Save original selection
@@ -34,16 +34,16 @@ def export_bg_plane(self, context):
         bpy.data.collections["GrabDoc (do not touch contents)"].hide_select = False
 
 
-# LOOK FOR GRABDOC OBJECTS TO DECIDE IF THE SCENE IS SETUP CORRECTLY
-def proper_scene_setup(context):
+def proper_scene_setup(context) -> bool:
+    '''LOOK FOR GRABDOC OBJECTS TO DECIDE IF THE SCENE IS SETUP CORRECTLY'''
     if "GrabDoc (do not touch contents)" in bpy.data.collections:
         if "GD_Background Plane" in context.scene.objects:
             return True
     return False
 
 
-# DETERMINE IF SPECIFIC PARTS OF THE SCENE ARE SET UP INCORRECTLY AND RETURN A DETAILED EXPLANATION OF THINGS TO CORRECT
-def bad_setup_check(self, context, active_export, report_value=False, report_string=""):
+def bad_setup_check(self, context, active_export: bool, report_value=False, report_string="") -> tuple[bool, str]:
+    '''Determin if specific parts of the scene are set up incorrectly and return a detailed explanation of things for the user to fix'''
     grabDoc = context.scene.grabDoc
 
     # Run this before other error checks as the following error checks contain dependencies

@@ -3,8 +3,8 @@ import bpy
 from mathutils import Vector
 
 
-# GENERATE A LIST OF ALL OBJECTS THAT WILL BE RENDERED BASED ON ITS ORIGINS POSITION IN WORLD SPACE
-def get_rendered_objects(self, context):
+def get_rendered_objects(self, context) -> set:
+    '''Generate a list of all objects that will be rendered based on its origin position in world space'''
     render_list = ['GD_Background Plane']
 
     if context.scene.grabDoc.onlyRenderColl:  
@@ -19,13 +19,13 @@ def get_rendered_objects(self, context):
                 local_bbox_center = .125 * sum((Vector(b) for b in ob.bound_box), Vector())
                 global_bbox_center = ob.matrix_world @ local_bbox_center
 
-                if is_in_viewing_spectrum(global_bbox_center):
+                if is_in_viewing_spectrum(vec_check=global_bbox_center):
                     render_list.append(ob.name)
     return set(render_list)
 
 
-# DECIDE WHETHER A GIVEN OBJECT IS WITHIN THE CAMERAS VIEWING SPECTRUM
-def is_in_viewing_spectrum(vec_check):
+def is_in_viewing_spectrum(vec_check: Vector) -> bool:
+    '''Decide whether a given object is within the cameras viewing spectrum'''
     bg_plane = bpy.data.objects["GD_Background Plane"]
 
     vec1 = Vector((bg_plane.dimensions.x * -1.25 + bg_plane.location[0], bg_plane.dimensions.y * -1.25 + bg_plane.location[1], -100))
@@ -37,11 +37,11 @@ def is_in_viewing_spectrum(vec_check):
     return True
 
 
-# FIND THE TALLEST POINTS IN THE VIEW LAYER BY LOOPING THROUGH OBJECTS TO FIND THE HIGHEST VERTEX
-#
-# I hate this. Using vertices to find the tallest point is
-# unnacceptable in the face of modifier geometry and curves
-def find_tallest_object(self, context):
+def find_tallest_object(self, context) -> None:
+    '''Find the tallest points in the viewlayer by looping through objects to find the highest vertex
+
+    I hate this. Using vertices to find the tallest point is
+    unnacceptable in the face of modifier geometry and curves'''
     tallest_vert = 0
 
     for ob in context.view_layer.objects:
