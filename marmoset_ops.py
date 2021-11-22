@@ -83,7 +83,7 @@ class GrabDoc_OT_send_to_marmo(OpInfo, bpy.types.Operator):
         path_ext_only = os.path.basename(os.path.normpath(marmo_exe)).encode()
 
         if grabDoc.exportPlane:
-            export_bg_plane(self, context)
+            export_bg_plane(context)
 
         subproc_args = [
             marmo_exe,

@@ -16,7 +16,7 @@ class GRABDOC_OT_quick_id_setup(OpInfo, Operator):
             if mat.name.startswith("GD_RANDOM"):
                 bpy.data.materials.remove(mat)
 
-        self.render_list = get_rendered_objects(self, context)
+        self.render_list = get_rendered_objects(context)
 
         for ob in context.view_layer.objects:
             add_mat = True

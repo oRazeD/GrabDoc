@@ -4,8 +4,8 @@ from bpy.types import Operator
 from .render_setup_utils import get_rendered_objects
 
 
-def export_bg_plane(self, context) -> None:
-    '''EXPORT THE GRABDOC BACKGROUND PLANE FOR USE EXTERNALLY'''
+def export_bg_plane(context) -> None:
+    '''Export the grabdoc background plane for external use'''
     grabDoc = context.scene.grabDoc
 
     # Save original selection
@@ -20,7 +20,7 @@ def export_bg_plane(self, context) -> None:
     bpy.data.objects["GD_Background Plane"].select_set(True)
     
     bpy.ops.export_scene.fbx(
-        filepath=f'{os.path.join(bpy.path.abspath(grabDoc.exportPath), grabDoc.exportName)}_plane.fbx',
+        filepath=os.path.join(bpy.path.abspath(grabDoc.exportPath), grabDoc.exportName + '_plane.fbx'),
         use_selection=True
     )
 
@@ -34,20 +34,20 @@ def export_bg_plane(self, context) -> None:
         bpy.data.collections["GrabDoc (do not touch contents)"].hide_select = False
 
 
-def proper_scene_setup(context) -> bool:
-    '''LOOK FOR GRABDOC OBJECTS TO DECIDE IF THE SCENE IS SETUP CORRECTLY'''
+def proper_scene_setup() -> bool:
+    '''Look for grabdoc objects to decide if the scene is setup correctly'''
     if "GrabDoc (do not touch contents)" in bpy.data.collections:
-        if "GD_Background Plane" in context.scene.objects:
+        if "GD_Background Plane" in bpy.context.scene.objects:
             return True
     return False
 
 
 def bad_setup_check(self, context, active_export: bool, report_value=False, report_string="") -> tuple[bool, str]:
-    '''Determin if specific parts of the scene are set up incorrectly and return a detailed explanation of things for the user to fix'''
+    '''Determine if specific parts of the scene are set up incorrectly and return a detailed explanation of things for the user to fix'''
     grabDoc = context.scene.grabDoc
 
     # Run this before other error checks as the following error checks contain dependencies
-    self.render_list = get_rendered_objects(self, context)
+    self.render_list = get_rendered_objects(context)
 
     # Look for Trim Camera (only thing required to render)
     if not "GD_Trim Camera" in context.view_layer.objects and not report_value:

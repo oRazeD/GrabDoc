@@ -3,7 +3,7 @@ import bpy
 from mathutils import Vector
 
 
-def get_rendered_objects(self, context) -> set:
+def get_rendered_objects(context) -> set:
     '''Generate a list of all objects that will be rendered based on its origin position in world space'''
     render_list = ['GD_Background Plane']
 
@@ -19,7 +19,7 @@ def get_rendered_objects(self, context) -> set:
                 local_bbox_center = .125 * sum((Vector(b) for b in ob.bound_box), Vector())
                 global_bbox_center = ob.matrix_world @ local_bbox_center
 
-                if is_in_viewing_spectrum(vec_check=global_bbox_center):
+                if is_in_viewing_spectrum(global_bbox_center):
                     render_list.append(ob.name)
     return set(render_list)
 
@@ -40,8 +40,8 @@ def is_in_viewing_spectrum(vec_check: Vector) -> bool:
 def find_tallest_object(self, context) -> None:
     '''Find the tallest points in the viewlayer by looping through objects to find the highest vertex
 
-    I hate this. Using vertices to find the tallest point is
-    unnacceptable in the face of modifier geometry and curves'''
+    I hate this. Using vertices to find the tallest point is unnacceptable
+    in the face of modifier geometry and curves, maybe we can raycast?'''
     tallest_vert = 0
 
     for ob in context.view_layer.objects:
