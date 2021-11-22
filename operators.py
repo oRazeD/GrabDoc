@@ -12,7 +12,7 @@ from .render_setup_utils import find_tallest_object
 ################################################################################################################
 
 
-def scene_setup_and_refresh(self, context) -> None:
+def scene_setup_and_refresh(self, context) -> None: # Needs self for update functions to register?
     grabDoc = context.scene.grabDoc
     view_layer = context.view_layer
 
@@ -577,7 +577,7 @@ class GRABDOC_OT_remove_setup(OpInfo, Operator):
     def execute(self, context):
         # Remove GD Node Groups
         for group in bpy.data.node_groups:
-            if group.name in ('GD_Normal', 'GD_Height', 'GD_Ambient Occlusion', 'GD_Alpha'):
+            if group.name in ('GD_Normal', 'GD_Height', 'GD_Ambient Occlusion', 'GD_Alpha', 'GD_Albedo', 'GD_Metalness', 'GD_Roughness'):
                 bpy.data.node_groups.remove(group)
 
         objectsColl = "GrabDoc Objects (put objects here)"
