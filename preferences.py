@@ -218,6 +218,16 @@ class GRABDOC_property_group(bpy.types.PropertyGroup):
         if not self.exportName:
             self.exportName = "untitled"
 
+    def update_useTextureNormals(self, context):
+        if self.modalState:
+            ng_normal = bpy.data.node_groups["GD_Normal"]
+            vec_transform_node = ng_normal.nodes.get('Vector Transform')
+
+            if self.useTextureNormals:
+                ng_normal.links.new(vec_transform_node.inputs["Vector"], ng_normal.nodes.get('Bevel').outputs["Normal"])
+            else:
+                ng_normal.links.new(vec_transform_node.inputs["Vector"], ng_normal.nodes.get('Bevel.001').outputs["Normal"])
+
     def update_curvature(self, context):
         if self.modalState:
             scene_shading = bpy.data.scenes[str(context.scene.name)].display.shading
@@ -242,7 +252,7 @@ class GRABDOC_property_group(bpy.types.PropertyGroup):
 
         if self.modalState:
             if self.rangeTypeHeight == 'AUTO':
-                self.render_list = get_rendered_objects(self, context)
+                self.render_list = get_rendered_objects(context)
 
                 find_tallest_object(self, context)
                 
@@ -394,6 +404,13 @@ class GRABDOC_property_group(bpy.types.PropertyGroup):
         description="Flip the normal map Y direction",
         options={'SKIP_SAVE'},
         update=update_flip_y
+    )
+
+    useTextureNormals: BoolProperty(
+        name="Use Texture Normals",
+        description="Use texture normals linked to the Principled BSDF",
+        options={'SKIP_SAVE'},
+        update=update_useTextureNormals
     )
 
     suffixNormals: StringProperty(

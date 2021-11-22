@@ -2,11 +2,9 @@
 import bpy
 from bpy import types as type
 
-def ng_setup(self, context) -> None:
+def ng_setup() -> None:
     '''TODO'''
-    grabDoc = context.scene.grabDoc
-
-    # TODO painfully manual process, maybe figure out how to make a factory that works with specific use cases?
+    grabDoc = bpy.context.scene.grabDoc
 
     # NORMALS
     if not 'GD_Normal' in bpy.data.node_groups:
@@ -16,14 +14,22 @@ def ng_setup(self, context) -> None:
 
         # Create group outputs
         group_outputs = ng_normal.nodes.new('NodeGroupOutput')
+        group_inputs = ng_normal.nodes.new('NodeGroupInput')
+        group_inputs.location = (-1000,0)
         ng_normal.outputs.new('NodeSocketShader','Output')
         ng_normal.inputs.new('NodeSocketShader','Saved Surface')
         ng_normal.inputs.new('NodeSocketShader','Saved Volume')
         ng_normal.inputs.new('NodeSocketShader','Saved Displacement')
+        ng_normal.inputs.new('NodeSocketVector','Normal')
 
         # Create group nodes
-        geo_node = ng_normal.nodes.new('ShaderNodeNewGeometry')
-        geo_node.location = (-800,0)
+        bevel_node = ng_normal.nodes.new('ShaderNodeBevel')
+        bevel_node.inputs[0].default_value = 0
+        bevel_node.location = (-800,0)
+
+        bevel_node_2 = ng_normal.nodes.new('ShaderNodeBevel')
+        bevel_node_2.location = (-800,-200)
+        bevel_node_2.inputs[0].default_value = 0
 
         vec_transform_node = ng_normal.nodes.new('ShaderNodeVectorTransform')
         vec_transform_node.vector_type = 'NORMAL'
@@ -44,7 +50,8 @@ def ng_setup(self, context) -> None:
         # Link nodes
         link = ng_normal.links
 
-        link.new(vec_transform_node.inputs["Vector"], geo_node.outputs["Normal"])
+        link.new(bevel_node.inputs["Normal"], group_inputs.outputs["Normal"])
+        link.new(vec_transform_node.inputs["Vector"], bevel_node_2.outputs["Normal"])
         link.new(vec_multiply_node.inputs["Vector"], vec_transform_node.outputs["Vector"])
         link.new(vec_add_node.inputs["Vector"], vec_multiply_node.outputs["Vector"])
         link.new(group_outputs.inputs["Output"], vec_add_node.outputs["Vector"])
@@ -229,18 +236,15 @@ def ng_setup(self, context) -> None:
         link.new(group_outputs.inputs["Output"], emission_node.outputs["Emission"])
 
 
-def create_apply_ng_mat(self, context) -> None:
+def create_apply_ng_mat(ob: type.Object) -> None:
     '''Create & apply a material to objects without active materials'''
     mat_name = 'GD_Material (do not touch contents)'
 
     # Reuse GrabDoc created material if it already exists
     if mat_name in bpy.data.materials:
-        self.mat = bpy.data.materials[mat_name]
-        mat = self.mat
+        mat = bpy.data.materials[mat_name]
     else:
-        # Create a material
-        self.mat = bpy.data.materials.new(name = mat_name)
-        mat = self.mat
+        mat = bpy.data.materials.new(name = mat_name)
 
         mat.use_nodes = True
 
@@ -251,12 +255,12 @@ def create_apply_ng_mat(self, context) -> None:
     # only really need to be used once per in add-on use.
     # 
     # We do not want to remove empty material slots as they can be used for masking off materials.
-    for slot in self.ob.material_slots:
+    for slot in ob.material_slots:
         if slot.name == '':
-            self.ob.material_slots[slot.name].material = mat
+            ob.material_slots[slot.name].material = mat
     else:
-        if not self.ob.active_material or self.ob.active_material.name == '':
-            self.ob.active_material = mat
+        if not ob.active_material or ob.active_material.name == '':
+            ob.active_material = mat
 
 
 def bsdf_link_factory(input_name: str, node_group: type.ShaderNodeGroup, original_node_input: type.NodeSocket, mat_slot: type.Material) -> bool:
@@ -276,14 +280,14 @@ def bsdf_link_factory(input_name: str, node_group: type.ShaderNodeGroup, origina
 
 def add_ng_to_mat(self, context, setup_type: str) -> None:
     '''TODO'''
-    for self.ob in context.view_layer.objects:
-        if self.ob.name in self.render_list and self.ob.name != "GD_Orient Guide":
+    for ob in context.view_layer.objects:
+        if ob.name in self.render_list and ob.name != "GD_Orient Guide":
             # If no material slots found or empty mat slots found, assign a material to it
-            if not len(self.ob.material_slots) or '' in self.ob.material_slots:
-                create_apply_ng_mat(self, context)
+            if not len(ob.material_slots) or '' in ob.material_slots:
+                create_apply_ng_mat(ob)
 
             # Cycle through all material slots
-            for slot in self.ob.material_slots:
+            for slot in ob.material_slots:
                 mat_slot = bpy.data.materials.get(slot.name)
 
                 output_node = None
@@ -323,14 +327,22 @@ def add_ng_to_mat(self, context, setup_type: str) -> None:
                                 mat_slot.node_tree.links.new(GD_node_group.inputs["Saved Displacement"], original_node.outputs[link.from_socket.name])
 
                             # Links for maps that feed information from the Principled BSDF
-                            if setup_type in ('GD_Albedo', 'GD_Roughness', 'GD_Metalness') and original_node.type == 'BSDF_PRINCIPLED':
+                            if setup_type in ('GD_Albedo', 'GD_Roughness', 'GD_Metalness', 'GD_Normal') and original_node.type == 'BSDF_PRINCIPLED':
                                 node_found = False
 
                                 for original_node_input in original_node.inputs:
                                     if node_found:
                                         break
 
-                                    if setup_type == 'GD_Albedo' and original_node_input.name == 'Base Color':
+                                    if setup_type == 'GD_Normal' and original_node_input.name == 'Normal':
+                                        node_found = bsdf_link_factory(
+                                            input_name='Normal',
+                                            node_group=GD_node_group,
+                                            original_node_input=original_node_input,
+                                            mat_slot=mat_slot
+                                        )
+
+                                    elif setup_type == 'GD_Albedo' and original_node_input.name == 'Base Color':
                                         node_found = bsdf_link_factory(
                                             input_name='Color Input',
                                             node_group=GD_node_group,
@@ -354,8 +366,8 @@ def add_ng_to_mat(self, context, setup_type: str) -> None:
                                             mat_slot=mat_slot
                                         )
 
-                                if not node_found:
-                                    self.report({'WARNING'}, "Material slots found without links and will be rendered using the sockets default value.")
+                                if not node_found and setup_type != 'GD_Normal':
+                                    self.report({'WARNING'}, "Material slots found without links & will be rendered using the sockets default value.")
 
                     # Remove existing links on the output node
                     if len(output_node.inputs['Volume'].links):
@@ -370,7 +382,7 @@ def add_ng_to_mat(self, context, setup_type: str) -> None:
                     mat_slot.node_tree.links.new(output_node.inputs["Surface"], GD_node_group.outputs["Output"])
 
 
-def cleanup_ng_from_mat(self, context, setup_type: str) -> None:
+def cleanup_ng_from_mat(setup_type: str) -> None:
     '''Remove node group & return original links if they exist'''
     for mat in bpy.data.materials:
         if not mat.use_nodes:

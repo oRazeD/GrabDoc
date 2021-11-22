@@ -241,7 +241,7 @@ def scene_setup_and_refresh(self, context) -> None:
     
     # NODE GROUPS
 
-    ng_setup(self, context)
+    ng_setup()
 
     # CLEANUP
 
@@ -632,10 +632,18 @@ def normals_setup(self, context) -> None:
     render.image_settings.color_mode = 'RGBA'
     scene.display_settings.display_device = 'None'
 
+    ng_normal = bpy.data.node_groups["GD_Normal"]
+    vec_transform_node = ng_normal.nodes.get('Vector Transform')
+
+    if context.scene.grabDoc.useTextureNormals:
+        ng_normal.links.new(vec_transform_node.inputs["Vector"], ng_normal.nodes.get('Bevel').outputs["Normal"])
+    else:
+        ng_normal.links.new(vec_transform_node.inputs["Vector"], ng_normal.nodes.get('Bevel.001').outputs["Normal"])
+
     add_ng_to_mat(self, context, setup_type='GD_Normal')
 
 
-def normals_reimport_as_mat(self, context) -> None:
+def normals_reimport_as_mat(context) -> None:
     grabDoc = context.scene.grabDoc
 
     mat_name = f'{grabDoc.exportName}_normal'
@@ -781,7 +789,7 @@ def occlusion_refresh(self, context) -> None:
     eevee.gtao_quality = self.savedAOQuality
 
 
-def occlusion_reimport_as_mat(self, context) -> None:
+def occlusion_reimport_as_mat(context) -> None:
     grabDoc = context.scene.grabDoc
 
     # Remove pre-existing material
@@ -1009,9 +1017,9 @@ class GRABDOC_OT_export_maps(OpInfo, Operator):
 
             # Reimport the Normal map as a material (if the option is turned on)
             if context.scene.grabDoc.reimportAsMatNormals:
-                normals_reimport_as_mat(self, context)
+                normals_reimport_as_mat(context)
 
-            cleanup_ng_from_mat(self, context, setup_type='GD_Normal')
+            cleanup_ng_from_mat('GD_Normal')
 
             percent_till_completed += percentage_division
             context.window_manager.progress_update(percent_till_completed)
@@ -1030,9 +1038,9 @@ class GRABDOC_OT_export_maps(OpInfo, Operator):
 
             # Reimport the Normal map as a material if requested
             if context.scene.grabDoc.reimportAsMatOcclusion:
-                occlusion_reimport_as_mat(self, context)
+                occlusion_reimport_as_mat(context)
 
-            cleanup_ng_from_mat(self, context, setup_type='GD_Ambient Occlusion')
+            cleanup_ng_from_mat('GD_Ambient Occlusion')
             occlusion_refresh(self, context)
 
             percent_till_completed += percentage_division
@@ -1041,7 +1049,7 @@ class GRABDOC_OT_export_maps(OpInfo, Operator):
         if grabDoc.uiVisibilityHeight and grabDoc.exportHeight:
             height_setup(self, context)
             grabdoc_export(self, context, export_suffix=grabDoc.suffixHeight)
-            cleanup_ng_from_mat(self, context, setup_type='GD_Height')
+            cleanup_ng_from_mat('GD_Height')
 
             percent_till_completed += percentage_division
             context.window_manager.progress_update(percent_till_completed)
@@ -1049,7 +1057,7 @@ class GRABDOC_OT_export_maps(OpInfo, Operator):
         if grabDoc.uiVisibilityAlpha and grabDoc.exportAlpha:
             alpha_setup(self, context)
             grabdoc_export(self, context, export_suffix=grabDoc.suffixAlpha)
-            cleanup_ng_from_mat(self, context, setup_type='GD_Alpha')
+            cleanup_ng_from_mat('GD_Alpha')
 
             percent_till_completed += percentage_division
             context.window_manager.progress_update(percent_till_completed)
@@ -1064,17 +1072,17 @@ class GRABDOC_OT_export_maps(OpInfo, Operator):
         if grabDoc.uiVisibilityAlbedo and grabDoc.exportAlbedo:
             albedo_setup(self, context)
             grabdoc_export(self, context, export_suffix=grabDoc.suffixAlbedo)
-            cleanup_ng_from_mat(self, context, setup_type='GD_Albedo')
+            cleanup_ng_from_mat('GD_Albedo')
 
         if grabDoc.uiVisibilityRoughness and grabDoc.exportRoughness:
             roughness_setup(self, context)
             grabdoc_export(self, context, export_suffix=grabDoc.suffixRoughness)
-            cleanup_ng_from_mat(self, context, setup_type='GD_Roughness')
+            cleanup_ng_from_mat('GD_Roughness')
 
         if grabDoc.uiVisibilityMetalness and grabDoc.exportMetalness:
             metalness_setup(self, context)
             grabdoc_export(self, context, export_suffix=grabDoc.suffixMetalness)
-            cleanup_ng_from_mat(self, context, setup_type='GD_Metalness')
+            cleanup_ng_from_mat('GD_Metalness')
 
         percent_till_completed += percentage_division
         context.window_manager.progress_update(percent_till_completed)
@@ -1087,7 +1095,7 @@ class GRABDOC_OT_export_maps(OpInfo, Operator):
         export_refresh(self, context)
 
         if grabDoc.exportPlane:
-            export_bg_plane(self, context)
+            export_bg_plane(context)
 
         # Call for Original Context Mode (Use bpy.ops so that Blenders viewport refreshes)
         if 'activeSelected' in locals():
@@ -1203,7 +1211,7 @@ class GRABDOC_OT_offline_render(OpInfo, Operator):
         if self.render_type == "normals":
             normals_setup(self, context)
             self.offline_render(context)
-            cleanup_ng_from_mat(self, context, setup_type='GD_Normal')
+            cleanup_ng_from_mat('GD_Normal')
 
         elif self.render_type == "curvature":
             curvature_setup(self, context)
@@ -1213,13 +1221,13 @@ class GRABDOC_OT_offline_render(OpInfo, Operator):
         elif self.render_type == "occlusion":
             occlusion_setup(self, context)
             self.offline_render(context)
-            cleanup_ng_from_mat(self, context, setup_type='GD_Ambient Occlusion')
+            cleanup_ng_from_mat('GD_Ambient Occlusion')
             occlusion_refresh(self, context)
 
         elif self.render_type == "height":
             height_setup(self, context)
             self.offline_render(context)
-            cleanup_ng_from_mat(self, context, setup_type='GD_Height')
+            cleanup_ng_from_mat('GD_Height')
 
         elif self.render_type == "ID":
             id_setup(self, context)
@@ -1228,22 +1236,22 @@ class GRABDOC_OT_offline_render(OpInfo, Operator):
         elif self.render_type == "alpha":
             alpha_setup(self, context)
             self.offline_render(context)
-            cleanup_ng_from_mat(self, context, setup_type='GD_Alpha')
+            cleanup_ng_from_mat('GD_Alpha')
 
         elif self.render_type == "albedo":
             albedo_setup(self, context)
             self.offline_render(context)
-            cleanup_ng_from_mat(self, context, setup_type='GD_Albedo')
+            cleanup_ng_from_mat('GD_Albedo')
 
         elif self.render_type == "roughness":
             roughness_setup(self, context)
             self.offline_render(context)
-            cleanup_ng_from_mat(self, context, setup_type='GD_Roughness')
+            cleanup_ng_from_mat('GD_Roughness')
 
         elif self.render_type == "metalness":
             metalness_setup(self, context)
             self.offline_render(context)
-            cleanup_ng_from_mat(self, context, setup_type='GD_Metalness')
+            cleanup_ng_from_mat('GD_Metalness')
 
         # Scale down BG Plane (helps overscan & border pixels)
         plane_ob = bpy.data.objects["GD_Background Plane"]
@@ -1433,19 +1441,19 @@ class GRABDOC_OT_map_preview(OpInfo, Operator):
             bpy.types.SpaceView3D.draw_handler_remove(self._handle, 'WINDOW')
 
             if self.preview_type == "normals":
-                cleanup_ng_from_mat(self, context, setup_type='GD_Normal')
+                cleanup_ng_from_mat('GD_Normal')
             elif self.preview_type == "occlusion":
-                cleanup_ng_from_mat(self, context, setup_type='GD_Ambient Occlusion')
+                cleanup_ng_from_mat('GD_Ambient Occlusion')
             elif self.preview_type == "height":
-                cleanup_ng_from_mat(self, context, setup_type='GD_Height')
+                cleanup_ng_from_mat('GD_Height')
             elif self.preview_type == "alpha":
-                cleanup_ng_from_mat(self, context, setup_type='GD_Alpha')
+                cleanup_ng_from_mat('GD_Alpha')
             elif self.preview_type == "albedo":
-                cleanup_ng_from_mat(self, context, setup_type='GD_Albedo')
+                cleanup_ng_from_mat('GD_Albedo')
             elif self.preview_type == "roughness":
-                cleanup_ng_from_mat(self, context, setup_type='GD_Roughness')
+                cleanup_ng_from_mat('GD_Roughness')
             elif self.preview_type == "metalness":
-                cleanup_ng_from_mat(self, context, setup_type='GD_Metalness')
+                cleanup_ng_from_mat('GD_Metalness')
 
             export_refresh(self, context)
 
@@ -1467,12 +1475,12 @@ class GRABDOC_OT_map_preview(OpInfo, Operator):
             grabDoc.bakerType = self.savedBakerType
 
             # Check for auto exit camera option (Keep this at the end of the stack to avoid pop in)
-            if grabDoc.autoExitCamera or not proper_scene_setup(context):
+            if grabDoc.autoExitCamera or not proper_scene_setup():
                 bpy.ops.grab_doc.view_cam(from_modal=True)
             return {'CANCELLED'}
 
         # Exit checking
-        if not grabDoc.modalState or event.type in {'ESC'} or not proper_scene_setup(context):
+        if not grabDoc.modalState or event.type in {'ESC'} or not proper_scene_setup():
             bpy.ops.grab_doc.leave_modal()
             self.done = True
             return {'PASS_THROUGH'}
@@ -1568,8 +1576,27 @@ class GRABDOC_OT_export_current_preview(OpInfo, Operator):
         render = context.scene.render
         savedPath = render.filepath
 
+        if grabDoc.modalPreviewType == 'normals':
+            export_suffix = grabDoc.suffixNormals
+        elif grabDoc.modalPreviewType == 'curvature':
+            export_suffix = grabDoc.suffixCurvature
+        elif grabDoc.modalPreviewType == 'occlusion':
+            export_suffix = grabDoc.suffixOcclusion
+        elif grabDoc.modalPreviewType == 'height':
+            export_suffix = grabDoc.suffixHeight
+        elif grabDoc.modalPreviewType == 'ID':
+            export_suffix = grabDoc.suffixID
+        elif grabDoc.modalPreviewType == 'alpha':
+            export_suffix = grabDoc.suffixAlpha
+        elif grabDoc.modalPreviewType == 'albedo':
+            export_suffix = grabDoc.suffixAlbedo
+        elif grabDoc.modalPreviewType == 'roughness':
+            export_suffix = grabDoc.suffixRoughness
+        elif grabDoc.modalPreviewType == 'metalness':
+            export_suffix = grabDoc.suffixMetalness
+
         # Set - Output path to add-on path + add-on name + the type of map exported (file extensions get handled automatically)
-        render.filepath = bpy.path.abspath(grabDoc.exportPath) + grabDoc.exportName + f"_{grabDoc.modalPreviewType}"
+        render.filepath = bpy.path.abspath(grabDoc.exportPath) + grabDoc.exportName + f"_{export_suffix}"
 
         # Set - Scale up the plane
         plane_ob = bpy.data.objects["GD_Background Plane"]
@@ -1582,18 +1609,18 @@ class GRABDOC_OT_export_current_preview(OpInfo, Operator):
 
         # Reimport the Normal map as a material if requested
         if grabDoc.modalPreviewType == 'normals' and grabDoc.reimportAsMatNormals:
-            normals_reimport_as_mat(self, context)
+            normals_reimport_as_mat(context)
 
         # Reimport the Occlusion map as a material if requested
         elif grabDoc.modalPreviewType == 'occlusion' and grabDoc.reimportAsMatOcclusion:
-            occlusion_reimport_as_mat(self, context)
+            occlusion_reimport_as_mat(context)
 
         # Refresh - Scale down the plane
         plane_ob = bpy.data.objects["GD_Background Plane"]
         plane_ob.scale[0] = plane_ob.scale[1] = 1
 
         if grabDoc.exportPlane:
-            export_bg_plane(self, context)
+            export_bg_plane(context)
         
         # Open export path location if requested
         if grabDoc.openFolderOnExport:
