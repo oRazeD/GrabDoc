@@ -100,7 +100,7 @@ def scene_setup_and_refresh(self, context) -> None: # Needs self for update func
     else:
         plane_ob_old_loc = plane_ob_old_rot = (0, 0, 0)
     
-    bpy.ops.mesh.primitive_plane_add(size=grabDoc.scalingSet, enter_editmode=False, calc_uvs=True, align='WORLD', location=(plane_ob_old_loc), rotation=(plane_ob_old_rot))
+    bpy.ops.mesh.primitive_plane_add(size=grabDoc.scalingSet, enter_editmode=False, calc_uvs=True, align='WORLD') #, location=(plane_ob_old_loc), rotation=(plane_ob_old_rot)
 
     # Rename newly made BG Plane & set a reference to it
     context.object.name = context.object.data.name = "GD_Background Plane"
@@ -710,7 +710,6 @@ def curvature_setup(self, context) -> None:
     scene_shading.light = 'FLAT'
     scene_shading.color_type =  'SINGLE'
     scene.display_settings.display_device = 'sRGB'
-
     scene.render.image_settings.color_mode = 'BW'
 
     # Save & Set - Cavity
