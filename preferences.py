@@ -222,11 +222,16 @@ class GRABDOC_property_group(bpy.types.PropertyGroup):
         if self.modalState:
             ng_normal = bpy.data.node_groups["GD_Normal"]
             vec_transform_node = ng_normal.nodes.get('Vector Transform')
+            group_output_node = ng_normal.nodes.get('Group Output')
+
+            link = ng_normal.links
 
             if self.useTextureNormals:
-                ng_normal.links.new(vec_transform_node.inputs["Vector"], ng_normal.nodes.get('Bevel').outputs["Normal"])
+                link.new(vec_transform_node.inputs["Vector"], ng_normal.nodes.get('Bevel').outputs["Normal"])
+                link.new(group_output_node.inputs["Output"], ng_normal.nodes.get('Mix Shader').outputs["Shader"])
             else:
-                ng_normal.links.new(vec_transform_node.inputs["Vector"], ng_normal.nodes.get('Bevel.001').outputs["Normal"])
+                link.new(vec_transform_node.inputs["Vector"], ng_normal.nodes.get('Bevel.001').outputs["Normal"])
+                link.new(group_output_node.inputs["Output"], ng_normal.nodes.get('Vector Math.001').outputs["Vector"])
 
     def update_curvature(self, context):
         if self.modalState:
@@ -388,9 +393,9 @@ class GRABDOC_property_group(bpy.types.PropertyGroup):
     uiVisibilityHeight: BoolProperty(default=True)
     uiVisibilityMatID: BoolProperty(default=True)
     uiVisibilityAlpha: BoolProperty(default=True)
-    uiVisibilityAlbedo: BoolProperty(default=False)
-    uiVisibilityRoughness: BoolProperty(default=False)
-    uiVisibilityMetalness: BoolProperty(default=False)
+    uiVisibilityAlbedo: BoolProperty(default=True)
+    uiVisibilityRoughness: BoolProperty(default=True)
+    uiVisibilityMetalness: BoolProperty(default=True)
 
     ## BAKE MAP SETTINGS
 
@@ -410,6 +415,7 @@ class GRABDOC_property_group(bpy.types.PropertyGroup):
         name="Use Texture Normals",
         description="Use texture normals linked to the Principled BSDF",
         options={'SKIP_SAVE'},
+        default=True,
         update=update_useTextureNormals
     )
 

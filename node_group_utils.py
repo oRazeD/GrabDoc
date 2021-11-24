@@ -3,7 +3,7 @@ import bpy
 from bpy import types as type
 
 def ng_setup() -> None:
-    '''TODO'''
+    '''Initial setup of all node groups when setting up a file'''
     grabDoc = bpy.context.scene.grabDoc
 
     # NORMALS
@@ -12,49 +12,74 @@ def ng_setup() -> None:
         ng_normal = bpy.data.node_groups.new('GD_Normal', 'ShaderNodeTree')
         ng_normal.use_fake_user = True
 
-        # Create group outputs
+        # Create group inputs/outputs
         group_outputs = ng_normal.nodes.new('NodeGroupOutput')
         group_inputs = ng_normal.nodes.new('NodeGroupInput')
-        group_inputs.location = (-1000,0)
+        group_inputs.location = (-1400,100)
         ng_normal.outputs.new('NodeSocketShader','Output')
         ng_normal.inputs.new('NodeSocketShader','Saved Surface')
         ng_normal.inputs.new('NodeSocketShader','Saved Volume')
         ng_normal.inputs.new('NodeSocketShader','Saved Displacement')
+        alpha_input = ng_normal.inputs.new('NodeSocketInt','Alpha')
+        alpha_input.default_value = 1
         ng_normal.inputs.new('NodeSocketVector','Normal')
 
         # Create group nodes
         bevel_node = ng_normal.nodes.new('ShaderNodeBevel')
         bevel_node.inputs[0].default_value = 0
-        bevel_node.location = (-800,0)
+        bevel_node.location = (-1000,0)
 
         bevel_node_2 = ng_normal.nodes.new('ShaderNodeBevel')
-        bevel_node_2.location = (-800,-200)
+        bevel_node_2.location = (-1000,-200)
         bevel_node_2.inputs[0].default_value = 0
 
         vec_transform_node = ng_normal.nodes.new('ShaderNodeVectorTransform')
         vec_transform_node.vector_type = 'NORMAL'
         vec_transform_node.convert_to = 'CAMERA'
-        vec_transform_node.location = (-600,0)
+        vec_transform_node.location = (-800,0)
 
         vec_multiply_node = ng_normal.nodes.new('ShaderNodeVectorMath')
         vec_multiply_node.operation = 'MULTIPLY'
         vec_multiply_node.inputs[1].default_value[0] = .5
         vec_multiply_node.inputs[1].default_value[1] = -.5 if grabDoc.flipYNormals else .5
         vec_multiply_node.inputs[1].default_value[2] = -.5
-        vec_multiply_node.location = (-400,0)
+        vec_multiply_node.location = (-600,0)
 
         vec_add_node = ng_normal.nodes.new('ShaderNodeVectorMath')
         vec_add_node.inputs[1].default_value[0] = vec_add_node.inputs[1].default_value[1] = vec_add_node.inputs[1].default_value[2] = 0.5
-        vec_add_node.location = (-200,0)
+        vec_add_node.location = (-400,0)
+
+        invert_node = ng_normal.nodes.new('ShaderNodeInvert')
+        invert_node.location = (-1000,200)
+
+        subtract_node = ng_normal.nodes.new('ShaderNodeMixRGB')
+        subtract_node.blend_type = 'SUBTRACT'
+        subtract_node.inputs[0].default_value = 1
+        subtract_node.inputs[1].default_value = (1, 1, 1, 1)
+        subtract_node.location = (-800,300)
+
+        transp_shader_node = ng_normal.nodes.new('ShaderNodeBsdfTransparent')
+        transp_shader_node.location = (-400,200)
+
+        mix_shader_node = ng_normal.nodes.new('ShaderNodeMixShader')
+        mix_shader_node.location = (-200,300)
 
         # Link nodes
         link = ng_normal.links
 
+        # Path 1
         link.new(bevel_node.inputs["Normal"], group_inputs.outputs["Normal"])
         link.new(vec_transform_node.inputs["Vector"], bevel_node_2.outputs["Normal"])
         link.new(vec_multiply_node.inputs["Vector"], vec_transform_node.outputs["Vector"])
         link.new(vec_add_node.inputs["Vector"], vec_multiply_node.outputs["Vector"])
         link.new(group_outputs.inputs["Output"], vec_add_node.outputs["Vector"])
+
+        # Path 2
+        link.new(invert_node.inputs['Color'], group_inputs.outputs['Alpha'])
+        link.new(subtract_node.inputs['Color2'], invert_node.outputs['Color'])
+        link.new(mix_shader_node.inputs['Fac'], subtract_node.outputs['Color'])
+        link.new(mix_shader_node.inputs[1], transp_shader_node.outputs['BSDF'])
+        link.new(mix_shader_node.inputs[2], vec_add_node.outputs['Vector'])
 
     # AMBIENT OCCLUSION
     if not 'GD_Ambient Occlusion' in bpy.data.node_groups:
@@ -62,7 +87,7 @@ def ng_setup() -> None:
         ng_ao = bpy.data.node_groups.new('GD_Ambient Occlusion', 'ShaderNodeTree')
         ng_ao.use_fake_user = True
 
-        # Create group outputs
+        # Create group inputs/outputs
         group_outputs = ng_ao.nodes.new('NodeGroupOutput')
         ng_ao.outputs.new('NodeSocketShader','Output')
         ng_ao.inputs.new('NodeSocketShader','Saved Surface')
@@ -94,7 +119,7 @@ def ng_setup() -> None:
         ng_height = bpy.data.node_groups.new('GD_Height', 'ShaderNodeTree')
         ng_height.use_fake_user = True
     
-        # Create group outputs
+        # Create group inputs/outputs
         group_outputs = ng_height.nodes.new('NodeGroupOutput')
         ng_height.outputs.new('NodeSocketShader','Output')
         ng_height.inputs.new('NodeSocketShader','Saved Surface')
@@ -126,7 +151,7 @@ def ng_setup() -> None:
         ng_alpha = bpy.data.node_groups.new('GD_Alpha', 'ShaderNodeTree')
         ng_alpha.use_fake_user = True
     
-        # Create group outputs
+        # Create group input/outputs
         group_outputs = ng_alpha.nodes.new('NodeGroupOutput')
         ng_alpha.outputs.new('NodeSocketShader','Output')
         ng_alpha.inputs.new('NodeSocketShader','Saved Surface')
@@ -166,7 +191,7 @@ def ng_setup() -> None:
         ng_albedo = bpy.data.node_groups.new('GD_Albedo', 'ShaderNodeTree')
         ng_albedo.use_fake_user = True
     
-        # Create group outputs
+        # Create group inputs/outputs
         group_outputs = ng_albedo.nodes.new('NodeGroupOutput')
         group_inputs = ng_albedo.nodes.new('NodeGroupInput')
         group_inputs.location = (-400,0)
@@ -191,7 +216,7 @@ def ng_setup() -> None:
         ng_roughness = bpy.data.node_groups.new('GD_Roughness', 'ShaderNodeTree')
         ng_roughness.use_fake_user = True
     
-        # Create group outputs
+        # Create group inputs/outputs
         group_outputs = ng_roughness.nodes.new('NodeGroupOutput')
         group_inputs = ng_roughness.nodes.new('NodeGroupInput')
         group_inputs.location = (-400,0)
@@ -216,7 +241,7 @@ def ng_setup() -> None:
         ng_roughness = bpy.data.node_groups.new('GD_Metalness', 'ShaderNodeTree')
         ng_roughness.use_fake_user = True
     
-        # Create group outputs
+        # Create group inputs/outputs
         group_outputs = ng_roughness.nodes.new('NodeGroupOutput')
         group_inputs = ng_roughness.nodes.new('NodeGroupInput')
         group_inputs.location = (-400,0)
@@ -263,23 +288,23 @@ def create_apply_ng_mat(ob: type.Object) -> None:
             ob.active_material = mat
 
 
-def bsdf_link_factory(input_name: str, node_group: type.ShaderNodeGroup, original_node_input: type.NodeSocket, mat_slot: type.Material) -> bool:
+def bsdf_link_factory(input_name: list, node_group: type.ShaderNodeGroup, original_node_input: type.NodeSocket, mat_slot: type.Material) -> bool:
     '''Add node group to all materials, save original links & link the node group to material output'''
     node_found = False
-
-    node_group.inputs[input_name].default_value = original_node_input.default_value
 
     for link in original_node_input.links:
         node_found = True
 
         mat_slot.node_tree.links.new(node_group.inputs[input_name], link.from_node.outputs[link.from_socket.name])
         break
+    else:
+        node_group.inputs[input_name].default_value = original_node_input.default_value
 
     return node_found
 
 
 def add_ng_to_mat(self, context, setup_type: str) -> None:
-    '''TODO'''
+    '''Add corresponding node groups to all materials/objects'''
     for ob in context.view_layer.objects:
         if ob.name in self.render_list and ob.name != "GD_Orient Guide":
             # If no material slots found or empty mat slots found, assign a material to it
@@ -331,18 +356,7 @@ def add_ng_to_mat(self, context, setup_type: str) -> None:
                                 node_found = False
 
                                 for original_node_input in original_node.inputs:
-                                    if node_found:
-                                        break
-
-                                    if setup_type == 'GD_Normal' and original_node_input.name == 'Normal':
-                                        node_found = bsdf_link_factory(
-                                            input_name='Normal',
-                                            node_group=GD_node_group,
-                                            original_node_input=original_node_input,
-                                            mat_slot=mat_slot
-                                        )
-
-                                    elif setup_type == 'GD_Albedo' and original_node_input.name == 'Base Color':
+                                    if setup_type == 'GD_Albedo' and original_node_input.name == 'Base Color':
                                         node_found = bsdf_link_factory(
                                             input_name='Color Input',
                                             node_group=GD_node_group,
@@ -365,6 +379,25 @@ def add_ng_to_mat(self, context, setup_type: str) -> None:
                                             original_node_input=original_node_input,
                                             mat_slot=mat_slot
                                         )
+
+                                    elif setup_type == 'GD_Normal' and original_node_input.name in ('Normal', 'Alpha'):
+                                        node_found = bsdf_link_factory(
+                                            input_name=original_node_input.name,
+                                            node_group=GD_node_group,
+                                            original_node_input=original_node_input,
+                                            mat_slot=mat_slot
+                                        )
+
+                                        if ( # Does not work if Map Preview Mode is entered and *then* Texture Normals are enabled
+                                            original_node_input.name == 'Alpha'
+                                            and context.scene.grabDoc.useTextureNormals
+                                            and mat_slot.blend_method == 'OPAQUE'
+                                            and len(original_node_input.links)
+                                        ):
+                                            mat_slot.blend_method = 'CLIP'
+
+                                    elif node_found:
+                                        break
 
                                 if not node_found and setup_type != 'GD_Normal':
                                     self.report({'WARNING'}, "Material slots found without links & will be rendered using the sockets default value.")

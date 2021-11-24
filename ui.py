@@ -202,7 +202,7 @@ class GRABDOC_PT_export(PanelInfo, Panel):
                     row.prop(image_settings, "tiff_codec", text = "Codec")
         else: # Marmoset
             row = box.row(align = True)
-            row.prop(grabDoc, "marmoSamples", text = "Sampling", expand = True)
+            row.prop(grabDoc, "marmoSamples", text = "Samples", expand = True)
 
         box = col.box()
         box.use_property_split = False
@@ -355,7 +355,7 @@ def normals_ui(layout, context):
         col.separator(factor=.5)
         col.prop(grabDoc, 'reimportAsMatNormals', text = "Import as Material")
         col.separator(factor=1.5)
-        col.prop(grabDoc, "samplesNormals", text = 'Sampling')
+        col.prop(grabDoc, "samplesNormals", text = 'Samples')
 
     col.separator(factor=1.5)
     col.prop(grabDoc, 'suffixNormals', text = "Suffix")
@@ -402,7 +402,7 @@ def curvature_ui(layout, context):
         col.separator(factor=.5)
         col.prop(grabDoc, 'valleyCurvature', text = "Valley")
         col.separator(factor=1.5)
-        col.prop(grabDoc, "samplesCurvature", text = "Sampling")
+        col.prop(grabDoc, "samplesCurvature", text = "Samples")
         col.separator(factor=.5)
         col.prop(grabDoc, 'contrastCurvature', text = "Contrast")
     else: # Marmoset

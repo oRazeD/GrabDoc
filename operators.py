@@ -379,11 +379,14 @@ def export_and_preview_setup(self, context):
     self.savedContrastType = view_settings.look
     self.savedExposure = view_settings.exposure
     self.savedGamma = view_settings.gamma 
+    self.savedTransparency = render.film_transparent
 
     view_settings.view_transform = 'Standard'
     view_settings.look = 'None'
     view_settings.exposure = 0
     view_settings.gamma = 1
+
+    render.film_transparent = True
 
     # Save & Set - Performance 
     if bpy.app.version >= (2, 83, 0):
@@ -507,6 +510,8 @@ def export_refresh(self, context) -> None:
     view_settings.view_transform = self.savedViewTransform
     view_settings.exposure = self.savedExposure
     view_settings.gamma = self.savedGamma
+
+    scene.render.film_transparent = self.savedTransparency
 
     # Refresh - Performance
     if bpy.app.version >= (2, 83, 0):
@@ -634,11 +639,16 @@ def normals_setup(self, context) -> None:
 
     ng_normal = bpy.data.node_groups["GD_Normal"]
     vec_transform_node = ng_normal.nodes.get('Vector Transform')
+    group_output_node = ng_normal.nodes.get('Group Output')
+
+    link = ng_normal.links
 
     if context.scene.grabDoc.useTextureNormals:
-        ng_normal.links.new(vec_transform_node.inputs["Vector"], ng_normal.nodes.get('Bevel').outputs["Normal"])
+        link.new(vec_transform_node.inputs["Vector"], ng_normal.nodes.get('Bevel').outputs["Normal"])
+        link.new(group_output_node.inputs["Output"], ng_normal.nodes.get('Mix Shader').outputs["Shader"])
     else:
-        ng_normal.links.new(vec_transform_node.inputs["Vector"], ng_normal.nodes.get('Bevel.001').outputs["Normal"])
+        link.new(vec_transform_node.inputs["Vector"], ng_normal.nodes.get('Bevel.001').outputs["Normal"])
+        link.new(group_output_node.inputs["Output"], ng_normal.nodes.get('Vector Math.001').outputs["Vector"])
 
     add_ng_to_mat(self, context, setup_type='GD_Normal')
 
