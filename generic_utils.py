@@ -73,9 +73,9 @@ def bad_setup_check(self, context, active_export: bool, report_value=False, repo
                         report_string = "When using Displace modifiers & baking Height you must use the 'Manual' 0-1 Range option.\n\n 'Auto' 0-1 Range cannot account for modifier geometry, this goes for all modifiers but is only required for displacement."
                         break
 
-                if not report_value and ob.type == 'CURVE':
-                    report_value = True
-                    report_string = "Curve objects are not fully supported. When baking Height you must use the 'Manual' 0-1 Range option for accurate results." 
+                #if not report_value and ob.type == 'CURVE':
+                #    report_value = True
+                #    report_string = "Curve objects are not fully supported. When baking Height you must use the 'Manual' 0-1 Range option for accurate results." 
 
     if active_export:
         # Check for export path

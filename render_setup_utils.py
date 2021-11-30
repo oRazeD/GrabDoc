@@ -7,15 +7,23 @@ def get_rendered_objects(context) -> set:
     '''Generate a list of all objects that will be rendered based on its origin position in world space'''
     render_list = ['GD_Background Plane']
 
-    if context.scene.grabDoc.onlyRenderColl:  
+    if context.scene.grabDoc.onlyRenderColl:
         for coll in bpy.data.collections:
-            if coll.name in ("GrabDoc Objects (put objects here)", "GrabDoc (do not touch contents)"):
+            if coll.is_gd_collection:
                 for ob in coll.all_objects:
-                    if not ob.hide_render and ob.type in ('MESH', 'CURVE') and not ob.name.startswith('GD_'):
+                    if (
+                        not ob.hide_render
+                        and ob.type not in ('EMPTY', 'VOLUME', 'ARMATURE', 'LATTICE', 'LIGHT', 'LIGHT_PROBE', 'CAMERA')
+                        and not ob.is_gd_object
+                        ):
                         render_list.append(ob.name)
     else:
         for ob in context.view_layer.objects:
-            if not ob.hide_render and ob.type in ('MESH', 'CURVE') and not ob.name.startswith('GD_'):
+            if (
+                not ob.hide_render
+                and ob.type not in ('EMPTY', 'VOLUME', 'ARMATURE', 'LATTICE', 'LIGHT', 'LIGHT_PROBE', 'CAMERA')
+                and not ob.is_gd_object
+                ):
                 local_bbox_center = .125 * sum((Vector(b) for b in ob.bound_box), Vector())
                 global_bbox_center = ob.matrix_world @ local_bbox_center
 

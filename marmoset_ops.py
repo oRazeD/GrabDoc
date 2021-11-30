@@ -91,8 +91,9 @@ class GrabDoc_OT_send_to_marmo(OpInfo, bpy.types.Operator):
         ]
 
         if self.send_type == 'refresh':
-            subproc = subprocess.check_output('tasklist', shell=True)
-            if not path_ext_only in subproc:
+            sub_proc = subprocess.check_output('tasklist', shell=True)
+            
+            if not path_ext_only in sub_proc:
                 subprocess.Popen(subproc_args)
 
                 self.report({'INFO'}, "Export completed! Opening Marmoset Toolbag...")
@@ -123,7 +124,7 @@ class GrabDoc_OT_send_to_marmo(OpInfo, bpy.types.Operator):
         if not os.path.exists(temps_path):
             os.mkdir(temps_path)
 
-        selectedCallback = context.view_layer.objects.selected.keys()
+        selected_callback = context.view_layer.objects.selected.keys()
 
         if context.active_object:
             bpy.ops.object.mode_set(mode = 'OBJECT')
@@ -177,9 +178,10 @@ class GrabDoc_OT_send_to_marmo(OpInfo, bpy.types.Operator):
         if not grabDoc.collSelectable:
             bpy.data.collections["GrabDoc (do not touch contents)"].hide_select = True
 
-        for o in selectedCallback:
+        for ob_name in selected_callback:
+            ob = context.scene.objects.get(ob_name)
+
             if ob.visible_get():
-                ob = context.scene.objects.get(o)
                 ob.select_set(True)
 
         self.open_marmoset(context, temps_path, addon_path)

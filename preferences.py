@@ -730,7 +730,9 @@ def register():
     for cls in classes:
         bpy.utils.register_class(cls)
 
-    bpy.types.Scene.grabDoc=PointerProperty(type=GRABDOC_property_group)
+    bpy.types.Scene.grabDoc = PointerProperty(type=GRABDOC_property_group)
+    bpy.types.Collection.is_gd_collection = BoolProperty()
+    bpy.types.Object.is_gd_object = BoolProperty()
 
     # Set the updaters repo
     updater.user="oRazeD"

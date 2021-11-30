@@ -13,6 +13,7 @@ from .render_setup_utils import find_tallest_object
 
 
 def scene_setup_and_refresh(self, context) -> None: # Needs self for update functions to register?
+    '''TODO'''
     grabDoc = context.scene.grabDoc
     view_layer = context.view_layer
 
@@ -21,15 +22,13 @@ def scene_setup_and_refresh(self, context) -> None: # Needs self for update func
     savedActiveColl = view_layer.active_layer_collection
     selectedCallback = view_layer.objects.selected.keys()
 
-    if context.active_object:
-        if context.object.type in ('MESH', 'CURVE', 'FONT', 'SURFACE', 'META', 'LATTICE', 'ARMATURE', 'CAMERA'):
-            activeCallback = context.active_object.name
+    if context.object:
+        activeCallback = context.object.name
 
+        if context.object.type in ('MESH', 'CURVE', 'FONT', 'SURFACE', 'META', 'LATTICE', 'ARMATURE', 'CAMERA'):
             modeCallback = context.object.mode
-            
+
             bpy.ops.object.mode_set(mode = 'OBJECT')
-    else:
-        activeCallback = None
 
     # Deselect all objects
     for ob in context.selected_objects:
@@ -76,6 +75,7 @@ def scene_setup_and_refresh(self, context) -> None: # Needs self for update func
         bpy.data.collections.remove(bpy.data.collections[gdColl])
 
     grabDocColl = bpy.data.collections.new(name = gdColl)
+    grabDocColl.is_gd_collection = True
     context.scene.collection.children.link(grabDocColl)
     view_layer.active_layer_collection = view_layer.layer_collection.children[-1]
 
@@ -89,18 +89,19 @@ def scene_setup_and_refresh(self, context) -> None: # Needs self for update func
         # Grab the existing plane_ob & mesh
         plane_ob_old = bpy.data.objects["GD_Background Plane"]
 
-        # Save original location & rotation
-        plane_ob_old_loc = plane_ob_old.location
-        plane_ob_old_rot = plane_ob_old.rotation_euler
-
-        # Save plane_ob material
+        # Save plane_ob material/reference
         saved_mat = plane_ob_old.active_material
-    
+
         bpy.data.meshes.remove(plane_ob_old.data)
-    else:
-        plane_ob_old_loc = plane_ob_old_rot = (0, 0, 0)
     
-    bpy.ops.mesh.primitive_plane_add(size=grabDoc.scalingSet, enter_editmode=False, calc_uvs=True, align='WORLD') #, location=(plane_ob_old_loc), rotation=(plane_ob_old_rot)
+    bpy.ops.mesh.primitive_plane_add(
+        size=grabDoc.scalingSet,
+        enter_editmode=False,
+        calc_uvs=True,
+        align='WORLD',
+        location=(0,0,0),
+        rotation=(0,0,0)
+    )
 
     # Rename newly made BG Plane & set a reference to it
     context.object.name = context.object.data.name = "GD_Background Plane"
@@ -120,6 +121,7 @@ def scene_setup_and_refresh(self, context) -> None: # Needs self for update func
         bpy.ops.object.transform_apply(location=False, rotation=False)
     
     plane_ob.select_set(False)
+    plane_ob.is_gd_object = True
         
     # Lock the BG Plane's scaling
     plane_ob.lock_scale[0] = plane_ob.lock_scale[1] = plane_ob.lock_scale[2] = True
@@ -198,10 +200,13 @@ def scene_setup_and_refresh(self, context) -> None: # Needs self for update func
     trim_cam_ob.data.type = 'ORTHO'
     trim_cam_ob.data.display_size = .01
     trim_cam_ob.data.passepartout_alpha = 1
-    trim_cam_ob.hide_viewport = trim_cam_ob.hide_select = True
+    #trim_cam_ob.hide_viewport = trim_cam_ob.hide_select = True  # For some reason this causes visual errors in the camera
     trim_cam_ob.parent = plane_ob
+    trim_cam_ob.is_gd_object = True
 
     grabDocColl.objects.link(trim_cam_ob)
+
+    context.scene.camera = trim_cam_ob
         
     # Change the camera scaling based on user preference
     trim_cam_ob.data.ortho_scale = grabDoc.scalingSet
@@ -221,6 +226,7 @@ def scene_setup_and_refresh(self, context) -> None: # Needs self for update func
         context.collection.objects.link(pc_height_guide)
 
         # Parent the height guide to the BG Plane
+        pc_height_guide.is_gd_object = True
         pc_height_guide.parent = plane_ob
         pc_height_guide.hide_select = True
 
@@ -238,6 +244,7 @@ def scene_setup_and_refresh(self, context) -> None: # Needs self for update func
     # Parent the height guide to the BG Plane
     pc_orient.parent = plane_ob
     pc_orient.hide_select = True
+    pc_orient.is_gd_object = True
     
     # NODE GROUPS
 
@@ -246,18 +253,20 @@ def scene_setup_and_refresh(self, context) -> None: # Needs self for update func
     # CLEANUP
 
     # Select original object(s)
-    for o in selectedCallback:
-        ob = context.scene.objects.get(o)
+    for ob_name in selectedCallback:
+        ob = context.scene.objects.get(ob_name)
         ob.select_set(True)
 
     # Select original active collection, active object & the context mode
-    if 'savedActiveColl' in locals():
+    try:
         view_layer.active_layer_collection = savedActiveColl
 
-    view_layer.objects.active = bpy.data.objects[activeCallback] if activeCallback else None
+        view_layer.objects.active = bpy.data.objects[activeCallback]
 
-    if 'modeCallback' in locals() and activeCallback:
-        bpy.ops.object.mode_set(mode = modeCallback)
+        if activeCallback:
+            bpy.ops.object.mode_set(mode = modeCallback)
+    except UnboundLocalError:
+        pass
 
     # Hide collections & make unselectable if requested (runs after everything else)
     grabDocColl.hide_select = not grabDoc.collSelectable
@@ -266,6 +275,7 @@ def scene_setup_and_refresh(self, context) -> None: # Needs self for update func
 
 
 def manual_height_guide_point_cloud(ob_name: str, edges = [(0,4), (1,5), (2,6), (3,7), (4,5), (5,6), (6,7), (7,4)], faces = []) -> tuple:
+    '''TODO'''
     grabDoc = bpy.context.scene.grabDoc
 
     # Make a tuple for the planes vertex positions
@@ -299,6 +309,7 @@ def manual_height_guide_point_cloud(ob_name: str, edges = [(0,4), (1,5), (2,6), 
 
 
 def uv_orient_point_cloud(ob_name: str, vertices, edges = [(0,2), (0,1), (1,2)], faces = []) -> bpy.types.Object:
+    '''TODO'''
     # Create new mesh & object data blocks
     meNew = bpy.data.meshes.new(ob_name)
     obNew = bpy.data.objects.new(ob_name, meNew)
@@ -422,9 +433,8 @@ def export_and_preview_setup(self, context):
     self.savedUseSequencer = render.use_sequencer
     self.savedUseCompositer = render.use_compositing
     self.savedDitherIntensity = render.dither_intensity
-    self.savedUseCompositingNodes = context.scene.use_nodes
 
-    render.use_sequencer = render.use_compositing = context.scene.use_nodes = False
+    render.use_sequencer = render.use_compositing = False
     render.dither_intensity = 0
 
         ## VIEWPORT SHADING ##
@@ -527,7 +537,6 @@ def export_refresh(self, context) -> None:
     # Refresh - Post Processing
     render.use_sequencer = self.savedUseSequencer
     render.use_compositing = self.savedUseCompositer
-    scene.use_nodes = self.savedUseCompositingNodes
 
     render.dither_intensity = self.savedDitherIntensity
 
@@ -1006,8 +1015,8 @@ class GRABDOC_OT_export_maps(OpInfo, Operator):
 
         export_and_preview_setup(self, context)
 
-        if context.active_object and context.object.type in ('MESH', 'CURVE', 'FONT', 'SURFACE', 'META', 'LATTICE', 'ARMATURE', 'CAMERA'):
-            activeCallback = context.active_object.name
+        if context.object and context.object.type in ('MESH', 'CURVE', 'FONT', 'SURFACE', 'META', 'LATTICE', 'ARMATURE', 'CAMERA'):
+            activeCallback = context.object.name
             modeCallback = context.object.mode
 
             bpy.ops.object.mode_set(mode = 'OBJECT')
@@ -1133,7 +1142,9 @@ class GRABDOC_OT_export_maps(OpInfo, Operator):
 
 
 class GRABDOC_OT_offline_render(OpInfo, Operator):
-    """Renders the selected material and previews it inside Blender"""
+    """Renders the selected material and previews it inside Blender
+    
+TODO might be able to have this uniquely utilize compositing for mixing maps?"""
     bl_idname = "grab_doc.offline_render"
     bl_label = ""
     bl_options = {'INTERNAL'}
@@ -1206,8 +1217,8 @@ class GRABDOC_OT_offline_render(OpInfo, Operator):
         
         export_and_preview_setup(self, context)
 
-        if context.active_object and context.object.type in ('MESH', 'CURVE', 'FONT', 'SURFACE', 'META', 'LATTICE', 'ARMATURE', 'CAMERA'):
-            activeCallback = context.active_object.name
+        if context.object and context.object.type in ('MESH', 'CURVE', 'FONT', 'SURFACE', 'META', 'LATTICE', 'ARMATURE', 'CAMERA'):
+            activeCallback = context.object.name
             modeCallback = context.object.mode
 
             bpy.ops.object.mode_set(mode = 'OBJECT')
@@ -1507,7 +1518,7 @@ class GRABDOC_OT_map_preview(OpInfo, Operator):
         self.done = False
         grabDoc.modalState = True
 
-        if context.active_object:
+        if context.object:
             bpy.ops.object.mode_set(mode = 'OBJECT')
 
         export_and_preview_setup(self, context)
