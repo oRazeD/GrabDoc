@@ -2,6 +2,7 @@
 import bpy
 from bpy import types as type
 
+
 def ng_setup() -> None:
     '''Initial setup of all node groups when setting up a file'''
     grabDoc = bpy.context.scene.grabDoc
