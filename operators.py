@@ -12,22 +12,30 @@ from .render_setup_utils import find_tallest_object
 ################################################################################################################
 
 
-def scene_setup_and_refresh(self, context) -> None: # Needs self for update functions to register?
-    '''TODO'''
+def scene_setup(self, context) -> None: # Needs self for update functions to register?
+    '''Generate/setup all relevant GrabDoc object, collections, node groups and scene settings'''
     grabDoc = context.scene.grabDoc
     view_layer = context.view_layer
 
     # PRELIMINARY
 
-    savedActiveColl = view_layer.active_layer_collection
-    selectedCallback = view_layer.objects.selected.keys()
+    saved_active_collection = view_layer.active_layer_collection
+    saved_selected_obs = view_layer.objects.selected.keys()
+
+    gd_coll = bpy.data.collections.get("GrabDoc (do not touch contents)")
 
     if context.object:
-        activeCallback = context.object.name
+        active_ob = context.object
+        activeCallback = active_ob.name
 
-        if context.object.type in ('MESH', 'CURVE', 'FONT', 'SURFACE', 'META', 'LATTICE', 'ARMATURE', 'CAMERA'):
-            modeCallback = context.object.mode
+        if active_ob.type in ('MESH', 'CURVE', 'FONT', 'SURFACE', 'META', 'LATTICE', 'ARMATURE', 'CAMERA'):
+            modeCallback = active_ob.mode
 
+            if active_ob.hide_viewport:
+                active_ob.hide_viewport = False
+            elif gd_coll is not None and gd_coll.hide_viewport:
+                gd_coll.hide_viewport = False
+            
             bpy.ops.object.mode_set(mode = 'OBJECT')
 
     # Deselect all objects
@@ -40,47 +48,45 @@ def scene_setup_and_refresh(self, context) -> None: # Needs self for update func
 
     # COLLECTIONS
 
-    # Do some checks to see if the user wants to only render out the objects in a specific collection
-    objectsColl = "GrabDoc Objects (put objects here)"
-    if grabDoc.onlyRenderColl:
-        if not objectsColl in bpy.data.collections:
-            bpy.data.collections.new(name = objectsColl)
-            context.scene.collection.children.link(bpy.data.collections[objectsColl])
-            view_layer.active_layer_collection = view_layer.layer_collection.children[-1]
+    # Create a bake group collection if requested
+    if grabDoc.onlyRenderColl and "GrabDoc Objects (put objects here)" not in bpy.data.collections:
+        gd_bake_group_coll = bpy.data.collections.new(name = "GrabDoc Objects (put objects here)")
+        context.scene.collection.children.link(gd_bake_group_coll)
+        view_layer.active_layer_collection = view_layer.layer_collection.children[-1]
     else:
-        if objectsColl in bpy.data.collections:
-            for ob in bpy.data.collections[objectsColl].all_objects:
+        gd_bake_group_coll = bpy.data.collections.get("GrabDoc Objects (put objects here)")
+
+        if gd_bake_group_coll is not None:
+            for ob in gd_bake_group_coll.all_objects:
                 # Move object to the master collection
                 context.scene.collection.objects.link(ob)
                 
                 # Remove the objects from the grabdoc collection
                 ob.users_collection[0].objects.unlink(ob)
 
-            # Delete the collection
-            bpy.data.collections.remove(bpy.data.collections[objectsColl])
+            bpy.data.collections.remove(gd_bake_group_coll)
 
-    # Remove objects accidentally placed by the user in the GD collection into the master collection
-    gdColl = "GrabDoc (do not touch contents)"
-    if gdColl in bpy.data.collections:
-        for ob in bpy.data.collections[gdColl].all_objects:
+    # Move objects accidentally placed in the GD collection into the master collection and then remove the collection
+    if gd_coll is not None:
+        for ob in gd_coll.all_objects:
             if ob.name not in ('GD_Background Plane', 'GD_Orient Guide', 'GD_Trim Camera'):
                 # Move object to the master collection
                 context.scene.collection.objects.link(ob)
 
-                # Remove the objects from the grabdoc collection
-                ob.users_collection[0].objects.unlink(ob)
+                # Remove object from the grabdoc collection
+                ob.gd_coll.objects.unlink(ob)
+
+        bpy.data.collections.remove(gd_coll)
 
     # Create main GrabDoc collection
-    if gdColl in bpy.data.collections:
-        bpy.data.collections.remove(bpy.data.collections[gdColl])
+    gd_coll = bpy.data.collections.new(name = "GrabDoc (do not touch contents)")
+    gd_coll.is_gd_collection = True
 
-    grabDocColl = bpy.data.collections.new(name = gdColl)
-    grabDocColl.is_gd_collection = True
-    context.scene.collection.children.link(grabDocColl)
+    context.scene.collection.children.link(gd_coll)
     view_layer.active_layer_collection = view_layer.layer_collection.children[-1]
 
-    # Make the GrabDoc collection the active one
-    view_layer.active_layer_collection = view_layer.layer_collection.children[grabDocColl.name]
+    # Make the GrabDoc collection the active collection
+    view_layer.active_layer_collection = view_layer.layer_collection.children[gd_coll.name]
 
     # BG PLANE
 
@@ -92,22 +98,27 @@ def scene_setup_and_refresh(self, context) -> None: # Needs self for update func
         # Save plane_ob material/reference
         saved_mat = plane_ob_old.active_material
 
+        saved_plane_loc = plane_ob_old.location.copy()
+        saved_plane_rot = plane_ob_old.rotation_euler.copy()
+
         bpy.data.meshes.remove(plane_ob_old.data)
+    else:
+        saved_plane_loc = saved_plane_rot = (0, 0, 0)
     
     bpy.ops.mesh.primitive_plane_add(
         size=grabDoc.scalingSet,
         enter_editmode=False,
         calc_uvs=True,
         align='WORLD',
-        location=(0,0,0),
-        rotation=(0,0,0)
+        location=saved_plane_loc,
+        rotation=saved_plane_rot
     )
 
     # Rename newly made BG Plane & set a reference to it
     context.object.name = context.object.data.name = "GD_Background Plane"
     plane_ob = bpy.data.objects["GD_Background Plane"]
 
-    # Prepare proper plane scaling & create the new plane object
+    # Prepare proper plane scaling
     if grabDoc.exportResX != grabDoc.exportResY:
         if grabDoc.exportResX > grabDoc.exportResY:
             div_factor = grabDoc.exportResX / grabDoc.exportResY
@@ -122,8 +133,7 @@ def scene_setup_and_refresh(self, context) -> None: # Needs self for update func
     
     plane_ob.select_set(False)
     plane_ob.is_gd_object = True
-        
-    # Lock the BG Plane's scaling
+
     plane_ob.lock_scale[0] = plane_ob.lock_scale[1] = plane_ob.lock_scale[2] = True
 
     # Add reference to the plane if one exists
@@ -204,7 +214,7 @@ def scene_setup_and_refresh(self, context) -> None: # Needs self for update func
     trim_cam_ob.parent = plane_ob
     trim_cam_ob.is_gd_object = True
 
-    grabDocColl.objects.link(trim_cam_ob)
+    gd_coll.objects.link(trim_cam_ob)
 
     context.scene.camera = trim_cam_ob
         
@@ -216,35 +226,23 @@ def scene_setup_and_refresh(self, context) -> None: # Needs self for update func
 
     # HEIGHT GUIDE
 
-    # Remove pre existing Height Guide & all related data blocks 
+    # Remove pre existing Height Guide & all related data blocks (keep outside of the collection so it always removes if found)
     if "GD_Height Guide" in bpy.data.objects:
         bpy.data.meshes.remove(bpy.data.objects["GD_Height Guide"].data)
     
     # Create object & link new object to the active collection
     if grabDoc.exportHeight and grabDoc.rangeTypeHeight == 'MANUAL':
-        pc_height_guide = manual_height_guide_point_cloud("GD_Height Guide")
-        context.collection.objects.link(pc_height_guide)
-
-        # Parent the height guide to the BG Plane
-        pc_height_guide.is_gd_object = True
-        pc_height_guide.parent = plane_ob
-        pc_height_guide.hide_select = True
+        generate_manual_height_guide_mesh("GD_Height Guide", plane_ob)
 
     # ORIENT GUIDE
 
-    # Remove pre existing orient guide & all related data blocks
-    if "GD_Orient Guide" in bpy.data.objects:
-        bpy.data.meshes.remove(bpy.data.objects["GD_Orient Guide"].data)
-
     plane_y = plane_ob.dimensions.y / 2
 
-    pc_orient = uv_orient_point_cloud("GD_Orient Guide", [(-.3, plane_y + .1, 0), (.3, plane_y + .1, 0), (0, plane_y + .35, 0)])
-    context.collection.objects.link(pc_orient)
-
-    # Parent the height guide to the BG Plane
-    pc_orient.parent = plane_ob
-    pc_orient.hide_select = True
-    pc_orient.is_gd_object = True
+    generate_plane_orient_guide_mesh(
+        "GD_Orient Guide",
+        plane_ob,
+        [(-.3, plane_y + .1, 0), (.3, plane_y + .1, 0), (0, plane_y + .35, 0)]
+    )
     
     # NODE GROUPS
 
@@ -253,13 +251,13 @@ def scene_setup_and_refresh(self, context) -> None: # Needs self for update func
     # CLEANUP
 
     # Select original object(s)
-    for ob_name in selectedCallback:
+    for ob_name in saved_selected_obs:
         ob = context.scene.objects.get(ob_name)
         ob.select_set(True)
 
     # Select original active collection, active object & the context mode
     try:
-        view_layer.active_layer_collection = savedActiveColl
+        view_layer.active_layer_collection = saved_active_collection
 
         view_layer.objects.active = bpy.data.objects[activeCallback]
 
@@ -268,58 +266,64 @@ def scene_setup_and_refresh(self, context) -> None: # Needs self for update func
     except UnboundLocalError:
         pass
 
-    # Hide collections & make unselectable if requested (runs after everything else)
-    grabDocColl.hide_select = not grabDoc.collSelectable
-    grabDocColl.hide_viewport = not grabDoc.collVisible
-    grabDocColl.hide_render = not grabDoc.collRendered
+    # Hide collections & make unselectable if requested (run this after everything else)
+    gd_coll.hide_select = not grabDoc.collSelectable
+    gd_coll.hide_viewport = not grabDoc.collVisible
+    gd_coll.hide_render = not grabDoc.collRendered
 
-
-def manual_height_guide_point_cloud(ob_name: str, edges = [(0,4), (1,5), (2,6), (3,7), (4,5), (5,6), (6,7), (7,4)], faces = []) -> tuple:
-    '''TODO'''
-    grabDoc = bpy.context.scene.grabDoc
+def generate_manual_height_guide_mesh(ob_name: str, bg_plane: bpy.types.Object, edges = [(0,4), (1,5), (2,6), (3,7), (4,5), (5,6), (6,7), (7,4)], faces = []) -> None:
+    '''Generate a mesh that gauges the height map range. This is for the "Manual" height map mode and can better inform a correct 0-1 range'''
 
     # Make a tuple for the planes vertex positions
-    cameraVectorsList = bpy.data.objects["GD_Trim Camera"].data.view_frame(scene = bpy.context.scene)
+    camera_vec_list = bpy.data.objects["GD_Trim Camera"].data.view_frame(scene = bpy.context.scene)
 
-    def change_stem_z(tuple):
-        newVectorTuple = (tuple[0], tuple[1], grabDoc.guideHeight)
-        return newVectorTuple
+    stems_vec_list = [(vec[0], vec[1], bpy.context.scene.grabDoc.guideHeight) for vec in camera_vec_list]
 
-    stemsVectorsList = tuple([change_stem_z(vec) for vec in cameraVectorsList])
-
-    def change_ring_z(tuple):
-        newVectorTuple = (tuple[0], tuple[1], tuple[2] + 1)
-        return newVectorTuple
-
-    ringVectorsList = tuple([change_ring_z(vec) for vec in cameraVectorsList])
+    ring_vec_list = [(vec[0], vec[1], vec[2] + 1) for vec in camera_vec_list]
 
     # Combine both tuples
-    ringVectorsList += stemsVectorsList
+    ring_vec_list += stems_vec_list
 
     # Create new mesh & object data blocks
-    meNew = bpy.data.meshes.new(ob_name)
-    obNew = bpy.data.objects.new(ob_name, meNew)
+    new_mesh = bpy.data.meshes.new(ob_name)
+    new_ob = bpy.data.objects.new(ob_name, new_mesh)
 
     # Make a mesh from a list of vertices / edges / faces
-    meNew.from_pydata(ringVectorsList, edges, faces)
+    new_mesh.from_pydata(ring_vec_list, edges, faces)
 
     # Display name & update the mesh
-    meNew.update()
-    return obNew
+    new_mesh.update()
+
+    bpy.context.collection.objects.link(new_ob)
+
+    # Parent the height guide to the BG Plane
+    new_ob.is_gd_object = True
+    new_ob.parent = bg_plane
+    new_ob.hide_select = True
 
 
-def uv_orient_point_cloud(ob_name: str, vertices, edges = [(0,2), (0,1), (1,2)], faces = []) -> bpy.types.Object:
-    '''TODO'''
+def generate_plane_orient_guide_mesh(ob_name: str, bg_plane: bpy.types.Object, vertices: list, edges: list = [(0,2), (0,1), (1,2)], faces: list = []) -> None:
+    '''Generate a mesh that sits beside the background plane to guide the user to the correct "up" orientation'''
+    # Remove pre existing orient guide & all related data blocks
+    if "GD_Orient Guide" in bpy.data.objects:
+        bpy.data.meshes.remove(bpy.data.objects["GD_Orient Guide"].data)
+
     # Create new mesh & object data blocks
-    meNew = bpy.data.meshes.new(ob_name)
-    obNew = bpy.data.objects.new(ob_name, meNew)
+    new_mesh = bpy.data.meshes.new(ob_name)
+    new_ob = bpy.data.objects.new(ob_name, new_mesh)
 
     # Make a mesh from a list of vertices / edges / faces
-    meNew.from_pydata(vertices, edges, faces)
+    new_mesh.from_pydata(vertices, edges, faces)
 
     # Display name & update the mesh
-    meNew.update()
-    return obNew
+    new_mesh.update()
+
+    bpy.context.collection.objects.link(new_ob)
+
+    # Parent the height guide to the BG Plane
+    new_ob.parent = bg_plane
+    new_ob.hide_select = True
+    new_ob.is_gd_object = True
 
 
 ################################################################################################################
@@ -579,7 +583,7 @@ class GRABDOC_OT_setup_scene(OpInfo, Operator):
     bl_label = "Setup / Refresh GrabDoc Scene"
 
     def execute(self, context):
-        scene_setup_and_refresh(self, context)
+        scene_setup(self, context)
         return{'FINISHED'}
 
 

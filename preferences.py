@@ -3,7 +3,7 @@ from bpy.props import BoolProperty, PointerProperty, StringProperty, EnumPropert
 from bl_operators.presets import AddPresetBase
 from bl_ui.utils import PresetPanel
 from bpy.types import Panel, Menu
-from .operators import scene_setup_and_refresh, find_tallest_object
+from .operators import scene_setup, find_tallest_object
 from .render_setup_utils import get_rendered_objects
 from .addon_updater import Updater as updater
 from .__init__ import bl_info
@@ -187,7 +187,7 @@ class GRABDOC_property_group(bpy.types.PropertyGroup):
     ### UPDATE FUNCTIONS ###
 
     def update_scaling_set(self, context):
-        scene_setup_and_refresh(self, context)
+        scene_setup(self, context)
         
         if self.modalState:
             gd_camera_ob_z = bpy.data.objects.get('GD_Trim Camera').location[2]
@@ -205,14 +205,14 @@ class GRABDOC_property_group(bpy.types.PropertyGroup):
             if self.exportResX != self.exportResY:
                 self.exportResY = self.exportResX
 
-        scene_setup_and_refresh(self, context)
+        scene_setup(self, context)
 
     def update_res_y(self, context):
         if self.lockRes:
             if self.exportResY != self.exportResX:
                 self.exportResX = self.exportResY
 
-        scene_setup_and_refresh(self, context)
+        scene_setup(self, context)
 
     def update_export_name(self, context):
         if not self.exportName:
@@ -253,7 +253,7 @@ class GRABDOC_property_group(bpy.types.PropertyGroup):
         ao_node.inputs[1].default_value = self.distanceOcclusion
 
     def update_manual_height_range(self, context):
-        scene_setup_and_refresh(self, context)
+        scene_setup(self, context)
 
         if self.modalState:
             if self.rangeTypeHeight == 'AUTO':
@@ -276,7 +276,7 @@ class GRABDOC_property_group(bpy.types.PropertyGroup):
         ramp_node.location = (-400,0)
 
         if self.rangeTypeHeight == 'MANUAL':
-            scene_setup_and_refresh(self, context)
+            scene_setup(self, context)
 
         # Update here so that it refreshes live in the VP
         if self.modalState:
@@ -304,16 +304,16 @@ class GRABDOC_property_group(bpy.types.PropertyGroup):
 
     ## SETUP SETTINGS
 
-    collSelectable: BoolProperty(update=scene_setup_and_refresh)
-    collVisible: BoolProperty(default=True, update=scene_setup_and_refresh)
-    collRendered: BoolProperty(default=True, update=scene_setup_and_refresh)
+    collSelectable: BoolProperty(update=scene_setup)
+    collVisible: BoolProperty(default=True, update=scene_setup)
+    collRendered: BoolProperty(default=True, update=scene_setup)
                                        
     scalingSet: FloatProperty(name="", default=2, min=.1, soft_max=100, precision=3, subtype='DISTANCE', update=update_scaling_set)
     
-    refSelection: PointerProperty(type=bpy.types.Image, update=scene_setup_and_refresh)
+    refSelection: PointerProperty(type=bpy.types.Image, update=scene_setup)
     
-    useGrid: BoolProperty(default=True, update=scene_setup_and_refresh)
-    gridSubdivisions: IntProperty(name="", default=0, min=0, soft_max=64, update=scene_setup_and_refresh)
+    useGrid: BoolProperty(default=True, update=scene_setup)
+    gridSubdivisions: IntProperty(name="", default=0, min=0, soft_max=64, update=scene_setup)
 
     ## BAKER SEETINGS
 
@@ -379,7 +379,7 @@ class GRABDOC_property_group(bpy.types.PropertyGroup):
     )
 
     onlyRenderColl: BoolProperty(
-        update=scene_setup_and_refresh,
+        update=scene_setup,
         description="This will add a collection to the scene which GrabDoc will ONLY render from, ignoring objects outside of it. This option is useful if objects aren't visible in the renders"
     )
     
@@ -533,7 +533,7 @@ class GRABDOC_property_group(bpy.types.PropertyGroup):
     )                      
 
     # Height
-    exportHeight: BoolProperty(default=True, update=scene_setup_and_refresh)
+    exportHeight: BoolProperty(default=True, update=scene_setup)
 
     invertMaskHeight: BoolProperty(
         description="Invert the Height mask, this is useful if you are sculpting into a plane mesh",
@@ -573,7 +573,7 @@ class GRABDOC_property_group(bpy.types.PropertyGroup):
     ) 
 
     # Alpha
-    exportAlpha: BoolProperty(update=scene_setup_and_refresh)
+    exportAlpha: BoolProperty(update=scene_setup)
 
     invertMaskAlpha: BoolProperty(description="Invert the Alpha mask", update=update_alpha)
 
@@ -627,7 +627,7 @@ class GRABDOC_property_group(bpy.types.PropertyGroup):
     )
 
     # Albedo
-    exportAlbedo: BoolProperty(update=scene_setup_and_refresh)
+    exportAlbedo: BoolProperty(update=scene_setup)
 
     suffixAlbedo: StringProperty(
         name="",
@@ -638,7 +638,7 @@ class GRABDOC_property_group(bpy.types.PropertyGroup):
     samplesAlbedo: IntProperty(name="", default=128, min=1, max=512)
 
     # Roughness
-    exportRoughness: BoolProperty(update=scene_setup_and_refresh)
+    exportRoughness: BoolProperty(update=scene_setup)
 
     suffixRoughness: StringProperty(
         name="",
@@ -649,7 +649,7 @@ class GRABDOC_property_group(bpy.types.PropertyGroup):
     samplesRoughness: IntProperty(name="", default=128, min=1, max=512)
 
     # Metalness
-    exportMetalness: BoolProperty(update=scene_setup_and_refresh)
+    exportMetalness: BoolProperty(update=scene_setup)
 
     suffixMetalness: StringProperty(
         name="",
