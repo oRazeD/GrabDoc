@@ -3,7 +3,8 @@ from bpy.props import BoolProperty, PointerProperty, StringProperty, EnumPropert
 from bl_operators.presets import AddPresetBase
 from bl_ui.utils import PresetPanel
 from bpy.types import Panel, Menu
-from .operators import scene_setup, find_tallest_object
+from .operators import find_tallest_object
+from .scene_setup_utils import scene_setup
 from .render_setup_utils import get_rendered_objects
 from .addon_updater import Updater as updater
 from .__init__ import bl_info
@@ -184,21 +185,20 @@ class GRABDOC_MT_addon_prefs(bpy.types.AddonPreferences):
 
 
 class GRABDOC_property_group(bpy.types.PropertyGroup):
-    ### UPDATE FUNCTIONS ###
+    # UPDATE FUNCTIONS
 
     def update_scaling_set(self, context):
         scene_setup(self, context)
-        
-        if self.modalState:
-            gd_camera_ob_z = bpy.data.objects.get('GD_Trim Camera').location[2]
+    
+        gd_camera_ob_z = bpy.data.objects.get('GD_Trim Camera').location[2]
 
-            map_range_node = bpy.data.node_groups["GD_Height"].nodes.get('Map Range')
-            map_range_node.inputs[1].default_value = -self.guideHeight + gd_camera_ob_z
-            map_range_node.inputs[2].default_value = gd_camera_ob_z
+        map_range_node = bpy.data.node_groups["GD_Height"].nodes.get('Map Range')
+        map_range_node.inputs[1].default_value = -self.guideHeight + gd_camera_ob_z
+        map_range_node.inputs[2].default_value = gd_camera_ob_z
 
-            map_range_alpha_node = bpy.data.node_groups["GD_Alpha"].nodes.get('Map Range')
-            map_range_alpha_node.inputs[1].default_value = gd_camera_ob_z - .00001
-            map_range_alpha_node.inputs[2].default_value = gd_camera_ob_z
+        map_range_alpha_node = bpy.data.node_groups["GD_Alpha"].nodes.get('Map Range')
+        map_range_alpha_node.inputs[1].default_value = gd_camera_ob_z - .00001
+        map_range_alpha_node.inputs[2].default_value = gd_camera_ob_z
 
     def update_res_x(self, context):
         if self.lockRes:
@@ -300,10 +300,9 @@ class GRABDOC_property_group(bpy.types.PropertyGroup):
         if self.exportPath != '' and not os.path.exists(bpy.path.abspath(self.exportPath)):
             self.exportPath = ''
 
-    ### PROPERTIES ###
+    # PROPERTIES
 
-    ## SETUP SETTINGS
-
+    # Setup settings
     collSelectable: BoolProperty(update=scene_setup)
     collVisible: BoolProperty(default=True, update=scene_setup)
     collRendered: BoolProperty(default=True, update=scene_setup)
@@ -315,8 +314,7 @@ class GRABDOC_property_group(bpy.types.PropertyGroup):
     useGrid: BoolProperty(default=True, update=scene_setup)
     gridSubdivisions: IntProperty(name="", default=0, min=0, soft_max=64, update=scene_setup)
 
-    ## BAKER SEETINGS
-
+    # Baker settings
     bakerType: EnumProperty(
         items=(
             ('Blender', "Blender (Built-in)", "Set Baker: Blender (Built-in)"),
@@ -397,7 +395,7 @@ class GRABDOC_property_group(bpy.types.PropertyGroup):
     uiVisibilityRoughness: BoolProperty(default=True)
     uiVisibilityMetalness: BoolProperty(default=True)
 
-    ## BAKE MAP SETTINGS
+    # BAKE MAP SETTINGS
 
     # Normals
     exportNormals: BoolProperty(default=True)
@@ -659,7 +657,7 @@ class GRABDOC_property_group(bpy.types.PropertyGroup):
 
     samplesMetalness: IntProperty(name="", default=128, min=1, max=512)
     
-    ## MAP PREVIEW
+    # MAP PREVIEW
 
     firstBakePreview: BoolProperty(default=True)
     
@@ -682,7 +680,7 @@ class GRABDOC_property_group(bpy.types.PropertyGroup):
         )
     )
 
-    ## MARMOSET BAKING
+    # MARMOSET BAKING
 
     marmoAutoBake: BoolProperty(name="Auto bake", default=True)
 
