@@ -224,9 +224,9 @@ class GRABDOC_OT_export_maps(OpInfo, Operator):
 
         # End the timer
         end = time.time()
-        timeSpent = end - start
+        execution_time = end - start
 
-        self.report({'INFO'}, f"Export completed! (execution time: {str((round(timeSpent, 2)))}s)")
+        self.report({'INFO'}, f"Export completed! (execution time: {str((round(execution_time, 2)))}s)")
 
         context.window_manager.progress_end()
         return{'FINISHED'}
@@ -310,6 +310,9 @@ TODO might be able to have this uniquely utilize compositing for mixing maps?"""
         if report_value:
             self.report({'ERROR'}, report_string)
             return{'CANCELLED'}
+
+        # Start execution timer
+        start = time.time()
         
         export_and_preview_setup(self, context)
 
@@ -382,7 +385,12 @@ TODO might be able to have this uniquely utilize compositing for mixing maps?"""
             context.view_layer.objects.active = bpy.data.objects[activeCallback]
             bpy.ops.object.mode_set(mode = modeCallback)
 
-        self.report({'INFO'}, "Offline render completed!")
+        
+        # End the timer
+        end = time.time()
+        execution_time = end - start
+
+        self.report({'INFO'}, f"Offline render completed! (execution time: {str((round(execution_time, 2)))}s)")
         return{'FINISHED'}
 
 
