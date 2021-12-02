@@ -78,7 +78,7 @@ class GRABDOC_PT_grabdoc(PanelInfo, Panel):
                 grabDoc,
                 "collVisible",
                 text = "Visible",
-                icon = 'HIDE_OFF' if grabDoc.collVisible else 'HIDE_ON'
+                icon = 'RESTRICT_VIEW_OFF' if grabDoc.collVisible else 'RESTRICT_VIEW_ON'
             )
             row.prop(
                 grabDoc,
