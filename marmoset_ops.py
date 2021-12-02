@@ -124,7 +124,7 @@ class GrabDoc_OT_send_to_marmo(OpInfo, bpy.types.Operator):
         if not os.path.exists(temps_path):
             os.mkdir(temps_path)
 
-        selected_callback = context.view_layer.objects.selected.keys()
+        saved_selected = context.view_layer.objects.selected.keys()
 
         if context.active_object:
             bpy.ops.object.mode_set(mode = 'OBJECT')
@@ -178,7 +178,7 @@ class GrabDoc_OT_send_to_marmo(OpInfo, bpy.types.Operator):
         if not grabDoc.collSelectable:
             bpy.data.collections["GrabDoc (do not touch contents)"].hide_select = True
 
-        for ob_name in selected_callback:
+        for ob_name in saved_selected:
             ob = context.scene.objects.get(ob_name)
 
             if ob.visible_get():
