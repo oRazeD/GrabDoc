@@ -46,27 +46,26 @@ def is_in_viewing_spectrum(vec_check: Vector) -> bool:
 
 
 def find_tallest_object(self, context) -> None:
-    '''Find the tallest points in the viewlayer by looping through objects to find the highest vertex
+    '''Find the tallest points in the viewlayer by looping through objects to find the highest vertex on the Z axis
 
-    I hate this. Using vertices to find the tallest point is unnacceptable
-    in the face of modifier geometry and curves, maybe we can raycast?'''
-    tallest_vert = 0
+    I hate this. Using vertices to find the tallest point is unnacceptable in the face of modifier geometry and
+    curves, maybe we can raycast at some point?'''
+    all_tallest_verts = []
 
     for ob in context.view_layer.objects:
         if ob.name in self.render_list and ob.type == 'MESH' and not ob.name.startswith('GD_'):
             # Get global coordinates of vertices
             global_vert_coords = [ob.matrix_world @ v.co for v in ob.data.vertices]
 
-            # Find the highest Z value amongst the object's verts
+            # Find the highest Z value amongst the object's verts and then append it to list
             if len(global_vert_coords):
-                max_z_co = max([co.z for co in global_vert_coords])
+                max_z_coord = max([co.z for co in global_vert_coords])
 
-                if max_z_co > tallest_vert:
-                    tallest_vert = max_z_co
+                all_tallest_verts.append(max_z_coord)
 
     # Set the heights guide to the tallest found point
-    if tallest_vert:
-        context.scene.grabDoc.guideHeight = tallest_vert - bpy.data.objects.get('GD_Background Plane').location[2]
+    if len(all_tallest_verts):
+        context.scene.grabDoc.guideHeight = max(all_tallest_verts) - bpy.data.objects.get('GD_Background Plane').location[2]
 
 
 # ##### BEGIN GPL LICENSE BLOCK #####
