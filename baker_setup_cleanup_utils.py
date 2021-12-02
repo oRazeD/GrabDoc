@@ -155,7 +155,7 @@ def export_and_preview_setup(self, context):
     
     # Save & Set - Non-rendered objects visibility (self.render_list defined in bad_setup_check)
     for ob in context.view_layer.objects:
-        if ob.type in ('MESH', 'CURVE') and not ob.name in self.render_list:
+        if ob.type in {'MESH', 'CURVE'} and not ob.name in self.render_list:
             if not ob.hide_render:
                 self.ob_hidden_render_list.append(ob.name)
             ob.hide_render = True
@@ -256,6 +256,7 @@ def export_refresh(self, context) -> None:
 
 
 def reimport_as_material(suffix) -> None:
+    '''TODO'''
     grabDoc = bpy.context.scene.grabDoc
 
     mat_name = f'{grabDoc.exportName}_{suffix}'

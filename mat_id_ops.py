@@ -64,7 +64,7 @@ class GRABDOC_OT_quick_id_selected(OpInfo, Operator):
         bsdf_node.inputs[0].default_value = mat.diffuse_color
 
         for ob in context.selected_objects:
-            if ob.type in ('MESH', 'CURVE'):
+            if ob.type in {'MESH', 'CURVE'}:
                 ob.active_material_index = 0
                 ob.active_material = mat
 
@@ -109,7 +109,7 @@ class GRABDOC_OT_quick_remove_selected_mats(OpInfo, Operator):
 
     def execute(self, context):
         for ob in context.selected_objects:
-            if ob.type in ('MESH', 'CURVE'):
+            if ob.type in {'MESH', 'CURVE'}:
                 for slot in ob.material_slots:
                     if slot.name.startswith('GD_ID'):
                         bpy.data.materials.remove(bpy.data.materials[slot.name])

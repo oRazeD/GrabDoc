@@ -25,7 +25,7 @@ hard_reset: When refreshing a scene we may want to keep certain data-blocks that
     gd_coll = bpy.data.collections.get("GrabDoc (do not touch contents)")
     if gd_coll is not None:
         for ob in gd_coll.all_objects:
-            if ob.name not in ('GD_Background Plane', 'GD_Orient Guide', 'GD_Height Guide', 'GD_Trim Camera'):
+            if ob.name not in {'GD_Background Plane', 'GD_Orient Guide', 'GD_Height Guide', 'GD_Trim Camera'}:
                 # Move object to the master collection
                 bpy.context.scene.collection.objects.link(ob)
 
@@ -44,7 +44,7 @@ hard_reset: When refreshing a scene we may want to keep certain data-blocks that
 
         # Objects
         for ob in bpy.data.objects:
-            if ob.name in ('GD_Background Plane', 'GD_Orient Guide', 'GD_Height Guide'):
+            if ob.name in {'GD_Background Plane', 'GD_Orient Guide', 'GD_Height Guide'}:
                 bpy.data.meshes.remove(bpy.data.meshes[ob.name])
 
             elif ob.name == "GD_Trim Camera":

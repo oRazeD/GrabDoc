@@ -5,7 +5,7 @@ from bpy.props import EnumProperty
 from .generic_utils import OpInfo, proper_scene_setup, bad_setup_check, export_bg_plane
 from .node_group_utils import cleanup_ng_from_mat
 from .scene_setup_utils import scene_setup, remove_setup
-from.baker_setup_cleanup_utils import *
+from .baker_setup_cleanup_utils import *
 
 
 ################################################################################################################

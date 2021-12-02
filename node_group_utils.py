@@ -353,7 +353,7 @@ def add_ng_to_mat(self, context, setup_type: str) -> None:
                                 mat_slot.node_tree.links.new(GD_node_group.inputs["Saved Displacement"], original_node.outputs[link.from_socket.name])
 
                             # Links for maps that feed information from the Principled BSDF
-                            if setup_type in ('GD_Albedo', 'GD_Roughness', 'GD_Metalness', 'GD_Normal') and original_node.type == 'BSDF_PRINCIPLED':
+                            if setup_type in {'GD_Albedo', 'GD_Roughness', 'GD_Metalness', 'GD_Normal'} and original_node.type == 'BSDF_PRINCIPLED':
                                 node_found = False
 
                                 for original_node_input in original_node.inputs:
@@ -381,7 +381,7 @@ def add_ng_to_mat(self, context, setup_type: str) -> None:
                                             mat_slot=mat_slot
                                         )
 
-                                    elif setup_type == 'GD_Normal' and original_node_input.name in ('Normal', 'Alpha'):
+                                    elif setup_type == 'GD_Normal' and original_node_input.name in {'Normal', 'Alpha'}:
                                         node_found = bsdf_link_factory(
                                             input_name=original_node_input.name,
                                             node_group=GD_node_group,
