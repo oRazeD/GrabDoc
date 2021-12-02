@@ -264,7 +264,7 @@ class GRABDOC_PT_view_edit_maps(PanelInfo, Panel):
         in_trim_cam = [area.spaces.active.region_3d.view_perspective for area in context.screen.areas if area.type == 'VIEW_3D'] == ['CAMERA']
         row.operator("grab_doc.view_cam", text = "Leave Trim Camera" if in_trim_cam else "View Trim Camera", icon = "OUTLINER_OB_CAMERA")
 
-        col.prop(grabDoc, 'autoExitCamera', text = "Auto Switch on Exit", icon='CHECKBOX_HLT' if grabDoc.autoExitCamera else 'CHECKBOX_DEHLT')
+        col.prop(grabDoc, 'autoExitCamera', text = "Leave Cam on Preview Exit", icon='CHECKBOX_HLT' if grabDoc.autoExitCamera else 'CHECKBOX_DEHLT')
 
         if grabDoc.modalState:
             col.separator()
