@@ -110,7 +110,7 @@ class GRABDOC_OT_export_maps(OpInfo, Operator):
         export_and_preview_setup(self, context)
 
         active_selected = False
-        if context.object and context.object.type in ('MESH', 'CURVE', 'FONT', 'SURFACE', 'META', 'LATTICE', 'ARMATURE', 'CAMERA'):
+        if context.object:
             activeCallback = context.object.name
             modeCallback = context.object.mode
 
@@ -317,7 +317,7 @@ TODO might be able to have this uniquely utilize compositing for mixing maps?"""
         export_and_preview_setup(self, context)
 
         active_selected = False
-        if context.object and context.object.type in ('MESH', 'CURVE', 'FONT', 'SURFACE', 'META', 'LATTICE', 'ARMATURE', 'CAMERA'):
+        if context.object:
             activeCallback = context.object.name
             modeCallback = context.object.mode
 

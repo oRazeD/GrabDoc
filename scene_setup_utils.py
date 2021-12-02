@@ -114,16 +114,14 @@ def scene_setup(self, context) -> None: # Needs self for update functions to reg
     if context.object:
         active_ob = context.object
         activeCallback = active_ob.name
+        modeCallback = active_ob.mode
 
-        if active_ob.type in ('MESH', 'CURVE', 'FONT', 'SURFACE', 'META', 'LATTICE', 'ARMATURE', 'CAMERA'):
-            modeCallback = active_ob.mode
-
-            if active_ob.hide_viewport:
-                active_ob.hide_viewport = False
-            elif gd_coll is not None and gd_coll.hide_viewport:
-                gd_coll.hide_viewport = False
-            
-            bpy.ops.object.mode_set(mode = 'OBJECT')
+        if active_ob.hide_viewport:
+            active_ob.hide_viewport = False
+        elif gd_coll is not None and gd_coll.hide_viewport:
+            gd_coll.hide_viewport = False
+        
+        bpy.ops.object.mode_set(mode = 'OBJECT')
 
     # Deselect all objects
     for ob in context.selected_objects:
@@ -141,6 +139,8 @@ def scene_setup(self, context) -> None: # Needs self for update functions to reg
     # Create a bake group collection if requested
     if grabDoc.onlyRenderColl:
         bake_group_coll = bpy.data.collections.new(name = "GrabDoc Objects (put objects here)")
+        bake_group_coll.is_gd_collection = True
+
         context.scene.collection.children.link(bake_group_coll)
         view_layer.active_layer_collection = view_layer.layer_collection.children[-1]
 
