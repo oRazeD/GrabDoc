@@ -59,23 +59,6 @@ def bad_setup_check(self, context, active_export: bool, report_value=False, repo
         if not len(bpy.data.collections["GrabDoc Objects (put objects here)"].objects):
             report_value = True
             report_string = "You have 'Use Bake Group' turned on, but no objects are inside the corresponding collection."
-        
-    # Checks for rendered objects that contain the Displace modifier or are 'CURVE' type objects
-    #
-    # TODO This calls if the height map is turned on, not if they are
-    # actually previewing it in Map Preview. This is bad, find a workaround
-    if grabDoc.exportHeight and not report_value:
-        for ob in context.view_layer.objects:
-            if ob.name in self.render_list and grabDoc.exportHeight and grabDoc.rangeTypeHeight == 'AUTO':
-                for mod in ob.modifiers:
-                    if mod.type == "DISPLACE":
-                        report_value = True
-                        report_string = "When using Displace modifiers & baking Height you must use the 'Manual' 0-1 Range option.\n\n 'Auto' 0-1 Range cannot account for modifier geometry, this goes for all modifiers but is only required for displacement."
-                        break
-
-                #if not report_value and ob.type == 'CURVE':
-                #    report_value = True
-                #    report_string = "Curve objects are not fully supported. When baking Height you must use the 'Manual' 0-1 Range option for accurate results." 
 
     if active_export:
         # Check for export path

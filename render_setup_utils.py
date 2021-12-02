@@ -13,7 +13,7 @@ def get_rendered_objects(context) -> set:
                 for ob in coll.all_objects:
                     if (
                         not ob.hide_render
-                        and ob.type not in ('EMPTY', 'VOLUME', 'ARMATURE', 'LATTICE', 'LIGHT', 'LIGHT_PROBE', 'CAMERA')
+                        and ob.type not in {'EMPTY', 'VOLUME', 'ARMATURE', 'LATTICE', 'LIGHT', 'LIGHT_PROBE', 'CAMERA'}
                         and not ob.is_gd_object
                         ):
                         render_list.append(ob.name)
@@ -21,7 +21,7 @@ def get_rendered_objects(context) -> set:
         for ob in context.view_layer.objects:
             if (
                 not ob.hide_render
-                and ob.type not in ('EMPTY', 'VOLUME', 'ARMATURE', 'LATTICE', 'LIGHT', 'LIGHT_PROBE', 'CAMERA')
+                and ob.type not in {'EMPTY', 'VOLUME', 'ARMATURE', 'LATTICE', 'LIGHT', 'LIGHT_PROBE', 'CAMERA'}
                 and not ob.is_gd_object
                 ):
                 local_bbox_center = .125 * sum((Vector(b) for b in ob.bound_box), Vector())
@@ -46,22 +46,28 @@ def is_in_viewing_spectrum(vec_check: Vector) -> bool:
 
 
 def find_tallest_object(self, context) -> None:
-    '''Find the tallest points in the viewlayer by looping through objects to find the highest vertex on the Z axis
-
-    I hate this. Using vertices to find the tallest point is unnacceptable in the face of modifier geometry and
-    curves, maybe we can raycast at some point?'''
+    '''Find the tallest points in the viewlayer by looping through objects to find the highest vertex on the Z axis'''
     all_tallest_verts = []
 
+    depsgraph = context.evaluated_depsgraph_get()
+
     for ob in context.view_layer.objects:
-        if ob.name in self.render_list and ob.type == 'MESH' and not ob.name.startswith('GD_'):
+        if ob.name in self.render_list and ob.type in {'MESH', 'CURVE', 'SURFACE', 'FONT', 'META'} and not ob.name.startswith('GD_'):
+            # Invoke to_mesh() for evaluated object.
+            ob_eval = ob.evaluated_get(depsgraph)
+            mesh_from_eval = ob_eval.to_mesh()
+
             # Get global coordinates of vertices
-            global_vert_coords = [ob.matrix_world @ v.co for v in ob.data.vertices]
+            global_vert_coords = [ob_eval.matrix_world @ v.co for v in mesh_from_eval.vertices]
 
             # Find the highest Z value amongst the object's verts and then append it to list
             if len(global_vert_coords):
                 max_z_coord = max([co.z for co in global_vert_coords])
 
                 all_tallest_verts.append(max_z_coord)
+
+            # Remove temporary mesh.
+            ob_eval.to_mesh_clear()
 
     # Set the heights guide to the tallest found point
     if len(all_tallest_verts):
