@@ -130,7 +130,7 @@ class GRABDOC_OT_export_maps(OpInfo, Operator):
 
             # Reimport the Normal map as a material (if the option is turned on)
             if context.scene.grabDoc.reimportAsMatNormals:
-                normals_reimport_as_mat(context)
+                reimport_as_material(grabDoc.suffixNormals)
 
             cleanup_ng_from_mat('GD_Normal')
 
@@ -151,7 +151,7 @@ class GRABDOC_OT_export_maps(OpInfo, Operator):
 
             # Reimport the Normal map as a material if requested
             if context.scene.grabDoc.reimportAsMatOcclusion:
-                occlusion_reimport_as_mat(context)
+                reimport_as_material(grabDoc.suffixOcclusion)
 
             cleanup_ng_from_mat('GD_Ambient Occlusion')
             occlusion_refresh(self, context)
@@ -731,11 +731,11 @@ class GRABDOC_OT_export_current_preview(OpInfo, Operator):
 
         # Reimport the Normal map as a material if requested
         if grabDoc.modalPreviewType == 'normals' and grabDoc.reimportAsMatNormals:
-            normals_reimport_as_mat(context)
+            reimport_as_material(grabDoc.suffixNormals)
 
         # Reimport the Occlusion map as a material if requested
         elif grabDoc.modalPreviewType == 'occlusion' and grabDoc.reimportAsMatOcclusion:
-            occlusion_reimport_as_mat(context)
+            reimport_as_material(grabDoc.suffixOcclusion)
 
         # Refresh - Scale down the plane
         plane_ob = bpy.data.objects["GD_Background Plane"]

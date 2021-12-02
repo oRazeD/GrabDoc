@@ -1,5 +1,5 @@
 
-import bpy
+import bpy, os
 from .node_group_utils import add_ng_to_mat
 from .render_setup_utils import find_tallest_object
 
@@ -255,6 +255,53 @@ def export_refresh(self, context) -> None:
             ob.hide_viewport = False
 
 
+def reimport_as_material(suffix) -> None:
+    grabDoc = bpy.context.scene.grabDoc
+
+    mat_name = f'{grabDoc.exportName}_{suffix}'
+
+    # TODO don't remove the material and start from scratch, but replace/update the image?
+
+    # Remove pre-existing material
+    if mat_name in bpy.data.materials:
+        bpy.data.materials.remove(bpy.data.materials.get(mat_name))
+
+    # Remove original image
+    if mat_name in bpy.data.images:
+        bpy.data.images.remove(bpy.data.images.get(mat_name))
+
+    # Create material
+    mat = bpy.data.materials.new(name=mat_name)
+    mat.use_nodes = True
+
+    output_node = mat.node_tree.nodes["Material Output"]
+    output_node.location = (0,0)
+
+    mat.node_tree.nodes.remove(mat.node_tree.nodes.get('Principled BSDF'))
+
+    if grabDoc.imageType == 'TIFF':
+        file_extension = '.tif'
+    elif grabDoc.imageType == 'TARGA':
+        file_extension = '.tga'
+    elif grabDoc.imageType == 'OPEN_EXR':
+        file_extension = '.exr'
+    else:
+        file_extension = '.png'
+
+    image_node = mat.node_tree.nodes.new('ShaderNodeTexImage')
+    image_node.image = bpy.data.images.load(os.path.join(bpy.path.abspath(grabDoc.exportPath), mat_name + file_extension)) 
+    image_node.location = (-300,0)
+
+    # Context specific image settings (currently only uses Non-Color)
+    image_node.image.colorspace_settings.name = 'Non-Color'
+
+    # Rename the newly imported image
+    bpy.data.images[f'{mat_name}{file_extension}'].name = mat_name
+
+    # Make links
+    mat.node_tree.links.new(output_node.inputs['Surface'], image_node.outputs['Color'])
+
+
 ################################################################################################################
 # INDIVIDUAL MATERIAL SETUP & CLEANUP
 ################################################################################################################
@@ -284,59 +331,6 @@ def normals_setup(self, context) -> None:
         link.new(group_output_node.inputs["Output"], ng_normal.nodes.get('Vector Math.001').outputs["Vector"])
 
     add_ng_to_mat(self, context, setup_type='GD_Normal')
-
-
-def normals_reimport_as_mat(context) -> None:
-    grabDoc = context.scene.grabDoc
-
-    mat_name = f'{grabDoc.exportName}_normal'
-
-    # Remove pre-existing material
-    for mat in bpy.data.materials:
-        if mat.name == mat_name:
-            bpy.data.materials.remove(mat)
-            break
-
-    # Remove original image
-    for image in bpy.data.images:
-        if image.name == mat_name:
-            bpy.data.images.remove(image)
-            break
-
-    # Create material
-    mat = bpy.data.materials.new(name=mat_name)
-    mat.use_nodes = True
-
-    output_node = mat.node_tree.nodes["Material Output"]
-    output_node.location = (0,0)
-
-    bsdf_node = mat.node_tree.nodes["Principled BSDF"]
-    bsdf_node.inputs[5].default_value = 0
-    bsdf_node.location = (-300,0)
-
-    normal_map_node = mat.node_tree.nodes.new('ShaderNodeNormalMap')
-    normal_map_node.location = (-500,0)
-
-    if grabDoc.imageType == 'TIFF':
-        file_extension = '.tif'
-    elif grabDoc.imageType == 'TARGA':
-        file_extension = '.tga'
-    else: # PNG
-        file_extension = '.png'
-
-    image_node = mat.node_tree.nodes.new('ShaderNodeTexImage')
-    image_node.image = bpy.data.images.load(f'{bpy.path.abspath(grabDoc.exportPath)}{mat_name}{file_extension}')
-    image_node.image.colorspace_settings.name = 'Linear'
-    image_node.location = (-800,0)
-
-    # Rename the newly imported image
-    bpy.data.images[f'{mat_name}{file_extension}'].name = mat_name
-
-    # Make links
-    link = mat.node_tree.links
-
-    link.new(normal_map_node.inputs['Color'], image_node.outputs['Color'])
-    link.new(bsdf_node.inputs['Normal'], normal_map_node.outputs['Normal'])
 
 
 # CURVATURE
@@ -429,50 +423,6 @@ def occlusion_refresh(self, context) -> None:
     eevee.use_gtao = self.savedUseAO
     eevee.gtao_distance = self.savedAODistance
     eevee.gtao_quality = self.savedAOQuality
-
-
-def occlusion_reimport_as_mat(context) -> None:
-    grabDoc = context.scene.grabDoc
-
-    # Remove pre-existing material
-    for mat in bpy.data.materials:
-        if mat.name == f'{grabDoc.exportName}_AO':
-            bpy.data.materials.remove(mat)
-            break
-
-    # Remove original image
-    for image in bpy.data.images:
-        if image.name == f'{grabDoc.exportName}_AO':
-            bpy.data.images.remove(image)
-            break
-
-    # Create material
-    mat = bpy.data.materials.new(name=f'{grabDoc.exportName}_AO')
-    mat.use_nodes = True
-
-    output_node = mat.node_tree.nodes["Material Output"]
-    output_node.location = (0,0)
-
-    mat.node_tree.nodes.remove(mat.node_tree.nodes.get('Principled BSDF'))
-
-    if grabDoc.imageType == 'TIFF':
-        file_extension = '.tif'
-    elif grabDoc.imageType == 'TARGA':
-        file_extension = '.tga'
-    else:
-        file_extension = '.png'
-
-    image_node = mat.node_tree.nodes.new('ShaderNodeTexImage')
-    image_node.image = bpy.data.images.load(f'{bpy.path.abspath(grabDoc.exportPath)}{grabDoc.exportName}_AO{file_extension}')
-    image_node.location = (-300,0)
-
-    # Rename the newly imported image
-    bpy.data.images[f'{grabDoc.exportName}_AO{file_extension}'].name = f'{grabDoc.exportName}_AO'
-
-    # Make links
-    link = mat.node_tree.links
-
-    link.new(output_node.inputs['Surface'], image_node.outputs['Color'])
 
 
 # HEIGHT

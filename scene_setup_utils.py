@@ -221,6 +221,7 @@ def scene_setup(self, context) -> None: # Needs self for update functions to reg
         if saved_mat is not None:
             plane_ob.active_material = saved_mat
 
+        # TODO This is the exception to splitting the setup and remove operations into separate functions, maybe can fix?
         if "GD_Reference" in bpy.data.materials:
             bpy.data.materials.remove(bpy.data.materials['GD_Reference'])
 
@@ -299,7 +300,6 @@ def scene_setup(self, context) -> None: # Needs self for update functions to reg
 
 def generate_manual_height_guide_mesh(ob_name: str, plane_ob: bpy.types.Object) -> None:
     '''Generate a mesh that gauges the height map range. This is for the "Manual" height map mode and can better inform a correct 0-1 range'''
-
     # Make a tuple for the planes vertex positions
     camera_vec_list = bpy.data.objects["GD_Trim Camera"].data.view_frame(scene = bpy.context.scene)
 
