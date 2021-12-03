@@ -75,6 +75,7 @@ class GRABDOC_OT_add_preset(AddPresetBase, bpy.types.Operator):
         "grabDoc.exportNormals",
         "grabDoc.reimportAsMatNormals",
         "grabDoc.flipYNormals",
+        "grabDoc.useTextureNormals",
         "grabDoc.samplesNormals",
         "grabDoc.suffixNormals",
 
