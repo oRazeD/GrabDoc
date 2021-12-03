@@ -16,7 +16,7 @@ hard_reset: When refreshing a scene we may want to keep certain data-blocks that
     if bake_group_coll is not None:
         for ob in bake_group_coll.all_objects:
             # Move object to the master collection
-            if hard_reset:
+            if not hard_reset or not bpy.context.scene.grabDoc.onlyRenderColl:
                 bpy.context.scene.collection.objects.link(ob)
             else:
                 saved_bake_group_obs.append(ob)
