@@ -80,8 +80,6 @@ def export_and_preview_setup(self, context):
     view_settings.exposure = 0
     view_settings.gamma = 1
 
-    render.film_transparent = True
-
     # Save & Set - Performance 
     if bpy.app.version >= (2, 83, 0):
         self.savedHQNormals = render.use_high_quality_normals
@@ -99,6 +97,13 @@ def export_and_preview_setup(self, context):
     # Save & Set - Output
     self.savedColorMode = image_settings.color_mode
     self.savedFileFormat = image_settings.file_format
+
+    if not grabDoc.collRendered: # If background plane not visible in render, create alpha channel
+        render.film_transparent = True
+        
+        image_settings.color_mode = 'RGBA'
+    else:
+        image_settings.color_mode = 'RGB'
 
     image_settings.file_format = grabDoc.imageType
 
@@ -307,7 +312,6 @@ def normals_setup(self, context) -> None:
 
     render.engine = 'BLENDER_EEVEE'
     scene.eevee.taa_render_samples = scene.eevee.taa_samples = scene.grabDoc.samplesNormals
-    render.image_settings.color_mode = 'RGBA'
     scene.display_settings.display_device = 'None'
 
     ng_normal = bpy.data.node_groups["GD_Normal"]
@@ -340,7 +344,6 @@ def curvature_setup(self, context) -> None:
     scene_shading.light = 'FLAT'
     scene_shading.color_type =  'SINGLE'
     scene.display_settings.display_device = 'sRGB'
-    scene.render.image_settings.color_mode = 'BW'
 
     # Save & Set - Cavity
     self.savedCavityType = scene_shading.cavity_type
@@ -389,7 +392,6 @@ def occlusion_setup(self, context) -> None:
     
     scene.render.engine = 'BLENDER_EEVEE'
     eevee.taa_render_samples = eevee.taa_samples = grabDoc.samplesOcclusion
-    scene.render.image_settings.color_mode = 'BW'
     scene.display_settings.display_device = 'None'
 
     # Save & Set - Overscan (Can help with screenspace effects)
@@ -425,7 +427,6 @@ def height_setup(self, context) -> None:
 
     scene.render.engine = 'BLENDER_EEVEE'
     scene.eevee.taa_render_samples = scene.eevee.taa_samples = grabDoc.samplesHeight
-    scene.render.image_settings.color_mode = 'BW'
     scene.display_settings.display_device = 'None'
 
     scene.view_settings.look = grabDoc.contrastHeight.replace('_', ' ')
@@ -446,7 +447,6 @@ def id_setup(self, context) -> None:
     render.engine = 'BLENDER_WORKBENCH'
     scene.display.render_aa = scene.display.viewport_aa = grabDoc.samplesMatID
     scene_shading.light = 'FLAT'
-    render.image_settings.color_mode = 'RGBA'
     scene.display_settings.display_device = 'sRGB'
 
     # Choose the method of ID creation based on user preference
@@ -460,7 +460,6 @@ def alpha_setup(self, context) -> None:
 
     render.engine = 'BLENDER_EEVEE'
     scene.eevee.taa_render_samples = scene.eevee.taa_samples = scene.grabDoc.samplesAlpha
-    render.image_settings.color_mode = 'BW'
     scene.display_settings.display_device = 'None'
 
     add_ng_to_mat(self, context, setup_type='GD_Alpha')
@@ -473,7 +472,6 @@ def albedo_setup(self, context) -> None:
 
     render.engine = 'BLENDER_EEVEE'
     scene.eevee.taa_render_samples = scene.eevee.taa_samples = scene.grabDoc.samplesAlbedo
-    render.image_settings.color_mode = 'RGBA'
     scene.display_settings.display_device = 'sRGB'
 
     add_ng_to_mat(self, context, setup_type='GD_Albedo')
@@ -486,7 +484,6 @@ def roughness_setup(self, context) -> None:
 
     render.engine = 'BLENDER_EEVEE'
     scene.eevee.taa_render_samples = scene.eevee.taa_samples = scene.grabDoc.samplesRoughness
-    render.image_settings.color_mode = 'BW'
     scene.display_settings.display_device = 'sRGB'
 
     add_ng_to_mat(self, context, setup_type='GD_Roughness')
@@ -499,7 +496,6 @@ def metalness_setup(self, context) -> None:
 
     render.engine = 'BLENDER_EEVEE'
     scene.eevee.taa_render_samples = scene.eevee.taa_samples = scene.grabDoc.samplesMetalness
-    render.image_settings.color_mode = 'BW'
     scene.display_settings.display_device = 'sRGB'
 
     add_ng_to_mat(self, context, setup_type='GD_Metalness')

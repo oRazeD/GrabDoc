@@ -304,9 +304,13 @@ class GRABDOC_property_group(bpy.types.PropertyGroup):
     # PROPERTIES
 
     # Setup settings
-    collSelectable: BoolProperty(update=scene_setup)
-    collVisible: BoolProperty(default=True, update=scene_setup)
-    collRendered: BoolProperty(default=True, update=scene_setup)
+    collSelectable: BoolProperty(update=scene_setup, description='Sets the background plane selectibility')
+    collVisible: BoolProperty(default=True, update=scene_setup, description='Sets the visibility in the viewport')
+    collRendered: BoolProperty(
+        default=True,
+        update=scene_setup,
+        description='Sets the visibility in exports, this will also enable transparency and alpha channel exports if visibility is turned off'
+    )
                                        
     scalingSet: FloatProperty(name="", default=2, min=.1, soft_max=100, precision=3, subtype='DISTANCE', update=update_scaling_set)
     

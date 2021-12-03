@@ -504,6 +504,15 @@ class GRABDOC_OT_map_preview(OpInfo, Operator):
 
         # Set - Exporter settings
         image_settings = scene.render.image_settings
+        
+        if not grabDoc.collRendered: # If background plane not visible in render, create alpha channel
+            scene.render.film_transparent = True
+
+            image_settings.color_mode = 'RGBA'
+        else:
+            scene.render.film_transparent = False
+
+            image_settings.color_mode = 'RGB'
 
         image_settings.file_format = grabDoc.imageType
 
