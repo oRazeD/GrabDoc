@@ -42,6 +42,23 @@ def proper_scene_setup() -> bool:
     return False
 
 
+def get_format_extension() -> str:
+    '''Get the correct file extension
+    
+    TODO might just be able to integrate this directly into the property name/description'''
+    grabDoc = bpy.context.scene.grabDoc
+
+    if grabDoc.imageType == 'TIFF':
+        file_extension = '.tif'
+    elif grabDoc.imageType == 'TARGA':
+        file_extension = '.tga'
+    elif grabDoc.imageType == 'OPEN_EXR':
+        file_extension = '.exr'
+    else:
+        file_extension = '.png'
+    return file_extension
+
+
 def bad_setup_check(self, context, active_export: bool, report_value=False, report_string="") -> tuple[bool, str]:
     '''Determine if specific parts of the scene are set up incorrectly and return a detailed explanation of things for the user to fix'''
     grabDoc = context.scene.grabDoc

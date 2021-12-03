@@ -2,6 +2,7 @@
 import bpy, os
 from .node_group_utils import add_ng_to_mat
 from .render_setup_utils import find_tallest_object
+from .generic_utils import get_format_extension
 
 
 ################################################################################################################
@@ -178,7 +179,7 @@ def export_refresh(self, context) -> None:
 
         ## WORLD PROPERTIES ##
 
-    context.scene.world.use_nodes = True
+    scene.world.use_nodes = True
 
         ## RENDER PROPERTIES ##
 
@@ -256,7 +257,7 @@ def export_refresh(self, context) -> None:
 
 
 def reimport_as_material(suffix) -> None:
-    '''TODO'''
+    '''Reimport an exported map as a material for further use inside of Blender'''
     grabDoc = bpy.context.scene.grabDoc
 
     mat_name = f'{grabDoc.exportName}_{suffix}'
@@ -280,24 +281,15 @@ def reimport_as_material(suffix) -> None:
 
     mat.node_tree.nodes.remove(mat.node_tree.nodes.get('Principled BSDF'))
 
-    if grabDoc.imageType == 'TIFF':
-        file_extension = '.tif'
-    elif grabDoc.imageType == 'TARGA':
-        file_extension = '.tga'
-    elif grabDoc.imageType == 'OPEN_EXR':
-        file_extension = '.exr'
-    else:
-        file_extension = '.png'
+    file_extension = get_format_extension()
 
     image_node = mat.node_tree.nodes.new('ShaderNodeTexImage')
-    image_node.image = bpy.data.images.load(os.path.join(bpy.path.abspath(grabDoc.exportPath), mat_name + file_extension)) 
+    image_node.image = bpy.data.images.load(os.path.join(bpy.path.abspath(grabDoc.exportPath), mat_name + file_extension))
+    image_node.name = mat_name
     image_node.location = (-300,0)
 
     # Context specific image settings (currently only uses Non-Color)
     image_node.image.colorspace_settings.name = 'Non-Color'
-
-    # Rename the newly imported image
-    bpy.data.images[f'{mat_name}{file_extension}'].name = mat_name
 
     # Make links
     mat.node_tree.links.new(output_node.inputs['Surface'], image_node.outputs['Color'])
