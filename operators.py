@@ -2,7 +2,7 @@
 import bpy, time, os, blf
 from bpy.types import Operator
 from bpy.props import EnumProperty
-from .generic_utils import OpInfo, proper_scene_setup, bad_setup_check, export_bg_plane
+from .generic_utils import OpInfo, proper_scene_setup, bad_setup_check, export_bg_plane, get_format_extension
 from .node_group_utils import cleanup_ng_from_mat
 from .scene_setup_utils import scene_setup, remove_setup
 from .baker_setup_cleanup_utils import *
@@ -83,7 +83,7 @@ class GRABDOC_OT_export_maps(OpInfo, Operator):
         context.window_manager.progress_begin(0, 9999)
 
         # System for dynamically deciding the progress percentage
-        operation_counter = 3
+        operation_counter = 2
 
         if grabDoc.uiVisibilityNormals and grabDoc.exportNormals:
             operation_counter += 1
@@ -128,8 +128,7 @@ class GRABDOC_OT_export_maps(OpInfo, Operator):
             normals_setup(self, context)
             self.grabdoc_export(context, export_suffix=grabDoc.suffixNormals)
 
-            # Reimport the Normal map as a material (if the option is turned on)
-            if context.scene.grabDoc.reimportAsMatNormals:
+            if grabDoc.reimportAsMatNormals:
                 reimport_as_material(grabDoc.suffixNormals)
 
             cleanup_ng_from_mat('GD_Normal')
@@ -149,8 +148,7 @@ class GRABDOC_OT_export_maps(OpInfo, Operator):
             occlusion_setup(self, context)
             self.grabdoc_export(context, export_suffix=grabDoc.suffixOcclusion)
 
-            # Reimport the Normal map as a material if requested
-            if context.scene.grabDoc.reimportAsMatOcclusion:
+            if grabDoc.reimportAsMatOcclusion:
                 reimport_as_material(grabDoc.suffixOcclusion)
 
             cleanup_ng_from_mat('GD_Ambient Occlusion')
@@ -187,28 +185,36 @@ class GRABDOC_OT_export_maps(OpInfo, Operator):
             self.grabdoc_export(context, export_suffix=grabDoc.suffixAlbedo)
             cleanup_ng_from_mat('GD_Albedo')
 
+            percent_till_completed += percentage_division
+            context.window_manager.progress_update(percent_till_completed)
+
         if grabDoc.uiVisibilityRoughness and grabDoc.exportRoughness:
             roughness_setup(self, context)
             self.grabdoc_export(context, export_suffix=grabDoc.suffixRoughness)
             cleanup_ng_from_mat('GD_Roughness')
+
+            percent_till_completed += percentage_division
+            context.window_manager.progress_update(percent_till_completed)
 
         if grabDoc.uiVisibilityMetalness and grabDoc.exportMetalness:
             metalness_setup(self, context)
             self.grabdoc_export(context, export_suffix=grabDoc.suffixMetalness)
             cleanup_ng_from_mat('GD_Metalness')
 
-        percent_till_completed += percentage_division
-        context.window_manager.progress_update(percent_till_completed)
-
-        # Scale down BG Plane
-        plane_ob = bpy.data.objects["GD_Background Plane"]
-        plane_ob.scale[0] = plane_ob.scale[1] = 1
+            percent_till_completed += percentage_division
+            context.window_manager.progress_update(percent_till_completed)
 
         # Refresh all original settings
         export_refresh(self, context)
 
+        plane_ob = bpy.data.objects["GD_Background Plane"]
+        plane_ob.scale[0] = plane_ob.scale[1] = 1
+
         if grabDoc.exportPlane:
             export_bg_plane(context)
+
+        if grabDoc.openFolderOnExport:
+            bpy.ops.wm.path_open(filepath = bpy.path.abspath(grabDoc.exportPath))
 
         # Call for Original Context Mode (Use bpy.ops so that Blenders viewport refreshes)
         if active_selected:
@@ -218,9 +224,6 @@ class GRABDOC_OT_export_maps(OpInfo, Operator):
 
         percent_till_completed += percentage_division
         context.window_manager.progress_update(percent_till_completed)
-
-        if grabDoc.openFolderOnExport:
-            bpy.ops.wm.path_open(filepath = bpy.path.abspath(grabDoc.exportPath))
 
         # End the timer
         end = time.time()
@@ -240,7 +243,9 @@ class GRABDOC_OT_export_maps(OpInfo, Operator):
 class GRABDOC_OT_offline_render(OpInfo, Operator):
     """Renders the selected material and previews it inside Blender
     
-TODO might be able to have this uniquely utilize compositing for mixing maps?"""
+    TODO - might be able to have this uniquely utilize compositing for mixing maps?
+         - support Reimport as Materials
+         - Support correct default colorspaces"""
     bl_idname = "grab_doc.offline_render"
     bl_label = ""
     bl_options = {'INTERNAL'}
@@ -275,22 +280,21 @@ TODO might be able to have this uniquely utilize compositing for mixing maps?"""
         if not os.path.exists(temp_folder_path):
             os.mkdir(temp_folder_path)
 
-        image_name = 'GD_Render Result'
-
         # Save & Set - file output path
         saved_path = render.filepath
 
-        render.filepath = f'{temp_folder_path}\\{image_name}'
+        image_name = 'GD_Render Result'
+
+        render.filepath = os.path.join(temp_folder_path, image_name + get_format_extension())
 
         # Delete original image
         if image_name in bpy.data.images:
             bpy.data.images.remove(bpy.data.images[image_name])
 
-        # Render
         bpy.ops.render.render(write_still = True)
 
-        # Load in the newly rendered image TODO might not work with non png formats?
-        new_image = bpy.data.images.load(f'{temp_folder_path}\\{image_name}.png')
+        # Load in the newly rendered image
+        new_image = bpy.data.images.load(render.filepath)
         new_image.name = image_name
 
         # Refresh - file output path
@@ -302,7 +306,7 @@ TODO might be able to have this uniquely utilize compositing for mixing maps?"""
         # Change area & image type
         area = context.window_manager.windows[-1].screen.areas[0]
         area.type = "IMAGE_EDITOR"
-        area.spaces.active.image = bpy.data.images[image_name]
+        area.spaces.active.image = new_image
 
     def execute(self, context):
         report_value, report_string = bad_setup_check(self, context, active_export=False)
@@ -373,19 +377,18 @@ TODO might be able to have this uniquely utilize compositing for mixing maps?"""
             self.offline_render(context)
             cleanup_ng_from_mat('GD_Metalness')
 
+        # Refresh all original settings
+        export_refresh(self, context)
+
         # Scale down BG Plane (helps overscan & border pixels)
         plane_ob = bpy.data.objects["GD_Background Plane"]
         plane_ob.scale[0] = plane_ob.scale[1] = 1
-
-        # Refresh all original settings
-        export_refresh(self, context)
 
         # Call for Original Context Mode (Use bpy.ops so that Blenders viewport refreshes)
         if active_selected:
             context.view_layer.objects.active = bpy.data.objects[activeCallback]
             bpy.ops.object.mode_set(mode = modeCallback)
 
-        
         # End the timer
         end = time.time()
         execution_time = end - start

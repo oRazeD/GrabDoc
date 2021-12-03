@@ -3,8 +3,9 @@ import bpy, bmesh
 from .node_group_utils import ng_setup
 from typing import Union
 
+
 def remove_setup(hard_reset: bool=True) -> Union[None, list]:
-    '''TODO
+    '''Completely removes every element of GrabDoc from the scene, not including images reimported after bakes
     
 hard_reset: When refreshing a scene we may want to keep certain data-blocks that the user can manipulates'''
     # COLLECTIONS
@@ -76,7 +77,7 @@ hard_reset: When refreshing a scene we may want to keep certain data-blocks that
         saved_plane_loc = saved_plane_rot = (0, 0, 0)
 
     # CAMERA
-    
+
     # Forcibly exit the camera before deleting it so the original users camera position is retained
     reposition_cam = False
     if [area.spaces.active.region_3d.view_perspective for area in bpy.context.screen.areas if area.type == 'VIEW_3D'] == ['CAMERA']:
@@ -90,7 +91,7 @@ hard_reset: When refreshing a scene we may want to keep certain data-blocks that
 
     if "GD_Height Guide" in bpy.data.objects:
         bpy.data.meshes.remove(bpy.data.objects["GD_Height Guide"].data)
-    
+
     # ORIENT GUIDE
 
     if "GD_Orient Guide" in bpy.data.objects:
@@ -120,7 +121,7 @@ def scene_setup(self, context) -> None: # Needs self for update functions to reg
             active_ob.hide_viewport = False
         elif gd_coll is not None and gd_coll.hide_viewport:
             gd_coll.hide_viewport = False
-        
+
         bpy.ops.object.mode_set(mode = 'OBJECT')
 
     # Deselect all objects
