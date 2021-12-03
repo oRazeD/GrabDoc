@@ -114,7 +114,11 @@ class GRABDOC_OT_export_maps(OpInfo, Operator):
             activeCallback = context.object.name
             modeCallback = context.object.mode
 
-            bpy.ops.object.mode_set(mode = 'OBJECT')
+            try:
+                bpy.ops.object.mode_set(mode = 'OBJECT')
+            except RuntimeError:
+                pass
+
             active_selected = True
 
         # Scale up BG Plane (helps overscan & border pixels)
@@ -220,7 +224,10 @@ class GRABDOC_OT_export_maps(OpInfo, Operator):
         if active_selected:
             context.view_layer.objects.active = bpy.data.objects[activeCallback]
 
-            bpy.ops.object.mode_set(mode = modeCallback)
+            try:
+                bpy.ops.object.mode_set(mode = modeCallback)
+            except RuntimeError:
+                pass
 
         percent_till_completed += percentage_division
         context.window_manager.progress_update(percent_till_completed)
@@ -325,7 +332,10 @@ class GRABDOC_OT_offline_render(OpInfo, Operator):
             activeCallback = context.object.name
             modeCallback = context.object.mode
 
-            bpy.ops.object.mode_set(mode = 'OBJECT')
+            try:
+                bpy.ops.object.mode_set(mode = 'OBJECT')
+            except RuntimeError:
+                pass
             active_selected = True
 
         # Scale up BG Plane (helps overscan & border pixels)
@@ -387,7 +397,12 @@ class GRABDOC_OT_offline_render(OpInfo, Operator):
         # Call for Original Context Mode (Use bpy.ops so that Blenders viewport refreshes)
         if active_selected:
             context.view_layer.objects.active = bpy.data.objects[activeCallback]
-            bpy.ops.object.mode_set(mode = modeCallback)
+
+            try:
+                bpy.ops.object.mode_set(mode = modeCallback)
+            except RuntimeError:
+                pass
+            
 
         # End the timer
         end = time.time()
@@ -634,7 +649,10 @@ class GRABDOC_OT_map_preview(OpInfo, Operator):
         grabDoc.modalState = True
 
         if context.object:
-            bpy.ops.object.mode_set(mode = 'OBJECT')
+            try:
+                bpy.ops.object.mode_set(mode = 'OBJECT')
+            except RuntimeError:
+                pass
 
         export_and_preview_setup(self, context)
         

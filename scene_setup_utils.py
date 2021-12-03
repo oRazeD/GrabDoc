@@ -122,7 +122,10 @@ def scene_setup(self, context) -> None: # Needs self for update functions to reg
         elif gd_coll is not None and gd_coll.hide_viewport:
             gd_coll.hide_viewport = False
 
-        bpy.ops.object.mode_set(mode = 'OBJECT')
+        try:
+            bpy.ops.object.mode_set(mode = 'OBJECT')
+        except RuntimeError:
+            pass
 
     # Deselect all objects
     for ob in context.selected_objects:
@@ -289,7 +292,10 @@ def scene_setup(self, context) -> None: # Needs self for update functions to reg
         view_layer.objects.active = bpy.data.objects[activeCallback]
 
         if activeCallback:
-            bpy.ops.object.mode_set(mode = modeCallback)
+            try:
+                bpy.ops.object.mode_set(mode = modeCallback)
+            except RuntimeError:
+                pass
     except UnboundLocalError:
         pass
 

@@ -127,7 +127,10 @@ class GrabDoc_OT_send_to_marmo(OpInfo, bpy.types.Operator):
         saved_selected = context.view_layer.objects.selected.keys()
 
         if context.active_object:
-            bpy.ops.object.mode_set(mode = 'OBJECT')
+            try:
+                bpy.ops.object.mode_set(mode = 'OBJECT')
+            except RuntimeError:
+                pass
 
         if grabDoc.exportHeight and grabDoc.rangeTypeHeight == 'AUTO':
             find_tallest_object(self, context)
