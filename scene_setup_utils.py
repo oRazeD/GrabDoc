@@ -10,12 +10,16 @@ def remove_setup(hard_reset: bool=True) -> Union[None, list]:
 hard_reset: When refreshing a scene we may want to keep certain data-blocks that the user can manipulates'''
     # COLLECTIONS
 
-    # Move objects contained inside the bake group collection to the root collection level and delete the collection 
+    # Move objects contained inside the bake group collection to the root collection level and delete the collection
+    saved_bake_group_obs = []
     bake_group_coll = bpy.data.collections.get("GrabDoc Objects (put objects here)")
     if bake_group_coll is not None:
         for ob in bake_group_coll.all_objects:
             # Move object to the master collection
-            bpy.context.scene.collection.objects.link(ob)
+            if hard_reset:
+                bpy.context.scene.collection.objects.link(ob)
+            else:
+                saved_bake_group_obs.append(ob)
             
             # Remove the objects from the grabdoc collection
             ob.users_collection[0].objects.unlink(ob)
@@ -97,7 +101,7 @@ hard_reset: When refreshing a scene we may want to keep certain data-blocks that
     if "GD_Orient Guide" in bpy.data.objects:
         bpy.data.meshes.remove(bpy.data.objects["GD_Orient Guide"].data)
 
-    return saved_plane_loc, saved_plane_rot, saved_mat, reposition_cam
+    return saved_plane_loc, saved_plane_rot, saved_mat, reposition_cam, saved_bake_group_obs
 
 
 def scene_setup(self, context) -> None: # Needs self for update functions to register?
@@ -132,7 +136,7 @@ def scene_setup(self, context) -> None: # Needs self for update functions to reg
         ob.select_set(False)
 
     # Remove all related GrabDoc datablocks, keeping some necessary values
-    saved_plane_loc, saved_plane_rot, saved_mat, reposition_cam = remove_setup(hard_reset=False)
+    saved_plane_loc, saved_plane_rot, saved_mat, reposition_cam, saved_bake_group_obs = remove_setup(hard_reset=False)
 
     # Set scene resolution (Trying to avoid destructively changing values, but these two need to be changed)
     context.scene.render.resolution_x = grabDoc.exportResX
@@ -147,6 +151,10 @@ def scene_setup(self, context) -> None: # Needs self for update functions to reg
 
         context.scene.collection.children.link(bake_group_coll)
         view_layer.active_layer_collection = view_layer.layer_collection.children[-1]
+
+        if len(saved_bake_group_obs):
+            for ob in saved_bake_group_obs:
+                bake_group_coll.objects.link(ob)
 
     # Create main GrabDoc collection
     gd_coll = bpy.data.collections.new(name = "GrabDoc (do not touch contents)")
