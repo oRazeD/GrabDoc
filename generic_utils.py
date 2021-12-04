@@ -154,7 +154,7 @@ class GRABDOC_OT_open_folder(OpInfo, Operator):
 class GRABDOC_OT_view_cam(OpInfo, Operator):
     """View the GrabDoc camera"""
     bl_idname = "grab_doc.view_cam"
-    bl_label = "View Trim Camera"
+    bl_label = ""
 
     from_modal: bpy.props.BoolProperty(
         default=False,

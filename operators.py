@@ -29,7 +29,7 @@ class GRABDOC_OT_remove_setup(OpInfo, Operator):
     bl_label = "Remove Setup"
 
     def execute(self, context):
-        remove_setup()
+        remove_setup(context)
         return{'FINISHED'}
 
 
@@ -83,7 +83,7 @@ class GRABDOC_OT_export_maps(OpInfo, Operator):
         context.window_manager.progress_begin(0, 9999)
 
         # System for dynamically deciding the progress percentage
-        operation_counter = 2
+        operation_counter = 1
 
         if grabDoc.uiVisibilityNormals and grabDoc.exportNormals:
             operation_counter += 1
@@ -229,9 +229,6 @@ class GRABDOC_OT_export_maps(OpInfo, Operator):
             except RuntimeError:
                 pass
 
-        percent_till_completed += percentage_division
-        context.window_manager.progress_update(percent_till_completed)
-
         # End the timer
         end = time.time()
         execution_time = end - start
@@ -248,14 +245,14 @@ class GRABDOC_OT_export_maps(OpInfo, Operator):
 
 
 class GRABDOC_OT_offline_render(OpInfo, Operator):
-    """Renders the selected material and previews it inside Blender
-    
-    TODO - might be able to have this uniquely utilize compositing for mixing maps?
-         - support Reimport as Materials
-         - Support correct default colorspaces"""
+    """Renders the selected material and previews it inside Blender"""
     bl_idname = "grab_doc.offline_render"
     bl_label = ""
     bl_options = {'INTERNAL'}
+        
+    # TODO - might be able to have this uniquely utilize compositing for mixing maps?
+    #      - support Reimport as Materials
+    #      - Support correct default colorspaces
 
     @classmethod
     def poll(cls, context):

@@ -312,12 +312,38 @@ class GRABDOC_property_group(bpy.types.PropertyGroup):
         description='Sets the visibility in exports, this will also enable transparency and alpha channel exports if visibility is turned off'
     )
                                        
-    scalingSet: FloatProperty(name="", default=2, min=.1, soft_max=100, precision=3, subtype='DISTANCE', update=update_scaling_set)
+    scalingSet: FloatProperty(
+        name="Scaling Set",
+        default=2,
+        min=.1,
+        soft_max=100,
+        precision=3,
+        subtype='DISTANCE',
+        description='Sets the scaling of the background plane and camera (WARNING: This will be the scaling used when using the "Export Plane as FBX" option)',
+        update=update_scaling_set
+    )
     
-    refSelection: PointerProperty(type=bpy.types.Image, update=scene_setup)
+    refSelection: PointerProperty(
+        name='Reference Selection',
+        type=bpy.types.Image,
+        description='Select an image reference to use on the background plane',
+        update=scene_setup
+    )
     
-    useGrid: BoolProperty(default=True, update=scene_setup)
-    gridSubdivisions: IntProperty(name="", default=0, min=0, soft_max=64, update=scene_setup)
+    useGrid: BoolProperty(
+        name='Use Grid',
+        default=True,
+        description='Create a grid on the background for better usability while snapping',
+        update=scene_setup
+    )
+    gridSubdivisions: IntProperty(
+        name="Grid Subdivisions",
+        default=0,
+        min=0,
+        soft_max=64,
+        description='The amount of subdivisions the grid will have',
+        update=scene_setup
+    )
 
     # Baker settings
     bakerType: EnumProperty(
@@ -330,10 +356,10 @@ class GRABDOC_property_group(bpy.types.PropertyGroup):
 
     exportPath: StringProperty(name="", default=" ", description="", subtype='DIR_PATH', update=update_export_path)
     
-    exportResX: IntProperty(name="", default=2048, min=4, soft_max=8192, update=update_res_x)
-    exportResY: IntProperty(name="", default=2048, min=4, soft_max=8192, update=update_res_y)
+    exportResX: IntProperty(name="Res X", default=2048, min=4, soft_max=8192, update=update_res_x)
+    exportResY: IntProperty(name="Res Y", default=2048, min=4, soft_max=8192, update=update_res_y)
     
-    lockRes: BoolProperty(default=True, update=update_res_x)
+    lockRes: BoolProperty(name='Sync Resolution', default=True, update=update_res_x)
     
     exportName: StringProperty(name="", description="File export name", default="untitled", update=update_export_name)
     
@@ -382,11 +408,11 @@ class GRABDOC_property_group(bpy.types.PropertyGroup):
     )
 
     onlyRenderColl: BoolProperty(
-        update=scene_setup,
-        description="This will add a collection to the scene which GrabDoc will ONLY render from, ignoring objects outside of it. This option is useful if objects aren't visible in the renders"
+        description="This will add a collection to the scene which GrabDoc will ONLY render from, ignoring objects outside of it. This option is useful if objects aren't visible in the renders",
+        update=scene_setup
     )
     
-    exportPlane: BoolProperty(name="Export Plane", description="Exports the background plane as an FBX for use externally")
+    exportPlane: BoolProperty(description="Exports the background plane as an FBX for use externally")
     
     openFolderOnExport: BoolProperty(description="Open the folder path in your File Explorer on map export")
 
@@ -403,7 +429,7 @@ class GRABDOC_property_group(bpy.types.PropertyGroup):
     # BAKE MAP SETTINGS
 
     # Normals
-    exportNormals: BoolProperty(default=True)
+    exportNormals: BoolProperty(name='Export Normals', default=True)
 
     reimportAsMatNormals: BoolProperty(description="Reimport the Normal map as a material for use in Blender")
 
@@ -431,7 +457,7 @@ class GRABDOC_property_group(bpy.types.PropertyGroup):
     samplesNormals: IntProperty(name="", default=128, min=1, max=512)
 
     # Curvature
-    exportCurvature: BoolProperty(default=True)
+    exportCurvature: BoolProperty(name='Export Curvature', default=True)
 
     ridgeCurvature: FloatProperty(
         name="",
@@ -489,7 +515,7 @@ class GRABDOC_property_group(bpy.types.PropertyGroup):
     )
 
     # Occlusion
-    exportOcclusion: BoolProperty(default=True)
+    exportOcclusion: BoolProperty(name='Export Occlusion', default=True)
     
     reimportAsMatOcclusion: BoolProperty(description="This will reimport the Occlusion map as a material for use in Blender")
     
@@ -536,7 +562,7 @@ class GRABDOC_property_group(bpy.types.PropertyGroup):
     )                      
 
     # Height
-    exportHeight: BoolProperty(default=True, update=scene_setup)
+    exportHeight: BoolProperty(name='Export Height', default=True, update=scene_setup)
 
     invertMaskHeight: BoolProperty(
         description="Invert the Height mask, this is useful if you are sculpting into a plane mesh",
@@ -576,7 +602,7 @@ class GRABDOC_property_group(bpy.types.PropertyGroup):
     ) 
 
     # Alpha
-    exportAlpha: BoolProperty(update=scene_setup)
+    exportAlpha: BoolProperty(name='Export Alpha', update=scene_setup)
 
     invertMaskAlpha: BoolProperty(description="Invert the Alpha mask", update=update_alpha)
 
@@ -589,7 +615,7 @@ class GRABDOC_property_group(bpy.types.PropertyGroup):
     samplesAlpha: IntProperty(name="", default=128, min=1, max=512)
 
     # MatID
-    exportMatID: BoolProperty(default=True)
+    exportMatID: BoolProperty(name='Export Material ID', default=True)
 
     methodMatID: EnumProperty(
         items=(
@@ -630,7 +656,7 @@ class GRABDOC_property_group(bpy.types.PropertyGroup):
     )
 
     # Albedo
-    exportAlbedo: BoolProperty(update=scene_setup)
+    exportAlbedo: BoolProperty(name='Export Albedo', update=scene_setup)
 
     suffixAlbedo: StringProperty(
         name="",
@@ -641,7 +667,7 @@ class GRABDOC_property_group(bpy.types.PropertyGroup):
     samplesAlbedo: IntProperty(name="", default=128, min=1, max=512)
 
     # Roughness
-    exportRoughness: BoolProperty(update=scene_setup)
+    exportRoughness: BoolProperty(name='Export Roughness', update=scene_setup)
 
     suffixRoughness: StringProperty(
         name="",
@@ -652,7 +678,7 @@ class GRABDOC_property_group(bpy.types.PropertyGroup):
     samplesRoughness: IntProperty(name="", default=128, min=1, max=512)
 
     # Metalness
-    exportMetalness: BoolProperty(update=scene_setup)
+    exportMetalness: BoolProperty(name='Export Metalness', update=scene_setup)
 
     suffixMetalness: StringProperty(
         name="",
@@ -666,7 +692,7 @@ class GRABDOC_property_group(bpy.types.PropertyGroup):
 
     firstBakePreview: BoolProperty(default=True)
     
-    autoExitCamera: BoolProperty()
+    autoExitCamera: BoolProperty(description='Whether or not the camera view will automatically be left when exiting a Map Preview')
 
     modalState: BoolProperty()
 
