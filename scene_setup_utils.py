@@ -4,7 +4,7 @@ from .node_group_utils import ng_setup
 from typing import Union
 
 
-def remove_setup(hard_reset: bool=True) -> Union[None, list]:
+def remove_setup(context, hard_reset: bool=True) -> Union[None, list]:
     '''Completely removes every element of GrabDoc from the scene, not including images reimported after bakes
     
 hard_reset: When refreshing a scene we may want to keep certain data-blocks that the user can manipulates'''
@@ -16,8 +16,8 @@ hard_reset: When refreshing a scene we may want to keep certain data-blocks that
     if bake_group_coll is not None:
         for ob in bake_group_coll.all_objects:
             # Move object to the master collection
-            if not hard_reset or not bpy.context.scene.grabDoc.onlyRenderColl:
-                bpy.context.scene.collection.objects.link(ob)
+            if hard_reset or not context.scene.grabDoc.onlyRenderColl:
+                context.scene.collection.objects.link(ob)
             else:
                 saved_bake_group_obs.append(ob)
             
@@ -32,7 +32,7 @@ hard_reset: When refreshing a scene we may want to keep certain data-blocks that
         for ob in gd_coll.all_objects:
             if ob.name not in {'GD_Background Plane', 'GD_Orient Guide', 'GD_Height Guide', 'GD_Trim Camera'}:
                 # Move object to the master collection
-                bpy.context.scene.collection.objects.link(ob)
+                context.scene.collection.objects.link(ob)
 
                 # Remove object from the grabdoc collection
                 ob.gd_coll.objects.unlink(ob)
@@ -84,7 +84,7 @@ hard_reset: When refreshing a scene we may want to keep certain data-blocks that
 
     # Forcibly exit the camera before deleting it so the original users camera position is retained
     reposition_cam = False
-    if [area.spaces.active.region_3d.view_perspective for area in bpy.context.screen.areas if area.type == 'VIEW_3D'] == ['CAMERA']:
+    if [area.spaces.active.region_3d.view_perspective for area in context.screen.areas if area.type == 'VIEW_3D'] == ['CAMERA']:
         reposition_cam = True
         bpy.ops.view3d.view_camera()
 
@@ -136,7 +136,7 @@ def scene_setup(self, context) -> None: # Needs self for update functions to reg
         ob.select_set(False)
 
     # Remove all related GrabDoc datablocks, keeping some necessary values
-    saved_plane_loc, saved_plane_rot, saved_mat, reposition_cam, saved_bake_group_obs = remove_setup(hard_reset=False)
+    saved_plane_loc, saved_plane_rot, saved_mat, reposition_cam, saved_bake_group_obs = remove_setup(context, hard_reset=False)
 
     # Set scene resolution (Trying to avoid destructively changing values, but these two need to be changed)
     context.scene.render.resolution_x = grabDoc.exportResX
