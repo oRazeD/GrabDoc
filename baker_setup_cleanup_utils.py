@@ -11,8 +11,9 @@ from .generic_utils import get_format_extension
 
 
 def export_and_preview_setup(self, context):
-    grabDoc = context.scene.grabDoc
-    render = context.scene.render
+    scene = context.scene
+    grabDoc = scene.grabDoc
+    render = scene.render
 
     # TODO Preserve use_local_camera & original camera
 
@@ -23,7 +24,7 @@ def export_and_preview_setup(self, context):
                 space.use_local_camera = False
                 break
 
-    context.scene.camera = bpy.data.objects.get("GD_Trim Camera")
+    scene.camera = bpy.data.objects.get("GD_Trim Camera")
 
         ## VIEW LAYER PROPERTIES ##
 
@@ -36,18 +37,21 @@ def export_and_preview_setup(self, context):
 
         ## WORLD PROPERTIES ##
 
-    context.scene.world.use_nodes = False
+    try:
+        scene.world.use_nodes = False
+    except AttributeError:
+        pass
 
         ## RENDER PROPERTIES ##
 
-    eevee = context.scene.eevee
+    eevee = scene.eevee
 
     # Save - Render Engine (Set per bake map)
     self.savedRenderer = render.engine
 
     # Save - Sampling (Set per bake map)
-    self.savedWorkbenchSampling = context.scene.display.render_aa
-    self.savedWorkbenchVPSampling = context.scene.display.viewport_aa
+    self.savedWorkbenchSampling = scene.display.render_aa
+    self.savedWorkbenchVPSampling = scene.display.viewport_aa
     self.savedEeveeRenderSampling = eevee.taa_render_samples
     self.savedEeveeSampling = eevee.taa_samples
 
@@ -66,9 +70,9 @@ def export_and_preview_setup(self, context):
     eevee.gtao_quality = .5
 
     # Save & Set - Color Management
-    view_settings = context.scene.view_settings
+    view_settings = scene.view_settings
 
-    self.savedDisplayDevice = context.scene.display_settings.display_device
+    self.savedDisplayDevice = scene.display_settings.display_device
     self.savedViewTransform = view_settings.view_transform
     self.savedContrastType = view_settings.look
     self.savedExposure = view_settings.exposure
@@ -127,7 +131,7 @@ def export_and_preview_setup(self, context):
 
         ## VIEWPORT SHADING ##
 
-    scene_shading = bpy.data.scenes[str(context.scene.name)].display.shading
+    scene_shading = bpy.data.scenes[str(scene.name)].display.shading
 
     # Save & Set
     self.savedLight = scene_shading.light
@@ -184,7 +188,10 @@ def export_refresh(self, context) -> None:
 
         ## WORLD PROPERTIES ##
 
-    scene.world.use_nodes = True
+    try:
+        scene.world.use_nodes = True
+    except AttributeError:
+        pass
 
         ## RENDER PROPERTIES ##
 
