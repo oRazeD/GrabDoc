@@ -168,7 +168,7 @@ class GRABDOC_PT_export(PanelInfo, Panel):
 
         row = box.row()
         row.prop(grabDoc, "exportResX", text = 'Resolution')
-        row.prop(grabDoc, "exportResY")
+        row.prop(grabDoc, "exportResY", text = '')
         row.prop(grabDoc, 'lockRes', icon_only = True, icon = "LOCKED" if grabDoc.lockRes else "UNLOCKED")
 
         row = box.row()
