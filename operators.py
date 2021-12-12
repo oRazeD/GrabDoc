@@ -114,10 +114,8 @@ class GRABDOC_OT_export_maps(OpInfo, Operator):
             activeCallback = context.object.name
             modeCallback = context.object.mode
 
-            try:
+            if bpy.ops.object.mode_set.poll():
                 bpy.ops.object.mode_set(mode = 'OBJECT')
-            except RuntimeError:
-                pass
 
             active_selected = True
 
@@ -224,10 +222,8 @@ class GRABDOC_OT_export_maps(OpInfo, Operator):
         if active_selected:
             context.view_layer.objects.active = bpy.data.objects[activeCallback]
 
-            try:
+            if bpy.ops.object.mode_set.poll():
                 bpy.ops.object.mode_set(mode = modeCallback)
-            except RuntimeError:
-                pass
 
         # End the timer
         end = time.time()
@@ -329,10 +325,9 @@ class GRABDOC_OT_offline_render(OpInfo, Operator):
             activeCallback = context.object.name
             modeCallback = context.object.mode
 
-            try:
+            if bpy.ops.object.mode_set.poll():
                 bpy.ops.object.mode_set(mode = 'OBJECT')
-            except RuntimeError:
-                pass
+
             active_selected = True
 
         # Scale up BG Plane (helps overscan & border pixels)
@@ -395,11 +390,8 @@ class GRABDOC_OT_offline_render(OpInfo, Operator):
         if active_selected:
             context.view_layer.objects.active = bpy.data.objects[activeCallback]
 
-            try:
+            if bpy.ops.object.mode_set.poll():
                 bpy.ops.object.mode_set(mode = modeCallback)
-            except RuntimeError:
-                pass
-            
 
         # End the timer
         end = time.time()
@@ -645,11 +637,8 @@ class GRABDOC_OT_map_preview(OpInfo, Operator):
         self.done = False
         grabDoc.modalState = True
 
-        if context.object:
-            try:
-                bpy.ops.object.mode_set(mode = 'OBJECT')
-            except RuntimeError:
-                pass
+        if bpy.ops.object.mode_set.poll():
+            bpy.ops.object.mode_set(mode = 'OBJECT')
 
         export_and_preview_setup(self, context)
         

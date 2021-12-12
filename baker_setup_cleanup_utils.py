@@ -37,10 +37,8 @@ def export_and_preview_setup(self, context):
 
         ## WORLD PROPERTIES ##
 
-    try:
+    if scene.world:
         scene.world.use_nodes = False
-    except AttributeError:
-        pass
 
         ## RENDER PROPERTIES ##
 
@@ -163,9 +161,9 @@ def export_and_preview_setup(self, context):
     self.ob_hidden_render_list = []
     self.ob_hidden_vp_list = []
     
-    # Save & Set - Non-rendered objects visibility (self.render_list defined in bad_setup_check)
+    # Save & Set - Non-rendered objects visibility (self.rendered_obs defined in bad_setup_check)
     for ob in context.view_layer.objects:
-        if ob.type in {'MESH', 'CURVE'} and not ob.name in self.render_list:
+        if ob.type in {'MESH', 'CURVE'} and not ob.name in self.rendered_obs:
             if not ob.hide_render:
                 self.ob_hidden_render_list.append(ob.name)
             ob.hide_render = True
@@ -188,10 +186,8 @@ def export_refresh(self, context) -> None:
 
         ## WORLD PROPERTIES ##
 
-    try:
+    if scene.world:
         scene.world.use_nodes = True
-    except AttributeError:
-        pass
 
         ## RENDER PROPERTIES ##
 

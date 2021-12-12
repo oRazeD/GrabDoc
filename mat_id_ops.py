@@ -16,12 +16,12 @@ class GRABDOC_OT_quick_id_setup(OpInfo, Operator):
             if mat.name.startswith("GD_RANDOM"):
                 bpy.data.materials.remove(mat)
 
-        self.render_list = get_rendered_objects(context)
+        self.rendered_obs = get_rendered_objects(context)
 
         for ob in context.view_layer.objects:
             add_mat = True
 
-            if ob.name in self.render_list and not ob.name.startswith('GD_'):
+            if ob.name in self.rendered_obs and not ob.name.startswith('GD_'):
                 for slot in ob.material_slots:
                     if slot.name.startswith('GD_ID'):
                         add_mat = False

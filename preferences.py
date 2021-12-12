@@ -258,7 +258,7 @@ class GRABDOC_property_group(bpy.types.PropertyGroup):
 
         if self.modalState:
             if self.rangeTypeHeight == 'AUTO':
-                self.render_list = get_rendered_objects(context)
+                self.rendered_obs = get_rendered_objects(context)
 
                 find_tallest_object(self, context)
                 

@@ -126,11 +126,8 @@ class GrabDoc_OT_send_to_marmo(OpInfo, bpy.types.Operator):
 
         saved_selected = context.view_layer.objects.selected.keys()
 
-        if context.active_object:
-            try:
-                bpy.ops.object.mode_set(mode = 'OBJECT')
-            except RuntimeError:
-                pass
+        if bpy.ops.object.mode_set.poll():
+            bpy.ops.object.mode_set(mode = 'OBJECT')
 
         if grabDoc.exportHeight and grabDoc.rangeTypeHeight == 'AUTO':
             find_tallest_object(self, context)
@@ -139,7 +136,7 @@ class GrabDoc_OT_send_to_marmo(OpInfo, bpy.types.Operator):
         for ob in context.view_layer.objects:
             ob.select_set(False)
 
-            if ob.name in self.render_list and ob.visible_get() and ob.name != 'GD_Background Plane':
+            if ob.name in self.rendered_obs and ob.visible_get() and ob.name != 'GD_Background Plane':
                 ob.select_set(True)
                 
                 ob.name = f"GD_high {ob.name}"

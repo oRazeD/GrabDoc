@@ -64,7 +64,7 @@ def bad_setup_check(self, context, active_export: bool, report_value=False, repo
     grabDoc = context.scene.grabDoc
 
     # Run this before other error checks as the following error checks contain dependencies
-    self.render_list = get_rendered_objects(context)
+    self.rendered_obs = get_rendered_objects(context)
 
     # Look for Trim Camera (only thing required to render)
     if not "GD_Trim Camera" in context.view_layer.objects and not report_value:
@@ -156,10 +156,7 @@ class GRABDOC_OT_view_cam(OpInfo, Operator):
     bl_idname = "grab_doc.view_cam"
     bl_label = ""
 
-    from_modal: bpy.props.BoolProperty(
-        default=False,
-        options={'HIDDEN'}
-    )
+    from_modal: bpy.props.BoolProperty(default=False, options={'HIDDEN'})
 
     def execute(self, context):
         context.scene.camera = bpy.data.objects["GD_Trim Camera"]

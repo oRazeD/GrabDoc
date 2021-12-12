@@ -126,10 +126,8 @@ def scene_setup(self, context) -> None: # Needs self for update functions to reg
         elif gd_coll is not None and gd_coll.hide_viewport:
             gd_coll.hide_viewport = False
 
-        try:
+        if bpy.ops.object.mode_set.poll():
             bpy.ops.object.mode_set(mode = 'OBJECT')
-        except RuntimeError:
-            pass
 
     # Deselect all objects
     for ob in context.selected_objects:
@@ -300,10 +298,8 @@ def scene_setup(self, context) -> None: # Needs self for update functions to reg
         view_layer.objects.active = bpy.data.objects[activeCallback]
 
         if activeCallback:
-            try:
+            if bpy.ops.object.mode_set.poll():
                 bpy.ops.object.mode_set(mode = modeCallback)
-            except RuntimeError:
-                pass
     except UnboundLocalError:
         pass
 
@@ -316,13 +312,13 @@ def scene_setup(self, context) -> None: # Needs self for update functions to reg
 def generate_manual_height_guide_mesh(ob_name: str, plane_ob: bpy.types.Object) -> None:
     '''Generate a mesh that gauges the height map range. This is for the "Manual" height map mode and can better inform a correct 0-1 range'''
     # Make a tuple for the planes vertex positions
-    camera_vec_list = bpy.data.objects["GD_Trim Camera"].data.view_frame(scene = bpy.context.scene)
+    camera_corner_vecs = bpy.data.objects["GD_Trim Camera"].data.view_frame(scene = bpy.context.scene)
 
-    stems_vec_list = [(vec[0], vec[1], bpy.context.scene.grabDoc.guideHeight) for vec in camera_vec_list]
-    ring_vec_list = [(vec[0], vec[1], vec[2] + 1) for vec in camera_vec_list]
+    stems_vecs = [(vec[0], vec[1], bpy.context.scene.grabDoc.guideHeight) for vec in camera_corner_vecs]
+    ring_vecs = [(vec[0], vec[1], vec[2] + 1) for vec in camera_corner_vecs]
 
     # Combine both tuples
-    ring_vec_list += stems_vec_list
+    ring_vecs += stems_vecs
 
     # Create new mesh & object data blocks
     new_mesh = bpy.data.meshes.new(ob_name)
@@ -330,7 +326,7 @@ def generate_manual_height_guide_mesh(ob_name: str, plane_ob: bpy.types.Object) 
 
     # Make a mesh from a list of vertices / edges / faces
     new_mesh.from_pydata(
-        vertices=ring_vec_list,
+        vertices=ring_vecs,
         edges=[(0,4), (1,5), (2,6), (3,7), (4,5), (5,6), (6,7), (7,4)],
         faces=[]
     )

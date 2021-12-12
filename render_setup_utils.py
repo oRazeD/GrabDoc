@@ -5,7 +5,7 @@ from mathutils import Vector
 
 def get_rendered_objects(context) -> set:
     '''Generate a list of all objects that will be rendered based on its origin position in world space'''
-    render_list = ['GD_Background Plane']
+    rendered_obs = ['GD_Background Plane']
 
     if context.scene.grabDoc.onlyRenderColl:
         for coll in bpy.data.collections:
@@ -16,7 +16,7 @@ def get_rendered_objects(context) -> set:
                         and ob.type not in {'EMPTY', 'VOLUME', 'ARMATURE', 'LATTICE', 'LIGHT', 'LIGHT_PROBE', 'CAMERA'}
                         and not ob.is_gd_object
                         ):
-                        render_list.append(ob.name)
+                        rendered_obs.append(ob.name)
     else:
         for ob in context.view_layer.objects:
             if (
@@ -28,8 +28,8 @@ def get_rendered_objects(context) -> set:
                 global_bbox_center = ob.matrix_world @ local_bbox_center
 
                 if is_in_viewing_spectrum(global_bbox_center):
-                    render_list.append(ob.name)
-    return set(render_list)
+                    rendered_obs.append(ob.name)
+    return set(rendered_obs)
 
 
 def is_in_viewing_spectrum(vec_check: Vector) -> bool:
@@ -52,7 +52,7 @@ def find_tallest_object(self, context) -> None:
     depsgraph = context.evaluated_depsgraph_get()
 
     for ob in context.view_layer.objects:
-        if ob.name in self.render_list and ob.type in {'MESH', 'CURVE', 'SURFACE', 'FONT', 'META'} and not ob.name.startswith('GD_'):
+        if ob.name in self.rendered_obs and ob.type in {'MESH', 'CURVE', 'SURFACE', 'FONT', 'META'} and not ob.name.startswith('GD_'):
             # Invoke to_mesh() for evaluated object.
             ob_eval = ob.evaluated_get(depsgraph)
             mesh_from_eval = ob_eval.to_mesh()

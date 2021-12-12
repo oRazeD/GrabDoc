@@ -307,7 +307,7 @@ def bsdf_link_factory(input_name: list, node_group: type.ShaderNodeGroup, origin
 def add_ng_to_mat(self, context, setup_type: str) -> None:
     '''Add corresponding node groups to all materials/objects'''
     for ob in context.view_layer.objects:
-        if ob.name in self.render_list and ob.name != "GD_Orient Guide":
+        if ob.name in self.rendered_obs and ob.name != "GD_Orient Guide":
             # If no material slots found or empty mat slots found, assign a material to it
             if not len(ob.material_slots) or '' in ob.material_slots:
                 create_apply_ng_mat(ob)
