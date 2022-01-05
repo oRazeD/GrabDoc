@@ -500,16 +500,15 @@ class GRABDOC_OT_map_preview(OpInfo, Operator):
     def modal(self, context, event):
         scene = context.scene
         grabDoc = scene.grabDoc
-        view_settings = scene.view_settings
-        scene_shading = bpy.data.scenes[str(scene.name)].display.shading
-        eevee = scene.eevee
 
-        scene.camera = bpy.data.objects["GD_Trim Camera"]
+        if scene.camera != bpy.data.objects["GD_Trim Camera"]:
+            scene.camera = bpy.data.objects["GD_Trim Camera"]
 
         # Set - Exporter settings
         image_settings = scene.render.image_settings
-        
-        if not grabDoc.collRendered: # If background plane not visible in render, create alpha channel
+
+        # If background plane not visible in render, enable alpha channel
+        if not grabDoc.collRendered: 
             scene.render.film_transparent = True
 
             image_settings.color_mode = 'RGBA'
@@ -518,112 +517,88 @@ class GRABDOC_OT_map_preview(OpInfo, Operator):
 
             image_settings.color_mode = 'RGB'
 
+        # Get correct file format and color depth
         image_settings.file_format = grabDoc.imageType
 
         if grabDoc.imageType == 'OPEN_EXR':
             image_settings.color_depth = grabDoc.colorDepthEXR
-
         elif grabDoc.imageType != 'TARGA':
             image_settings.color_depth = grabDoc.colorDepth
 
-        if self.preview_type == "normals":
-            eevee.taa_render_samples = eevee.taa_samples = grabDoc.samplesNormals
-    
-        elif self.preview_type == "curvature":
-            scene.display.render_aa = scene.display.viewport_aa = grabDoc.samplesCurvature
+        # Bake map specific settings that are forcibly kept in check
+        # TODO update the node group input values for Mixed Normal
+        view_settings = scene.view_settings
+
+        if self.preview_type == "curvature":
             view_settings.look = grabDoc.contrastCurvature.replace('_', ' ')
 
             bpy.data.objects["GD_Background Plane"].color[3] = .9999
 
-            # Refresh specific settings
-            if self.done:
-                curvature_refresh(self, context)
-
         elif self.preview_type == "occlusion":
-            eevee.taa_render_samples = eevee.taa_samples = grabDoc.samplesOcclusion
-
             view_settings.look = grabDoc.contrastOcclusion.replace('_', ' ')
 
-            ao_node = bpy.data.node_groups["GD_Ambient Occlusion"].nodes.get('Ambient Occlusion')
-            ao_node.inputs[1].default_value = grabDoc.distanceOcclusion
-
-            # Refresh specific settings
-            if self.done:
-                occlusion_refresh(self, context)
+            #ao_node = bpy.data.node_groups["GD_Ambient Occlusion"].nodes.get('Ambient Occlusion')
+            #ao_node.inputs[1].default_value = grabDoc.distanceOcclusion
 
         elif self.preview_type == "height":
-            eevee.taa_render_samples = eevee.taa_samples = grabDoc.samplesHeight
-
             view_settings.look = grabDoc.contrastHeight.replace('_', ' ')
 
         elif self.preview_type == "ID":
-            scene.display.render_aa = scene.display.viewport_aa = grabDoc.samplesMatID
+            scene.display.shading.color_type = grabDoc.methodMatID
 
-            # Choose the method of ID creation based on user preference
-            scene_shading.color_type = grabDoc.methodMatID
+        # Exit check
+        if not grabDoc.modalState or event.type in {'ESC'} or not proper_scene_setup():
+            self.modal_cleanup(context)
+            return {'CANCELLED'}
+        return {'PASS_THROUGH'}
 
+    def modal_cleanup(self, context) -> None:
+        grabDoc = context.scene.grabDoc
+
+        grabDoc.modalState = False
+
+        bpy.types.SpaceView3D.draw_handler_remove(self._handle, 'WINDOW')
+
+        if self.preview_type == "normals":
+            cleanup_ng_from_mat('GD_Normal')
+        elif self.preview_type == "curvature":
+            curvature_refresh(self, context)
+        elif self.preview_type == "occlusion":
+            occlusion_refresh(self, context)
+            cleanup_ng_from_mat('GD_Ambient Occlusion')
+        elif self.preview_type == "height":
+            cleanup_ng_from_mat('GD_Height')
         elif self.preview_type == "alpha":
-            eevee.taa_render_samples = eevee.taa_samples = grabDoc.samplesAlpha
-
+            cleanup_ng_from_mat('GD_Alpha')
         elif self.preview_type == "albedo":
-            eevee.taa_render_samples = eevee.taa_samples = grabDoc.samplesAlbedo
-
+            cleanup_ng_from_mat('GD_Albedo')
         elif self.preview_type == "roughness":
-            eevee.taa_render_samples = eevee.taa_samples = grabDoc.samplesRoughness
-
+            cleanup_ng_from_mat('GD_Roughness')
         elif self.preview_type == "metalness":
-            eevee.taa_render_samples = eevee.taa_samples = grabDoc.samplesMetalness
+            cleanup_ng_from_mat('GD_Metalness')
 
-        # TODO update the node group input values for Mixed Normal
+        export_refresh(self, context)
 
-        # Exiting    
-        if self.done:
-            bpy.types.SpaceView3D.draw_handler_remove(self._handle, 'WINDOW')
-
-            if self.preview_type == "normals":
-                cleanup_ng_from_mat('GD_Normal')
-            elif self.preview_type == "occlusion":
-                cleanup_ng_from_mat('GD_Ambient Occlusion')
-            elif self.preview_type == "height":
-                cleanup_ng_from_mat('GD_Height')
-            elif self.preview_type == "alpha":
-                cleanup_ng_from_mat('GD_Alpha')
-            elif self.preview_type == "albedo":
-                cleanup_ng_from_mat('GD_Albedo')
-            elif self.preview_type == "roughness":
-                cleanup_ng_from_mat('GD_Roughness')
-            elif self.preview_type == "metalness":
-                cleanup_ng_from_mat('GD_Metalness')
-
-            export_refresh(self, context)
-
-            # Refresh - Current workspace shading type
-            for area in context.screen.areas:
+        # Refresh - Current workspace shading type
+        for area in context.screen.areas:
+            if area.type == 'VIEW_3D':
+                for space in area.spaces:
+                    space.shading.type = self.saved_render_view
+                    break
+        
+        # Refresh - Original workspace shading type
+        for screen in bpy.data.workspaces[self.savedOriginalWorkspace].screens:
+            for area in screen.areas:
                 if area.type == 'VIEW_3D':
                     for space in area.spaces:
                         space.shading.type = self.saved_render_view
                         break
-            
-            # Refresh - Original workspace shading type
-            for screen in bpy.data.workspaces[self.savedOriginalWorkspace].screens:
-                for area in screen.areas:
-                    if area.type == 'VIEW_3D':
-                        for space in area.spaces:
-                            space.shading.type = self.saved_render_view
-                            break
 
-            grabDoc.bakerType = self.savedBakerType
+        grabDoc.bakerType = self.savedBakerType
 
-            # Check for auto exit camera option (Keep this at the end of the stack to avoid pop in)
-            if grabDoc.autoExitCamera or not proper_scene_setup():
-                bpy.ops.grab_doc.view_cam(from_modal=True)
-            return {'CANCELLED'}
-
-        # Exit checking
-        if not grabDoc.modalState or event.type in {'ESC'} or not proper_scene_setup():
-            bpy.ops.grab_doc.leave_modal()
-            self.done = True
-        return {'PASS_THROUGH'}
+        # Check for auto exit camera option (Keep this at the end of the stack to avoid pop in)
+        if grabDoc.autoExitCamera or not proper_scene_setup():
+            bpy.ops.grab_doc.view_cam(from_modal=True)
 
     def execute(self, context):
         grabDoc = context.scene.grabDoc
@@ -634,7 +609,6 @@ class GRABDOC_OT_map_preview(OpInfo, Operator):
             self.report({'ERROR'}, report_string)
             return{'CANCELLED'}
 
-        self.done = False
         grabDoc.modalState = True
 
         if bpy.ops.object.mode_set.poll():

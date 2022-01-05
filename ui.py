@@ -347,6 +347,9 @@ def normals_ui(layout, context):
     layout.use_property_decorate = False
 
     col = layout.column()
+    col.prop(grabDoc, "engineNormals", text = "Engine")
+
+    col = layout.column()
     col.prop(grabDoc, 'flipYNormals', text = "Flip Y (-Y)")
 
     if grabDoc.bakerType == 'Blender':
@@ -354,8 +357,13 @@ def normals_ui(layout, context):
         col.prop(grabDoc, 'useTextureNormals', text = "Texture Normals")
         col.separator(factor=.5)
         col.prop(grabDoc, 'reimportAsMatNormals', text = "Import as Material")
+
         col.separator(factor=1.5)
-        col.prop(grabDoc, "samplesNormals", text = 'Samples')
+        col.prop(
+            grabDoc,
+            "samplesNormals" if grabDoc.engineNormals == 'blender_eevee' else "samplesCyclesNormals",
+            text = 'Samples'
+        )
 
     col.separator(factor=1.5)
     col.prop(grabDoc, 'suffixNormals', text = "Suffix")
@@ -681,9 +689,14 @@ def albedo_ui(layout, context):
     layout.use_property_decorate = False
 
     col = layout.column()
-        
+    col.prop(grabDoc, "engineAlbedo", text = "Engine")
+
     col.separator(factor=1.5)
-    col.prop(grabDoc, 'samplesAlbedo', text = "Samples")
+    col.prop(
+        grabDoc,
+        "samplesAlbedo" if grabDoc.engineAlbedo == 'blender_eevee' else "samplesCyclesAlbedo",
+        text = 'Samples'
+    )
 
     col.separator(factor=1.5)
     col.prop(grabDoc, 'suffixAlbedo', text = "Suffix")
@@ -726,9 +739,16 @@ def roughness_ui(layout, context):
     layout.use_property_decorate = False
 
     col = layout.column()
-        
+
+    col = layout.column()
+    col.prop(grabDoc, "engineRoughness", text = "Engine")
+
     col.separator(factor=1.5)
-    col.prop(grabDoc, 'samplesRoughness', text = "Samples")
+    col.prop(
+        grabDoc,
+        "samplesRoughness" if grabDoc.engineRoughness == 'blender_eevee' else "samplesCyclesRoughness",
+        text = 'Samples'
+    )
 
     col.separator(factor=1.5)
     col.prop(grabDoc, 'suffixRoughness', text = "Suffix")
@@ -771,9 +791,16 @@ def metalness_ui(layout, context):
     layout.use_property_decorate = False
 
     col = layout.column()
-        
+
+    col = layout.column()
+    col.prop(grabDoc, "engineMetalness", text = "Engine")
+
     col.separator(factor=1.5)
-    col.prop(grabDoc, 'samplesMetalness', text = "Samples")
+    col.prop(
+        grabDoc,
+        "samplesMetalness" if grabDoc.engineMetalness == 'blender_eevee' else "samplesCyclesMetalness",
+        text = 'Samples'
+    )
 
     col.separator(factor=1.5)
     col.prop(grabDoc, 'suffixMetalness', text = "Suffix")

@@ -78,6 +78,8 @@ class GRABDOC_OT_add_preset(AddPresetBase, bpy.types.Operator):
         "grabDoc.useTextureNormals",
         "grabDoc.samplesNormals",
         "grabDoc.suffixNormals",
+        "grabDoc.samplesCyclesNormals",
+        "grabDoc.engineNormals",
 
         "grabDoc.exportCurvature",
         "grabDoc.ridgeCurvature",
@@ -115,14 +117,20 @@ class GRABDOC_OT_add_preset(AddPresetBase, bpy.types.Operator):
         "grabDoc.exportAlbedo",
         "grabDoc.samplesAlbedo",
         "grabDoc.suffixAlbedo",
+        "grabDoc.samplesCyclesAlbedo",
+        "grabDoc.engineAlbedo",
 
         "grabDoc.exportRoughness",
         "grabDoc.samplesRoughness",
         "grabDoc.suffixRoughness",
+        "grabDoc.samplesCyclesRoughness",
+        "grabDoc.engineRoughness",
 
         "grabDoc.exportMetalness",
         "grabDoc.samplesMetalness",
         "grabDoc.suffixMetalness",
+        "grabDoc.samplesCyclesMetalness",
+        "grabDoc.engineMetalness",
 
         "grabDoc.marmoAutoBake",
         "grabDoc.marmoClosePostBake",
@@ -297,6 +305,17 @@ class GRABDOC_property_group(bpy.types.PropertyGroup):
         if self.modalState:
             bpy.data.objects["GD_Background Plane"].active_material = bpy.data.materials['GD_Material (do not touch contents)']
 
+    def update_engine(self, context):
+        if self.modalState:
+            if self.modalPreviewType == 'normals':
+                context.scene.render.engine = str(self.engineNormals).upper()
+            elif self.modalPreviewType == 'albedo':
+                context.scene.render.engine = str(self.engineAlbedo).upper()
+            elif self.modalPreviewType == 'roughness':
+                context.scene.render.engine = str(self.engineRoughness).upper()
+            elif self.modalPreviewType == 'metalness':
+                context.scene.render.engine = str(self.engineMetalness).upper()
+
     def update_export_path(self, context):
         if self.exportPath != '' and not os.path.exists(bpy.path.abspath(self.exportPath)):
             self.exportPath = ''
@@ -430,16 +449,13 @@ class GRABDOC_property_group(bpy.types.PropertyGroup):
 
     # Normals
     exportNormals: BoolProperty(name='Export Normals', default=True)
-
     reimportAsMatNormals: BoolProperty(description="Reimport the Normal map as a material for use in Blender")
-
     flipYNormals: BoolProperty(
         name="Flip Y (-Y)",
         description="Flip the normal map Y direction",
         options={'SKIP_SAVE'},
         update=update_flip_y
     )
-
     useTextureNormals: BoolProperty(
         name="Use Texture Normals",
         description="Use texture normals linked to the Principled BSDF",
@@ -447,18 +463,25 @@ class GRABDOC_property_group(bpy.types.PropertyGroup):
         default=True,
         update=update_useTextureNormals
     )
-
     suffixNormals: StringProperty(
         name="",
         description="The suffix of the exported bake map",
         default="normal"
     )
-
     samplesNormals: IntProperty(name="", default=128, min=1, max=512)
+    samplesCyclesNormals: IntProperty(name="", default=32, min=1, max=1024)
+    engineNormals: EnumProperty(
+        items=(
+            ('blender_eevee', "Eevee", ""),
+            ('cycles', "Cycles", "")
+        ),
+        default="blender_eevee",
+        name='Render Engine',
+        update=update_engine
+    )
 
     # Curvature
     exportCurvature: BoolProperty(name='Export Curvature', default=True)
-
     ridgeCurvature: FloatProperty(
         name="",
         default=2,
@@ -469,7 +492,6 @@ class GRABDOC_property_group(bpy.types.PropertyGroup):
         update=update_curvature,
         subtype='FACTOR'
     )
-
     valleyCurvature: FloatProperty(
         name="",
         default=1.5,
@@ -480,13 +502,11 @@ class GRABDOC_property_group(bpy.types.PropertyGroup):
         update=update_curvature,
         subtype='FACTOR'
     )
-
     suffixCurvature: StringProperty(
         name="",
         description="The suffix of the exported bake map",
         default="curvature"
     )
-
     contrastCurvature: EnumProperty(
         items=(
             ('None', "None (Medium)", ""),
@@ -499,7 +519,6 @@ class GRABDOC_property_group(bpy.types.PropertyGroup):
         ),
         name="Curvature Contrast"
     )
-
     samplesCurvature: EnumProperty(
         items=(
             ('OFF', "No Anti-Aliasing", ""),
@@ -516,9 +535,7 @@ class GRABDOC_property_group(bpy.types.PropertyGroup):
 
     # Occlusion
     exportOcclusion: BoolProperty(name='Export Occlusion', default=True)
-    
     reimportAsMatOcclusion: BoolProperty(description="This will reimport the Occlusion map as a material for use in Blender")
-    
     gammaOcclusion: FloatProperty(
         default=1,
         min=.001,
@@ -528,7 +545,6 @@ class GRABDOC_property_group(bpy.types.PropertyGroup):
         description="Intensity of AO (calculated with gamma)",
         update=update_occlusion_gamma
     )
-    
     distanceOcclusion: FloatProperty(
         default=1,
         min=0,
@@ -539,15 +555,12 @@ class GRABDOC_property_group(bpy.types.PropertyGroup):
         description="The distance AO rays travel",
         update=update_occlusion_distance
     )
-
     suffixOcclusion: StringProperty(
         name="",
         description="The suffix of the exported bake map",
         default="ao"
     )
-    
     samplesOcclusion: IntProperty(name="", default=128, min=1, max=512)
-
     contrastOcclusion: EnumProperty(
         items=(
             ('None', "None (Medium)", ""),
@@ -563,14 +576,11 @@ class GRABDOC_property_group(bpy.types.PropertyGroup):
 
     # Height
     exportHeight: BoolProperty(name='Export Height', default=True, update=scene_setup)
-
     invertMaskHeight: BoolProperty(
         description="Invert the Height mask, this is useful if you are sculpting into a plane mesh",
         update=update_height_guide
     )
-
     guideHeight: FloatProperty(name="", default=1, min=.01, soft_max=100, step=.03, subtype='DISTANCE', update=update_height_guide)
-
     rangeTypeHeight: EnumProperty(
         items=(
             ('AUTO', "Auto", ""),
@@ -579,15 +589,12 @@ class GRABDOC_property_group(bpy.types.PropertyGroup):
         update=update_manual_height_range,
         description="Automatic or manual height range. Use manual if automatic is giving you incorrect results or if baking is really slow"
     )
-
     suffixHeight: StringProperty(
         name="",
         description="The suffix of the exported bake map",
         default="height"
     )
-
     samplesHeight: IntProperty(name="", default=128, min=1, max=512)
-
     contrastHeight: EnumProperty(
         items=(
             ('None', "None (Medium)", ""),
@@ -603,20 +610,16 @@ class GRABDOC_property_group(bpy.types.PropertyGroup):
 
     # Alpha
     exportAlpha: BoolProperty(name='Export Alpha', update=scene_setup)
-
     invertMaskAlpha: BoolProperty(description="Invert the Alpha mask", update=update_alpha)
-
     suffixAlpha: StringProperty(
         name="",
         description="The suffix of the exported bake map",
         default="alpha"
     )
-
     samplesAlpha: IntProperty(name="", default=128, min=1, max=512)
 
     # MatID
     exportMatID: BoolProperty(name='Export Material ID', default=True)
-
     methodMatID: EnumProperty(
         items=(
             ('RANDOM', "Random", ""),
@@ -625,7 +628,6 @@ class GRABDOC_property_group(bpy.types.PropertyGroup):
         ),
         name='ID Method'
     )
-
     fakeMethodMatID: EnumProperty( # Not actually used, just for UI representation
         items=(
             ('RANDOM', "Random", ""),
@@ -634,13 +636,11 @@ class GRABDOC_property_group(bpy.types.PropertyGroup):
         ),
         default="MATERIAL"
     )
-
     suffixID: StringProperty(
         name="",
         description="The suffix of the exported bake map",
         default="matID"
     )
-
     samplesMatID: EnumProperty(
         items=(
             ('OFF', "No Anti-Aliasing", ""),
@@ -657,45 +657,66 @@ class GRABDOC_property_group(bpy.types.PropertyGroup):
 
     # Albedo
     exportAlbedo: BoolProperty(name='Export Albedo', update=scene_setup)
-
     suffixAlbedo: StringProperty(
         name="",
         description="The suffix of the exported bake map",
         default="albedo"
     )
-
     samplesAlbedo: IntProperty(name="", default=128, min=1, max=512)
+    samplesCyclesAlbedo: IntProperty(name="", default=32, min=1, max=1024)
+    engineAlbedo: EnumProperty(
+        items=(
+            ('blender_eevee', "Eevee", ""),
+            ('cycles', "Cycles", "")
+        ),
+        default="blender_eevee",
+        name='Render Engine',
+        update=update_engine
+    )
 
     # Roughness
     exportRoughness: BoolProperty(name='Export Roughness', update=scene_setup)
-
     suffixRoughness: StringProperty(
         name="",
         description="The suffix of the exported bake map",
         default="roughness"
     )
-
     samplesRoughness: IntProperty(name="", default=128, min=1, max=512)
+    samplesCyclesRoughness: IntProperty(name="", default=32, min=1, max=1024)
+    engineRoughness: EnumProperty(
+        items=(
+            ('blender_eevee', "Eevee", ""),
+            ('cycles', "Cycles", "")
+        ),
+        default="blender_eevee",
+        name='Render Engine',
+        update=update_engine
+    )
 
     # Metalness
     exportMetalness: BoolProperty(name='Export Metalness', update=scene_setup)
-
     suffixMetalness: StringProperty(
         name="",
         description="The suffix of the exported bake map",
         default="metalness"
     )
-
+    samplesCyclesMetalness: IntProperty(name="", default=32, min=1, max=1024)
     samplesMetalness: IntProperty(name="", default=128, min=1, max=512)
-    
+    engineMetalness: EnumProperty(
+        items=(
+            ('blender_eevee', "Eevee", ""),
+            ('cycles', "Cycles", "")
+        ),
+        default="blender_eevee",
+        name='Render Engine',
+        update=update_engine
+    )
+
     # MAP PREVIEW
 
     firstBakePreview: BoolProperty(default=True)
-    
     autoExitCamera: BoolProperty(description='Whether or not the camera view will automatically be left when exiting a Map Preview')
-
     modalState: BoolProperty()
-
     modalPreviewType: EnumProperty(
         items=(
             ('none', "None", ""),
@@ -714,9 +735,7 @@ class GRABDOC_property_group(bpy.types.PropertyGroup):
     # MARMOSET BAKING
 
     marmoAutoBake: BoolProperty(name="Auto bake", default=True)
-
     marmoClosePostBake: BoolProperty(name="Close after baking")
-
     marmoSamples: EnumProperty(
         items=(
             ('1', "1x", ""),
@@ -728,9 +747,7 @@ class GRABDOC_property_group(bpy.types.PropertyGroup):
         name="Marmoset Samples",
         description='The amount of samples rendered per pixel. 64x samples will NOT work in Marmoset 3 and will default to 16x samples'
     )
-
     marmoAORayCount: IntProperty(default=512, min=32, soft_max=4096)
-
     imageType_marmo: EnumProperty(
         items=(
             ('PNG', "PNG", ""),

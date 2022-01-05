@@ -53,6 +53,9 @@ def export_and_preview_setup(self, context):
     self.savedEeveeRenderSampling = eevee.taa_render_samples
     self.savedEeveeSampling = eevee.taa_samples
 
+    self.savedCyclesSampling = context.scene.cycles.preview_samples
+    self.savedCyclesRenderSampling = context.scene.cycles.samples
+
     # Save & Set - Bloom
     self.savedUseBloom = eevee.use_bloom
 
@@ -199,6 +202,9 @@ def export_refresh(self, context) -> None:
     scene.display.viewport_aa = self.savedWorkbenchVPSampling
     scene.eevee.taa_render_samples = self.savedEeveeRenderSampling
     scene.eevee.taa_samples = self.savedEeveeSampling
+    
+    self.savedCyclesSampling = context.scene.cycles.preview_samples
+    self.savedCyclesRenderSampling = context.scene.cycles.samples
 
     # Refresh - Bloom
     scene.eevee.use_bloom = self.savedUseBloom
@@ -313,8 +319,13 @@ def normals_setup(self, context) -> None:
     scene = context.scene
     render = scene.render
 
-    render.engine = 'BLENDER_EEVEE'
-    scene.eevee.taa_render_samples = scene.eevee.taa_samples = scene.grabDoc.samplesNormals
+    if scene.grabDoc.engineNormals  == 'blender_eevee':
+        scene.eevee.taa_render_samples = scene.eevee.taa_samples = scene.grabDoc.samplesNormals
+    else: # Cycles
+        scene.cycles.samples = scene.cycles.preview_samples = scene.grabDoc.samplesCyclesNormals
+
+    render.engine = str(scene.grabDoc.engineNormals).upper()
+
     scene.display_settings.display_device = 'None'
 
     ng_normal = bpy.data.node_groups["GD_Normal"]
@@ -473,8 +484,13 @@ def albedo_setup(self, context) -> None:
     scene = context.scene
     render = scene.render
 
-    render.engine = 'BLENDER_EEVEE'
-    scene.eevee.taa_render_samples = scene.eevee.taa_samples = scene.grabDoc.samplesAlbedo
+    if scene.grabDoc.engineAlbedo  == 'blender_eevee':
+        scene.eevee.taa_render_samples = scene.eevee.taa_samples = scene.grabDoc.samplesAlbedo
+    else: # Cycles
+        scene.cycles.samples = scene.cycles.preview_samples = scene.grabDoc.samplesCyclesAlbedo
+
+    render.engine = str(scene.grabDoc.engineAlbedo).upper()
+
     scene.display_settings.display_device = 'sRGB'
 
     add_ng_to_mat(self, context, setup_type='GD_Albedo')
@@ -485,8 +501,13 @@ def roughness_setup(self, context) -> None:
     scene = context.scene
     render = scene.render
 
-    render.engine = 'BLENDER_EEVEE'
-    scene.eevee.taa_render_samples = scene.eevee.taa_samples = scene.grabDoc.samplesRoughness
+    if scene.grabDoc.engineRoughness == 'blender_eevee':
+        scene.eevee.taa_render_samples = scene.eevee.taa_samples = scene.grabDoc.samplesRoughness
+    else: # Cycles
+        scene.cycles.samples = scene.cycles.preview_samples = scene.grabDoc.samplesCyclesRoughness
+
+    render.engine = str(scene.grabDoc.engineRoughness).upper()
+
     scene.display_settings.display_device = 'sRGB'
 
     add_ng_to_mat(self, context, setup_type='GD_Roughness')
@@ -497,8 +518,13 @@ def metalness_setup(self, context) -> None:
     scene = context.scene
     render = scene.render
 
-    render.engine = 'BLENDER_EEVEE'
-    scene.eevee.taa_render_samples = scene.eevee.taa_samples = scene.grabDoc.samplesMetalness
+    if scene.grabDoc.engineMetalness == 'blender_eevee':
+        scene.eevee.taa_render_samples = scene.eevee.taa_samples = scene.grabDoc.samplesMetalness
+    else: # Cycles
+        scene.cycles.samples = scene.cycles.preview_samples = scene.grabDoc.samplesMetalness
+
+    render.engine = str(scene.grabDoc.engineMetalness).upper()
+
     scene.display_settings.display_device = 'sRGB'
 
     add_ng_to_mat(self, context, setup_type='GD_Metalness')
