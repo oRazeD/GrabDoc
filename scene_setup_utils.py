@@ -256,17 +256,17 @@ def scene_setup(self, context) -> None: # Needs self for update functions to reg
     trim_cam_ob.location = (0, 0, 15 * grabDoc.scalingSet)
     trim_cam_ob.parent = plane_ob
     trim_cam_ob.is_gd_object = True
-    #trim_cam_ob.hide_viewport = trim_cam_ob.hide_select = True  # TODO For some reason this causes visual errors when in camera view
+    #trim_cam_ob.hide_viewport = trim_cam_ob.hide_select = True  # TODO This occasionally causes visual errors when in camera view?
 
     trim_cam_data.type = 'ORTHO'
     trim_cam_data.display_size = .01
     trim_cam_data.passepartout_alpha = 1
     trim_cam_data.ortho_scale = grabDoc.scalingSet
+    trim_cam_data.clip_start = 0.1
+    trim_cam_data.clip_end = 1000 * (grabDoc.scalingSet / 25) # Match scale to cameras clipping distance 
 
     gd_coll.objects.link(trim_cam_ob)
     context.scene.camera = trim_cam_ob
-
-    # TODO Scale clipping to match cam distance (Saw a request for it, but the camera view seems to work regardless of the clippng plane start/end)
 
     if reposition_cam:
         bpy.ops.view3d.view_camera() # Needed to do twice or else Blender decides where the users viewport camera is located when they exit
