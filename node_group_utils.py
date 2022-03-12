@@ -299,7 +299,13 @@ def bsdf_link_factory(input_name: list, node_group: type.ShaderNodeGroup, origin
         mat_slot.node_tree.links.new(node_group.inputs[input_name], link.from_node.outputs[link.from_socket.name])
         break
     else:
-        node_group.inputs[input_name].default_value = original_node_input.default_value
+        try:
+            node_group.inputs[input_name].default_value = original_node_input.default_value
+        except TypeError:
+            if isinstance(original_node_input.default_value, float):
+                node_group.inputs[input_name].default_value = int(original_node_input.default_value)
+            else:
+                node_group.inputs[input_name].default_value = float(original_node_input.default_value)
 
     return node_found
 
