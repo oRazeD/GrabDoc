@@ -161,20 +161,6 @@ def export_and_preview_setup(self, context):
     bg_plane.hide_render = not grabDoc.collRendered
     bg_plane.hide_set(False)
 
-    self.ob_hidden_render_list = []
-    self.ob_hidden_vp_list = []
-    
-    # Save & Set - Non-rendered objects visibility (self.rendered_obs defined in bad_setup_check)
-    for ob in context.view_layer.objects:
-        if ob.type in {'MESH', 'CURVE'} and not ob.name in self.rendered_obs:
-            if not ob.hide_render:
-                self.ob_hidden_render_list.append(ob.name)
-            ob.hide_render = True
-
-            if not ob.hide_viewport:
-                self.ob_hidden_vp_list.append(ob.name)
-            ob.hide_viewport = True
-
 
 def export_refresh(self, context) -> None:
     scene = context.scene
@@ -256,18 +242,6 @@ def export_refresh(self, context) -> None:
 
     if self.savedRefSelection:
         grabDoc.refSelection = bpy.data.images[self.savedRefSelection]
-
-        ## OBJECT VISIBILITY ##
-
-    # Refresh - Non-rendered objects visibility
-    for ob in context.view_layer.objects:
-        # Unhide in render
-        if ob.name in self.ob_hidden_render_list:
-            ob.hide_render = False
-        
-        # Unhide in viewport
-        if ob.name in self.ob_hidden_vp_list:
-            ob.hide_viewport = False
 
 
 def reimport_as_material(suffix) -> None:
