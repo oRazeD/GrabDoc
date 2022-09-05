@@ -321,27 +321,21 @@ def add_ng_to_mat(self, context, setup_type: str) -> None:
             # Cycle through all material slots
             for slot in ob.material_slots:
                 mat_slot = bpy.data.materials.get(slot.name)
+                mat_slot.use_nodes = True
 
-                output_node = None
-                original_node = None
+                if setup_type in mat_slot.node_tree.nodes:
+                    continue
 
-                if not mat_slot.use_nodes:
-                    mat_slot.use_nodes = True
+                # Get materials Output Material node(s)
+                output_nodes = [mat_node for mat_node in mat_slot.node_tree.nodes if mat_node.type == 'OUTPUT_MATERIAL']
+                if not len(output_nodes):
+                    output_nodes.append(mat_slot.node_tree.nodes.new('ShaderNodeOutputMaterial'))
 
-                if not setup_type in mat_slot.node_tree.nodes:
-                    # Get materials Output Material node
-                    for mat_node in mat_slot.node_tree.nodes:
-                        if mat_node.type == 'OUTPUT_MATERIAL' and mat_node.is_active_output:
-                            output_node = mat_slot.node_tree.nodes.get(mat_node.name)
-                            break
-
-                    if not output_node:
-                        output_node = mat_slot.node_tree.nodes.new('ShaderNodeOutputMaterial')
-
+                for output_node in output_nodes:
                     # Add node group to material
                     GD_node_group = mat_slot.node_tree.nodes.new('ShaderNodeGroup')
                     GD_node_group.node_tree = bpy.data.node_groups[setup_type]
-                    GD_node_group.location = (output_node.location[0], output_node.location[1] - 140)
+                    GD_node_group.location = (output_node.location[0], output_node.location[1] - 160)
                     GD_node_group.name = bpy.data.node_groups[setup_type].name
                     GD_node_group.hide = True
 
@@ -352,11 +346,20 @@ def add_ng_to_mat(self, context, setup_type: str) -> None:
 
                             # Link original connections to the Node Group
                             if node_input.name == 'Surface':
-                                mat_slot.node_tree.links.new(GD_node_group.inputs["Saved Surface"], original_node.outputs[link.from_socket.name])
+                                mat_slot.node_tree.links.new(
+                                    GD_node_group.inputs["Saved Surface"],
+                                    original_node.outputs[link.from_socket.name]
+                                )
                             elif node_input.name == 'Volume':
-                                mat_slot.node_tree.links.new(GD_node_group.inputs["Saved Volume"], original_node.outputs[link.from_socket.name])
+                                mat_slot.node_tree.links.new(
+                                    GD_node_group.inputs["Saved Volume"],
+                                    original_node.outputs[link.from_socket.name]
+                                )
                             elif node_input.name == 'Displacement':
-                                mat_slot.node_tree.links.new(GD_node_group.inputs["Saved Displacement"], original_node.outputs[link.from_socket.name])
+                                mat_slot.node_tree.links.new(
+                                    GD_node_group.inputs["Saved Displacement"],
+                                    original_node.outputs[link.from_socket.name]
+                                )
 
                             # Links for maps that feed information from the Principled BSDF
                             if setup_type in {'GD_Albedo', 'GD_Roughness', 'GD_Metalness', 'GD_Normal'} and original_node.type == 'BSDF_PRINCIPLED':
@@ -425,21 +428,30 @@ def add_ng_to_mat(self, context, setup_type: str) -> None:
 def cleanup_ng_from_mat(setup_type: str) -> None:
     '''Remove node group & return original links if they exist'''
     for mat in bpy.data.materials:
-        if not mat.use_nodes:
-            mat.use_nodes = True
+        mat.use_nodes = True
         
         # If there is a GrabDoc created material, remove it
         if mat.name == 'GD_Material (do not touch contents)':
             bpy.data.materials.remove(mat)
-
+            continue
+        elif setup_type not in mat.node_tree.nodes:
+            continue
+        
         # If a material has a GrabDoc created Node Group, remove it
-        elif setup_type in mat.node_tree.nodes:
-            for mat_node in mat.node_tree.nodes:
-                if mat_node.type == 'OUTPUT_MATERIAL' and mat_node.is_active_output:
-                    output_node = mat.node_tree.nodes.get(mat_node.name)
+        GD_node_groups = [mat_node for mat_node in mat.node_tree.nodes if mat_node.name.startswith(setup_type)]
+        for GD_node_group in GD_node_groups:
+            output_node = None
+            for output in GD_node_group.outputs:
+                for link in output.links:
+                    if link.to_node.type == 'OUTPUT_MATERIAL':
+                        output_node = link.to_node
+                        break
+                if output_node is not None:
                     break
 
-            GD_node_group = mat.node_tree.nodes.get(setup_type)
+            if output_node is None:
+                mat.node_tree.nodes.remove(GD_node_group)
+                continue
 
             for input in GD_node_group.inputs:
                 for link in input.links:
@@ -447,12 +459,21 @@ def cleanup_ng_from_mat(setup_type: str) -> None:
                     original_node_socket = link.from_socket.name
 
                     if input.name == 'Saved Surface':
-                        mat.node_tree.links.new(output_node.inputs["Surface"], original_node_connection.outputs[original_node_socket])
+                        mat.node_tree.links.new(
+                            output_node.inputs["Surface"],
+                            original_node_connection.outputs[original_node_socket]
+                        )
                     elif input.name == 'Saved Volume':
-                        mat.node_tree.links.new(output_node.inputs["Volume"], original_node_connection.outputs[original_node_socket])
+                        mat.node_tree.links.new(
+                            output_node.inputs["Volume"],
+                            original_node_connection.outputs[original_node_socket]
+                        )
                     elif input.name == 'Saved Displacement':
-                        mat.node_tree.links.new(output_node.inputs["Displacement"], original_node_connection.outputs[original_node_socket])
-            
+                        mat.node_tree.links.new(
+                            output_node.inputs["Displacement"],
+                            original_node_connection.outputs[original_node_socket]
+                        )
+        
             mat.node_tree.nodes.remove(GD_node_group)
 
 
