@@ -1,6 +1,7 @@
 
 import bpy
 from bpy import types as type
+from .gd_constants import *
 
 
 def ng_setup() -> None:
@@ -8,9 +9,8 @@ def ng_setup() -> None:
     grabDoc = bpy.context.scene.grabDoc
 
     # NORMALS
-    if not 'GD_Normal' in bpy.data.node_groups:
-        # Create node group
-        ng_normal = bpy.data.node_groups.new('GD_Normal', 'ShaderNodeTree')
+    if not NG_NORMAL_NAME in bpy.data.node_groups:
+        ng_normal = bpy.data.node_groups.new(NG_NORMAL_NAME, 'ShaderNodeTree')
         ng_normal.use_fake_user = True
 
         # Create group inputs/outputs
@@ -83,9 +83,8 @@ def ng_setup() -> None:
         link.new(mix_shader_node.inputs[2], vec_add_node.outputs['Vector'])
 
     # AMBIENT OCCLUSION
-    if not 'GD_Ambient Occlusion' in bpy.data.node_groups:
-        # Create node group
-        ng_ao = bpy.data.node_groups.new('GD_Ambient Occlusion', 'ShaderNodeTree')
+    if not NG_AO_NAME in bpy.data.node_groups:
+        ng_ao = bpy.data.node_groups.new(NG_AO_NAME, 'ShaderNodeTree')
         ng_ao.use_fake_user = True
 
         # Create group inputs/outputs
@@ -107,17 +106,15 @@ def ng_setup() -> None:
         emission_node = ng_ao.nodes.new('ShaderNodeEmission')
         emission_node.location = (-200,0)
 
-        # Link materials
+        # Link nodes
         link = ng_ao.links
-
         link.new(gamma_node.inputs["Color"], ao_node.outputs["Color"])
         link.new(emission_node.inputs["Color"], gamma_node.outputs["Color"])
         link.new(group_outputs.inputs["Output"], emission_node.outputs["Emission"])
 
     # HEIGHT
-    if not 'GD_Height' in bpy.data.node_groups:
-        # Create node group
-        ng_height = bpy.data.node_groups.new('GD_Height', 'ShaderNodeTree')
+    if not NG_HEIGHT_NAME in bpy.data.node_groups:
+        ng_height = bpy.data.node_groups.new(NG_HEIGHT_NAME, 'ShaderNodeTree')
         ng_height.use_fake_user = True
     
         # Create group inputs/outputs
@@ -139,17 +136,15 @@ def ng_setup() -> None:
         ramp_node.color_ramp.elements[1].color = (0, 0, 0, 1)
         ramp_node.location = (-400,0)
 
-        # Link materials
+        # Link nodes
         link = ng_height.links
-
         link.new(map_range_node.inputs["Value"], camera_data_node.outputs["View Z Depth"])
         link.new(ramp_node.inputs["Fac"], map_range_node.outputs["Result"])
         link.new(group_outputs.inputs["Output"], ramp_node.outputs["Color"])
 
     # ALPHA
-    if not 'GD_Alpha' in bpy.data.node_groups:
-        # Create node group
-        ng_alpha = bpy.data.node_groups.new('GD_Alpha', 'ShaderNodeTree')
+    if not NG_ALPHA_NAME in bpy.data.node_groups:
+        ng_alpha = bpy.data.node_groups.new(NG_ALPHA_NAME, 'ShaderNodeTree')
         ng_alpha.use_fake_user = True
     
         # Create group input/outputs
@@ -163,12 +158,10 @@ def ng_setup() -> None:
         camera_data_node = ng_alpha.nodes.new('ShaderNodeCameraData')
         camera_data_node.location = (-800,0)
 
-        gd_camera_ob_z = bpy.data.objects.get('GD_Trim Camera').location[2]
+        gd_camera_ob_z = bpy.data.objects.get(TRIM_CAMERA_NAME).location[2]
 
         map_range_node = ng_alpha.nodes.new('ShaderNodeMapRange')
         map_range_node.location = (-600,0)
-
-        map_range_node = bpy.data.node_groups["GD_Alpha"].nodes.get('Map Range')
         map_range_node.inputs[1].default_value = gd_camera_ob_z - .00001
         map_range_node.inputs[2].default_value = gd_camera_ob_z
 
@@ -178,18 +171,16 @@ def ng_setup() -> None:
         emission_node = ng_alpha.nodes.new('ShaderNodeEmission')
         emission_node.location = (-200,0)
 
-        # Link materials
+        # Link nodes
         link = ng_alpha.links
-
         link.new(map_range_node.inputs["Value"], camera_data_node.outputs["View Z Depth"])
         link.new(invert_node.inputs["Color"], map_range_node.outputs["Result"])
         link.new(emission_node.inputs["Color"], invert_node.outputs["Color"])
         link.new(group_outputs.inputs["Output"], emission_node.outputs["Emission"])
 
     # ALBEDO
-    if not 'GD_Albedo' in bpy.data.node_groups:
-        # Create node group
-        ng_albedo = bpy.data.node_groups.new('GD_Albedo', 'ShaderNodeTree')
+    if not NG_ALBEDO_NAME in bpy.data.node_groups:
+        ng_albedo = bpy.data.node_groups.new(NG_ALBEDO_NAME, 'ShaderNodeTree')
         ng_albedo.use_fake_user = True
     
         # Create group inputs/outputs
@@ -205,16 +196,14 @@ def ng_setup() -> None:
         emission_node = ng_albedo.nodes.new('ShaderNodeEmission')
         emission_node.location = (-200,0)
 
-        # Link materials
+        # Link nodes
         link = ng_albedo.links
-
         link.new(emission_node.inputs["Color"], group_inputs.outputs["Color Input"])
         link.new(group_outputs.inputs["Output"], emission_node.outputs["Emission"])
 
     # ROUGHNESS
-    if not 'GD_Roughness' in bpy.data.node_groups:
-        # Create node group
-        ng_roughness = bpy.data.node_groups.new('GD_Roughness', 'ShaderNodeTree')
+    if not NG_ROUGHNESS_NAME in bpy.data.node_groups:
+        ng_roughness = bpy.data.node_groups.new(NG_ROUGHNESS_NAME, 'ShaderNodeTree')
         ng_roughness.use_fake_user = True
     
         # Create group inputs/outputs
@@ -230,16 +219,14 @@ def ng_setup() -> None:
         emission_node = ng_roughness.nodes.new('ShaderNodeEmission')
         emission_node.location = (-200,0)
 
-        # Link materials
+        # Link nodes
         link = ng_roughness.links
-
         link.new(emission_node.inputs["Color"], group_inputs.outputs["Roughness Input"])
         link.new(group_outputs.inputs["Output"], emission_node.outputs["Emission"])
 
     # METALNESS
-    if not 'GD_Metalness' in bpy.data.node_groups:
-        # Create node group
-        ng_roughness = bpy.data.node_groups.new('GD_Metalness', 'ShaderNodeTree')
+    if not NG_METALNESS_NAME in bpy.data.node_groups:
+        ng_roughness = bpy.data.node_groups.new(NG_METALNESS_NAME, 'ShaderNodeTree')
         ng_roughness.use_fake_user = True
     
         # Create group inputs/outputs
@@ -255,16 +242,15 @@ def ng_setup() -> None:
         emission_node = ng_roughness.nodes.new('ShaderNodeEmission')
         emission_node.location = (-200,0)
 
-        # Link materials
+        # Link nodes
         link = ng_roughness.links
-
         link.new(emission_node.inputs["Color"], group_inputs.outputs["Metalness Input"])
         link.new(group_outputs.inputs["Output"], emission_node.outputs["Emission"])
 
 
 def create_apply_ng_mat(ob: type.Object) -> None:
     '''Create & apply a material to objects without active materials'''
-    mat_name = 'GD_Material (do not touch contents)'
+    mat_name = GD_MATERIAL_NAME
 
     # Reuse GrabDoc created material if it already exists
     if mat_name in bpy.data.materials:
@@ -313,7 +299,7 @@ def bsdf_link_factory(input_name: list, node_group: type.ShaderNodeGroup, origin
 def add_ng_to_mat(self, context, setup_type: str) -> None:
     '''Add corresponding node groups to all materials/objects'''
     for ob in context.view_layer.objects:
-        if ob.name in self.rendered_obs and ob.name != "GD_Orient Guide":
+        if ob.name in self.rendered_obs and ob.name != ORIENT_GUIDE_NAME:
             # If no material slots found or empty mat slots found, assign a material to it
             if not len(ob.material_slots) or '' in ob.material_slots:
                 create_apply_ng_mat(ob)
@@ -362,11 +348,11 @@ def add_ng_to_mat(self, context, setup_type: str) -> None:
                                 )
 
                             # Links for maps that feed information from the Principled BSDF
-                            if setup_type in {'GD_Albedo', 'GD_Roughness', 'GD_Metalness', 'GD_Normal'} and original_node.type == 'BSDF_PRINCIPLED':
+                            if setup_type in {NG_ALBEDO_NAME, NG_ROUGHNESS_NAME, NG_METALNESS_NAME, NG_NORMAL_NAME} and original_node.type == 'BSDF_PRINCIPLED':
                                 node_found = False
 
                                 for original_node_input in original_node.inputs:
-                                    if setup_type == 'GD_Albedo' and original_node_input.name == 'Base Color':
+                                    if setup_type == NG_ALBEDO_NAME and original_node_input.name == 'Base Color':
                                         node_found = bsdf_link_factory(
                                             input_name='Color Input',
                                             node_group=GD_node_group,
@@ -374,7 +360,7 @@ def add_ng_to_mat(self, context, setup_type: str) -> None:
                                             mat_slot=mat_slot
                                         )
 
-                                    elif setup_type == 'GD_Roughness' and original_node_input.name == 'Roughness':
+                                    elif setup_type == NG_ROUGHNESS_NAME and original_node_input.name == 'Roughness':
                                         node_found = bsdf_link_factory(
                                             input_name='Roughness Input',
                                             node_group=GD_node_group,
@@ -382,7 +368,7 @@ def add_ng_to_mat(self, context, setup_type: str) -> None:
                                             mat_slot=mat_slot
                                         )
 
-                                    elif setup_type == 'GD_Metalness' and original_node_input.name == 'Metallic':
+                                    elif setup_type == NG_METALNESS_NAME and original_node_input.name == 'Metallic':
                                         node_found = bsdf_link_factory(
                                             input_name='Metalness Input',
                                             node_group=GD_node_group,
@@ -390,7 +376,7 @@ def add_ng_to_mat(self, context, setup_type: str) -> None:
                                             mat_slot=mat_slot
                                         )
 
-                                    elif setup_type == 'GD_Normal' and original_node_input.name in {'Normal', 'Alpha'}:
+                                    elif setup_type == NG_NORMAL_NAME and original_node_input.name in {'Normal', 'Alpha'}:
                                         node_found = bsdf_link_factory(
                                             input_name=original_node_input.name,
                                             node_group=GD_node_group,
@@ -409,7 +395,7 @@ def add_ng_to_mat(self, context, setup_type: str) -> None:
                                     elif node_found:
                                         break
 
-                                if not node_found and setup_type != 'GD_Normal':
+                                if not node_found and setup_type != NG_NORMAL_NAME:
                                     self.report({'WARNING'}, "Material slots found without links & will be rendered using the sockets default value.")
 
                     # Remove existing links on the output node
@@ -431,7 +417,7 @@ def cleanup_ng_from_mat(setup_type: str) -> None:
         mat.use_nodes = True
         
         # If there is a GrabDoc created material, remove it
-        if mat.name == 'GD_Material (do not touch contents)':
+        if mat.name == GD_MATERIAL_NAME:
             bpy.data.materials.remove(mat)
             continue
         elif setup_type not in mat.node_tree.nodes:

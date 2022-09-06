@@ -2,6 +2,7 @@
 import bpy, traceback, os
 from bpy.types import Operator
 from .render_setup_utils import get_rendered_objects
+from .gd_constants import *
 
 
 def export_bg_plane(context) -> None:
@@ -15,29 +16,29 @@ def export_bg_plane(context) -> None:
     bpy.ops.object.select_all(action='DESELECT')
 
     # Select bg plane, export and deselect bg plane
-    bpy.data.collections["GrabDoc (do not touch contents)"].hide_select = False
-    bpy.data.objects["GD_Background Plane"].hide_select = False
-    bpy.data.objects["GD_Background Plane"].select_set(True)
+    bpy.data.collections[COLL_NAME].hide_select = False
+    bpy.data.objects[BG_PLANE_NAME].hide_select = False
+    bpy.data.objects[BG_PLANE_NAME].select_set(True)
     
     bpy.ops.export_scene.fbx(
         filepath=os.path.join(bpy.path.abspath(grabDoc.exportPath), grabDoc.exportName + '_plane.fbx'),
         use_selection=True
     )
 
-    bpy.data.objects["GD_Background Plane"].select_set(False)
+    bpy.data.objects[BG_PLANE_NAME].select_set(False)
 
     # Refresh original selection
     for ob in savedSelection:
         ob.select_set(True)
 
     if not grabDoc.collSelectable:
-        bpy.data.collections["GrabDoc (do not touch contents)"].hide_select = False
+        bpy.data.collections[COLL_NAME].hide_select = False
 
 
 def proper_scene_setup() -> bool:
     '''Look for grabdoc objects to decide if the scene is setup correctly'''
-    if "GrabDoc (do not touch contents)" in bpy.data.collections:
-        if "GD_Background Plane" in bpy.context.scene.objects:
+    if COLL_NAME in bpy.data.collections:
+        if BG_PLANE_NAME in bpy.context.scene.objects:
             return True
     return False
 
@@ -67,13 +68,13 @@ def bad_setup_check(self, context, active_export: bool, report_value=False, repo
     self.rendered_obs = get_rendered_objects(context)
 
     # Look for Trim Camera (only thing required to render)
-    if not "GD_Trim Camera" in context.view_layer.objects and not report_value:
+    if not TRIM_CAMERA_NAME in context.view_layer.objects and not report_value:
         report_value = True
         report_string = "Trim Camera not found, refresh the scene to set everything up properly."
 
     # Check for no objects in manual collection
     if grabDoc.onlyRenderColl and not report_value:
-        if not len(bpy.data.collections["GrabDoc Objects (put objects here)"].objects):
+        if not len(bpy.data.collections[COLL_OB_NAME].objects):
             report_value = True
             report_string = "You have 'Use Bake Group' turned on, but no objects are inside the corresponding collection."
 
@@ -159,7 +160,7 @@ class GRABDOC_OT_view_cam(OpInfo, Operator):
     from_modal: bpy.props.BoolProperty(default=False, options={'HIDDEN'})
 
     def execute(self, context):
-        context.scene.camera = bpy.data.objects["GD_Trim Camera"]
+        context.scene.camera = bpy.data.objects[TRIM_CAMERA_NAME]
         
         try:
             if self.from_modal:

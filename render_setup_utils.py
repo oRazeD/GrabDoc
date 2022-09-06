@@ -1,11 +1,12 @@
 
 import bpy
 from mathutils import Vector
+from .gd_constants import *
 
 
 def get_rendered_objects(context) -> set:
     '''Generate a list of all objects that will be rendered based on its origin position in world space'''
-    rendered_obs = ['GD_Background Plane']
+    rendered_obs = [BG_PLANE_NAME]
 
     if context.scene.grabDoc.onlyRenderColl:
         for coll in bpy.data.collections:
@@ -34,7 +35,7 @@ def get_rendered_objects(context) -> set:
 
 def is_in_viewing_spectrum(vec_check: Vector) -> bool:
     '''Decide whether a given object is within the cameras viewing spectrum'''
-    bg_plane = bpy.data.objects["GD_Background Plane"]
+    bg_plane = bpy.data.objects[BG_PLANE_NAME]
 
     vec1 = Vector((bg_plane.dimensions.x * -1.25 + bg_plane.location[0], bg_plane.dimensions.y * -1.25 + bg_plane.location[1], -100))
     vec2 = Vector((bg_plane.dimensions.x * 1.25 + bg_plane.location[0], bg_plane.dimensions.y * 1.25 + bg_plane.location[1], 100))
@@ -47,12 +48,11 @@ def is_in_viewing_spectrum(vec_check: Vector) -> bool:
 
 def find_tallest_object(self, context) -> None:
     '''Find the tallest points in the viewlayer by looping through objects to find the highest vertex on the Z axis'''
-    all_tallest_verts = []
-
     depsgraph = context.evaluated_depsgraph_get()
 
+    all_tallest_verts = []
     for ob in context.view_layer.objects:
-        if ob.name in self.rendered_obs and ob.type in {'MESH', 'CURVE', 'SURFACE', 'FONT', 'META'} and not ob.name.startswith('GD_'):
+        if ob.name in self.rendered_obs and ob.type in {'MESH', 'CURVE', 'SURFACE', 'FONT', 'META'} and not ob.name.startswith(GD_PREFIX):
             # Invoke to_mesh() for evaluated object.
             ob_eval = ob.evaluated_get(depsgraph)
             mesh_from_eval = ob_eval.to_mesh()
@@ -71,7 +71,7 @@ def find_tallest_object(self, context) -> None:
 
     # Set the heights guide to the tallest found point
     if len(all_tallest_verts):
-        context.scene.grabDoc.guideHeight = max(all_tallest_verts) - bpy.data.objects.get('GD_Background Plane').location[2]
+        context.scene.grabDoc.guideHeight = max(all_tallest_verts) - bpy.data.objects.get(BG_PLANE_NAME).location[2]
 
 
 # ##### BEGIN GPL LICENSE BLOCK #####

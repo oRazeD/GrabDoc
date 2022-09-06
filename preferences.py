@@ -8,6 +8,7 @@ from .scene_setup_utils import scene_setup
 from .render_setup_utils import get_rendered_objects
 from .addon_updater import Updater as updater
 from .__init__ import bl_info
+from .gd_constants import *
 
 
 ################################################################################################################
@@ -199,13 +200,13 @@ class GRABDOC_property_group(bpy.types.PropertyGroup):
     def update_scaling_set(self, context):
         scene_setup(self, context)
     
-        gd_camera_ob_z = bpy.data.objects.get('GD_Trim Camera').location[2]
+        gd_camera_ob_z = bpy.data.objects.get(TRIM_CAMERA_NAME).location[2]
 
-        map_range_node = bpy.data.node_groups["GD_Height"].nodes.get('Map Range')
+        map_range_node = bpy.data.node_groups[NG_HEIGHT_NAME].nodes.get('Map Range')
         map_range_node.inputs[1].default_value = -self.guideHeight + gd_camera_ob_z
         map_range_node.inputs[2].default_value = gd_camera_ob_z
 
-        map_range_alpha_node = bpy.data.node_groups["GD_Alpha"].nodes.get('Map Range')
+        map_range_alpha_node = bpy.data.node_groups[NG_ALPHA_NAME].nodes.get('Map Range')
         map_range_alpha_node.inputs[1].default_value = gd_camera_ob_z - .00001
         map_range_alpha_node.inputs[2].default_value = gd_camera_ob_z
 
@@ -229,7 +230,7 @@ class GRABDOC_property_group(bpy.types.PropertyGroup):
 
     def update_useTextureNormals(self, context):
         if self.modalState:
-            ng_normal = bpy.data.node_groups["GD_Normal"]
+            ng_normal = bpy.data.node_groups[NG_NORMAL_NAME]
             vec_transform_node = ng_normal.nodes.get('Vector Transform')
             group_output_node = ng_normal.nodes.get('Group Output')
 
@@ -250,15 +251,15 @@ class GRABDOC_property_group(bpy.types.PropertyGroup):
             scene_shading.curvature_valley_factor = self.valleyCurvature
 
     def update_flip_y(self, context):
-        vec_multiply_node = bpy.data.node_groups["GD_Normal"].nodes.get('Vector Math')
+        vec_multiply_node = bpy.data.node_groups[NG_NORMAL_NAME].nodes.get('Vector Math')
         vec_multiply_node.inputs[1].default_value[1] = -.5 if self.flipYNormals else .5
 
     def update_occlusion_gamma(self, context):
-        gamma_node = bpy.data.node_groups["GD_Ambient Occlusion"].nodes.get('Gamma')
+        gamma_node = bpy.data.node_groups[NG_AO_NAME].nodes.get('Gamma')
         gamma_node.inputs[1].default_value = self.gammaOcclusion
 
     def update_occlusion_distance(self, context):
-        ao_node = bpy.data.node_groups["GD_Ambient Occlusion"].nodes.get('Ambient Occlusion')
+        ao_node = bpy.data.node_groups[NG_AO_NAME].nodes.get('Ambient Occlusion')
         ao_node.inputs[1].default_value = self.distanceOcclusion
 
     def update_manual_height_range(self, context):
@@ -270,16 +271,16 @@ class GRABDOC_property_group(bpy.types.PropertyGroup):
 
                 find_tallest_object(self, context)
                 
-            bpy.data.objects["GD_Background Plane"].active_material = bpy.data.materials['GD_Material (do not touch contents)']
+            bpy.data.objects[BG_PLANE_NAME].active_material = bpy.data.materials[GD_MATERIAL_NAME]
 
     def update_height_guide(self, context):
-        gd_camera_ob_z = bpy.data.objects.get('GD_Trim Camera').location[2]
+        gd_camera_ob_z = bpy.data.objects.get(TRIM_CAMERA_NAME).location[2]
 
-        map_range_node = bpy.data.node_groups["GD_Height"].nodes.get('Map Range')
+        map_range_node = bpy.data.node_groups[NG_HEIGHT_NAME].nodes.get('Map Range')
         map_range_node.inputs[1].default_value = gd_camera_ob_z + -self.guideHeight
         map_range_node.inputs[2].default_value = gd_camera_ob_z
 
-        ramp_node = bpy.data.node_groups["GD_Height"].nodes.get('ColorRamp')
+        ramp_node = bpy.data.node_groups[NG_HEIGHT_NAME].nodes.get('ColorRamp')
         ramp_node.color_ramp.elements[0].color = (0, 0, 0, 1) if self.invertMaskHeight else (1, 1, 1, 1)
         ramp_node.color_ramp.elements[1].color = (1, 1, 1, 1) if self.invertMaskHeight else (0, 0, 0, 1)
         ramp_node.location = (-400,0)
@@ -289,21 +290,21 @@ class GRABDOC_property_group(bpy.types.PropertyGroup):
 
         # Update here so that it refreshes live in the VP
         if self.modalState:
-            bpy.data.objects["GD_Background Plane"].active_material = bpy.data.materials['GD_Material (do not touch contents)']
+            bpy.data.objects[BG_PLANE_NAME].active_material = bpy.data.materials[GD_MATERIAL_NAME]
 
     def update_alpha(self, context):
-        gd_camera_ob_z = bpy.data.objects.get('GD_Trim Camera').location[2]
+        gd_camera_ob_z = bpy.data.objects.get(TRIM_CAMERA_NAME).location[2]
 
-        map_range_node = bpy.data.node_groups["GD_Alpha"].nodes.get('Map Range')
+        map_range_node = bpy.data.node_groups[NG_ALPHA_NAME].nodes.get('Map Range')
         map_range_node.inputs[1].default_value = gd_camera_ob_z - .00001
         map_range_node.inputs[2].default_value = gd_camera_ob_z
         
-        invert_node = bpy.data.node_groups["GD_Alpha"].nodes.get('Invert')
+        invert_node = bpy.data.node_groups[NG_ALPHA_NAME].nodes.get('Invert')
         invert_node.inputs[0].default_value = 0 if self.invertMaskAlpha else 1
 
         # Update here so that it refreshes live in the VP
         if self.modalState:
-            bpy.data.objects["GD_Background Plane"].active_material = bpy.data.materials['GD_Material (do not touch contents)']
+            bpy.data.objects[BG_PLANE_NAME].active_material = bpy.data.materials[GD_MATERIAL_NAME]
 
     def update_engine(self, context):
         if self.modalState:

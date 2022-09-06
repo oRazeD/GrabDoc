@@ -3,6 +3,7 @@ import bpy, os
 from .node_group_utils import add_ng_to_mat
 from .render_setup_utils import find_tallest_object
 from .generic_utils import get_format_extension
+from .gd_constants import *
 
 
 ################################################################################################################
@@ -24,7 +25,7 @@ def export_and_preview_setup(self, context):
                 space.use_local_camera = False
                 break
 
-    scene.camera = bpy.data.objects.get("GD_Trim Camera")
+    scene.camera = bpy.data.objects.get(TRIM_CAMERA_NAME)
 
         ## VIEW LAYER PROPERTIES ##
 
@@ -155,7 +156,7 @@ def export_and_preview_setup(self, context):
     
         ## OBJECT VISIBILITY ##
 
-    bg_plane = bpy.data.objects.get("GD_Background Plane")
+    bg_plane = bpy.data.objects.get(BG_PLANE_NAME)
    
     bg_plane.hide_viewport = not grabDoc.collVisible
     bg_plane.hide_render = not grabDoc.collRendered
@@ -302,7 +303,7 @@ def normals_setup(self, context) -> None:
 
     scene.display_settings.display_device = 'None'
 
-    ng_normal = bpy.data.node_groups["GD_Normal"]
+    ng_normal = bpy.data.node_groups[NG_NORMAL_NAME]
     vec_transform_node = ng_normal.nodes.get('Vector Transform')
     group_output_node = ng_normal.nodes.get('Group Output')
 
@@ -315,7 +316,7 @@ def normals_setup(self, context) -> None:
         link.new(vec_transform_node.inputs["Vector"], ng_normal.nodes.get('Bevel.001').outputs["Normal"])
         link.new(group_output_node.inputs["Output"], ng_normal.nodes.get('Vector Math.001').outputs["Vector"])
 
-    add_ng_to_mat(self, context, setup_type='GD_Normal')
+    add_ng_to_mat(self, context, setup_type=NG_NORMAL_NAME)
 
 
 # CURVATURE
@@ -341,11 +342,8 @@ def curvature_setup(self, context) -> None:
     self.savedCurveValleyFactor = scene_shading.curvature_valley_factor
     self.savedRidgeDistance = scene.display.matcap_ssao_distance
 
-    self.savedSingleList = [] # List for single_color because saving the variable on its own isn't enough for whatever reason
+    self.savedSingleList = [*scene_shading.single_color] # Unpack RGB values
 
-    for i in scene_shading.single_color:
-        self.savedSingleList.append(i)
-    
     scene_shading.show_cavity = True
     scene_shading.cavity_type = 'BOTH'
     scene_shading.cavity_ridge_factor = scene_shading.curvature_ridge_factor = grabDoc.ridgeCurvature
@@ -369,7 +367,7 @@ def curvature_refresh(self, context) -> None:
 
     context.scene.display.matcap_ssao_distance = self.savedRidgeDistance
     
-    bpy.data.objects["GD_Background Plane"].color[3] = 1
+    bpy.data.objects[BG_PLANE_NAME].color[3] = 1
 
 
 # AMBIENT OCCLUSION
@@ -394,7 +392,7 @@ def occlusion_setup(self, context) -> None:
 
     scene.view_settings.look = grabDoc.contrastOcclusion.replace('_', ' ')
 
-    add_ng_to_mat(self, context, setup_type='GD_Ambient Occlusion')
+    add_ng_to_mat(self, context, setup_type=NG_AO_NAME)
 
 
 def occlusion_refresh(self, context) -> None:
@@ -419,7 +417,7 @@ def height_setup(self, context) -> None:
 
     scene.view_settings.look = grabDoc.contrastHeight.replace('_', ' ')
 
-    add_ng_to_mat(self, context, setup_type='GD_Height')
+    add_ng_to_mat(self, context, setup_type=NG_HEIGHT_NAME)
 
     if grabDoc.rangeTypeHeight == 'AUTO':
         find_tallest_object(self, context)
@@ -450,7 +448,7 @@ def alpha_setup(self, context) -> None:
     scene.eevee.taa_render_samples = scene.eevee.taa_samples = scene.grabDoc.samplesAlpha
     scene.display_settings.display_device = 'None'
 
-    add_ng_to_mat(self, context, setup_type='GD_Alpha')
+    add_ng_to_mat(self, context, setup_type=NG_ALPHA_NAME)
 
 
 # ALBEDO
@@ -467,7 +465,7 @@ def albedo_setup(self, context) -> None:
 
     scene.display_settings.display_device = 'sRGB'
 
-    add_ng_to_mat(self, context, setup_type='GD_Albedo')
+    add_ng_to_mat(self, context, setup_type=NG_ALBEDO_NAME)
 
 
 # ROUGHNESS
@@ -484,7 +482,7 @@ def roughness_setup(self, context) -> None:
 
     scene.display_settings.display_device = 'sRGB'
 
-    add_ng_to_mat(self, context, setup_type='GD_Roughness')
+    add_ng_to_mat(self, context, setup_type=NG_ROUGHNESS_NAME)
 
 
 # METALNESS
@@ -501,7 +499,7 @@ def metalness_setup(self, context) -> None:
 
     scene.display_settings.display_device = 'sRGB'
 
-    add_ng_to_mat(self, context, setup_type='GD_Metalness')
+    add_ng_to_mat(self, context, setup_type=NG_METALNESS_NAME)
 
 
 # ##### BEGIN GPL LICENSE BLOCK #####

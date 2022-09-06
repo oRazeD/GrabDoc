@@ -1,7 +1,9 @@
 
 import bpy, os, subprocess, json
+from .gd_constants import *
 from .generic_utils import OpInfo, bad_setup_check, export_bg_plane
 from .render_setup_utils import find_tallest_object
+from .gd_constants import *
 
 
 ################################################################################################################
@@ -136,27 +138,26 @@ class GrabDoc_OT_send_to_marmo(OpInfo, bpy.types.Operator):
         for ob in context.view_layer.objects:
             ob.select_set(False)
 
-            if ob.name in self.rendered_obs and ob.visible_get() and ob.name != 'GD_Background Plane':
+            if ob.name in self.rendered_obs and ob.visible_get() and ob.name != BG_PLANE_NAME:
                 ob.select_set(True)
                 
-                ob.name = f"GD_high {ob.name}"
+                ob.name = f"{GD_HIGH_PREFIX} {ob.name}"
 
         # Get background plane low and high poly
-        bg_plane_ob = bpy.data.objects.get('GD_Background Plane')
-        bg_plane_ob.name = "GD_low GD_Background Plane"
-        bpy.data.collections["GrabDoc (do not touch contents)"].hide_select = bg_plane_ob.hide_select = False
+        bg_plane_ob = bpy.data.objects.get(BG_PLANE_NAME)
+        bg_plane_ob.name = f"{GD_LOW_PREFIX} {BG_PLANE_NAME}"
+        bpy.data.collections[COLL_NAME].hide_select = bg_plane_ob.hide_select = False
         bg_plane_ob.select_set(True)
 
         # Copy the object, link into the scene & rename as high poly
         bg_plane_ob_copy = bg_plane_ob.copy()
         context.collection.objects.link(bg_plane_ob_copy)
-        bg_plane_ob_copy.name = "GD_high GD_Background Plane"
+        bg_plane_ob_copy.name = f"{GD_HIGH_PREFIX} {BG_PLANE_NAME}"
         bg_plane_ob_copy.select_set(True)
 
         # Remove reference material
-        for mat in bpy.data.materials:
-            if mat.name == "GD_Reference":
-                bpy.data.materials.remove(mat)
+        if REFERENCE_NAME in bpy.data.materials:
+            bpy.data.materials.remove(bpy.data.materials.get(REFERENCE_NAME))
 
         # Export models
         bpy.ops.export_scene.fbx(
@@ -170,13 +171,13 @@ class GrabDoc_OT_send_to_marmo(OpInfo, bpy.types.Operator):
         for ob in context.selected_objects:
             ob.select_set(False)
 
-            if ob.name == "GD_low GD_Background Plane":
-                ob.name = "GD_Background Plane"
+            if ob.name == f"{GD_LOW_PREFIX} {BG_PLANE_NAME}":
+                ob.name = BG_PLANE_NAME
             else:
-                ob.name = ob.name[8:]
+                ob.name = ob.name[8:] # TODO what does this represent?
 
         if not grabDoc.collSelectable:
-            bpy.data.collections["GrabDoc (do not touch contents)"].hide_select = True
+            bpy.data.collections[COLL_NAME].hide_select = True
 
         for ob_name in saved_selected:
             ob = context.scene.objects.get(ob_name)
