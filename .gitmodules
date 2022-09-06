@@ -1,0 +1,3 @@
+[submodule "razeds_bpy_utils"]
+	path = razeds_bpy_utils
+	url = https://github.com/oRazeD/razeds_bpy_utils
