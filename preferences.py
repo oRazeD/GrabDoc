@@ -122,6 +122,7 @@ class GRABDOC_OT_add_preset(AddPresetBase, bpy.types.Operator):
         "grabDoc.engineAlbedo",
 
         "grabDoc.exportRoughness",
+        "grabDoc.invertMaskRoughness",
         "grabDoc.samplesRoughness",
         "grabDoc.suffixRoughness",
         "grabDoc.samplesCyclesRoughness",
@@ -305,6 +306,14 @@ class GRABDOC_property_group(bpy.types.PropertyGroup):
         # Update here so that it refreshes live in the VP
         if self.modalState:
             bpy.data.objects[BG_PLANE_NAME].active_material = bpy.data.materials[GD_MATERIAL_NAME]
+
+    def update_roughness(self, context):
+        invert_node = bpy.data.node_groups[NG_ROUGHNESS_NAME].nodes.get('Invert')
+        invert_node.inputs[0].default_value = 1 if self.invertMaskRoughness else 0
+
+        # Update here so that it refreshes live in the VP
+        #if self.modalState:
+        #    bpy.data.objects[BG_PLANE_NAME].active_material = bpy.data.materials[GD_MATERIAL_NAME]
 
     def update_engine(self, context):
         if self.modalState:
@@ -677,6 +686,7 @@ class GRABDOC_property_group(bpy.types.PropertyGroup):
 
     # Roughness
     exportRoughness: BoolProperty(name='Export Roughness', update=scene_setup)
+    invertMaskRoughness: BoolProperty(description="Invert the Roughess (to make Glossines)", update=update_roughness)
     suffixRoughness: StringProperty(
         name="",
         description="The suffix of the exported bake map",

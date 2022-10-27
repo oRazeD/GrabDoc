@@ -365,7 +365,7 @@ def normals_ui(layout, context):
             text = 'Samples'
         )
 
-    col.separator(factor=1.5)
+    col.separator(factor=.5)
     col.prop(grabDoc, 'suffixNormals', text = "Suffix")
 
 
@@ -416,7 +416,7 @@ def curvature_ui(layout, context):
     else: # Marmoset
         pass
     
-    col.separator(factor=1.5)
+    col.separator(factor=.5)
     col.prop(grabDoc, 'suffixCurvature', text = "Suffix")
 
 
@@ -471,7 +471,7 @@ def occlusion_ui(layout, context):
         col.separator(factor=.5)
         col.prop(grabDoc, 'contrastOcclusion', text = "Contrast")
 
-    col.separator(factor=1.5)
+    col.separator(factor=.5)
     col.prop(grabDoc, 'suffixOcclusion', text = "Suffix")
 
 
@@ -528,7 +528,7 @@ def height_ui(layout, context):
         col.separator(factor=.5)
         col.prop(grabDoc, 'contrastHeight', text = "Contrast")
     
-    col.separator(factor=1.5)
+    col.separator(factor=.5)
     col.prop(grabDoc, 'suffixHeight', text = "Suffix")
 
 
@@ -601,7 +601,7 @@ def id_ui(layout, context):
         col.separator(factor=1.5)
         col.prop(grabDoc, "samplesMatID", text = "Samples")
 
-    col.separator(factor=1.5)
+    col.separator(factor=.5)
     col.prop(grabDoc, 'suffixID', text = "Suffix")
 
 
@@ -648,7 +648,7 @@ def alpha_ui(layout, context):
     else: # Marmoset
         pass
     
-    col.separator(factor=1.5)
+    col.separator(factor=.5)
     col.prop(grabDoc, 'suffixAlpha', text = "Suffix")
 
 
@@ -698,7 +698,7 @@ def albedo_ui(layout, context):
         text = 'Samples'
     )
 
-    col.separator(factor=1.5)
+    col.separator(factor=.5)
     col.prop(grabDoc, 'suffixAlbedo', text = "Suffix")
 
 
@@ -743,6 +743,11 @@ def roughness_ui(layout, context):
     col = layout.column()
     col.prop(grabDoc, "engineRoughness", text = "Engine")
 
+    col.separator(factor=.5)
+    if grabDoc.bakerType == 'Blender':
+        col.prop(grabDoc, 'invertMaskRoughness', text = "Invert")
+        col.separator(factor=.5)
+
     col.separator(factor=1.5)
     col.prop(
         grabDoc,
@@ -750,7 +755,7 @@ def roughness_ui(layout, context):
         text = 'Samples'
     )
 
-    col.separator(factor=1.5)
+    col.separator(factor=.5)
     col.prop(grabDoc, 'suffixRoughness', text = "Suffix")
 
 
@@ -802,7 +807,7 @@ def metalness_ui(layout, context):
         text = 'Samples'
     )
 
-    col.separator(factor=1.5)
+    col.separator(factor=.5)
     col.prop(grabDoc, 'suffixMetalness', text = "Suffix")
 
 

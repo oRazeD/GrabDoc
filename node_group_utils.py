@@ -167,7 +167,7 @@ def ng_setup() -> None:
 
         invert_node = ng_alpha.nodes.new('ShaderNodeInvert')
         invert_node.location = (-400,0)
-        
+
         emission_node = ng_alpha.nodes.new('ShaderNodeEmission')
         emission_node.location = (-200,0)
 
@@ -209,19 +209,24 @@ def ng_setup() -> None:
         # Create group inputs/outputs
         group_outputs = ng_roughness.nodes.new('NodeGroupOutput')
         group_inputs = ng_roughness.nodes.new('NodeGroupInput')
-        group_inputs.location = (-400,0)
+        group_inputs.location = (-600,0)
         ng_roughness.outputs.new('NodeSocketShader','Output')
         ng_roughness.inputs.new('NodeSocketFloat', 'Roughness Input')
         ng_roughness.inputs.new('NodeSocketShader','Saved Surface')
         ng_roughness.inputs.new('NodeSocketShader','Saved Volume')
         ng_roughness.inputs.new('NodeSocketShader','Saved Displacement')
-        
+
+        invert_node = ng_roughness.nodes.new('ShaderNodeInvert')
+        invert_node.location = (-400,0)
+        invert_node.inputs[0].default_value = 0
+
         emission_node = ng_roughness.nodes.new('ShaderNodeEmission')
         emission_node.location = (-200,0)
 
         # Link nodes
         link = ng_roughness.links
-        link.new(emission_node.inputs["Color"], group_inputs.outputs["Roughness Input"])
+        link.new(invert_node.inputs["Color"], group_inputs.outputs["Roughness Input"])
+        link.new(emission_node.inputs["Color"], invert_node.outputs["Color"])
         link.new(group_outputs.inputs["Output"], emission_node.outputs["Emission"])
 
     # METALNESS
@@ -257,7 +262,6 @@ def create_apply_ng_mat(ob: type.Object) -> None:
         mat = bpy.data.materials[mat_name]
     else:
         mat = bpy.data.materials.new(name = mat_name)
-
         mat.use_nodes = True
 
     # Apply the material to the appropriate slot
@@ -313,7 +317,7 @@ def add_ng_to_mat(self, context, setup_type: str) -> None:
                     continue
 
                 # Get materials Output Material node(s)
-                output_nodes = [mat_node for mat_node in mat_slot.node_tree.nodes if mat_node.type == 'OUTPUT_MATERIAL']
+                output_nodes = {mat_node for mat_node in mat_slot.node_tree.nodes if mat_node.type == 'OUTPUT_MATERIAL'}
                 if not len(output_nodes):
                     output_nodes.append(mat_slot.node_tree.nodes.new('ShaderNodeOutputMaterial'))
 
@@ -359,7 +363,6 @@ def add_ng_to_mat(self, context, setup_type: str) -> None:
                                             original_node_input=original_node_input,
                                             mat_slot=mat_slot
                                         )
-
                                     elif setup_type == NG_ROUGHNESS_NAME and original_node_input.name == 'Roughness':
                                         node_found = bsdf_link_factory(
                                             input_name='Roughness Input',
@@ -367,7 +370,6 @@ def add_ng_to_mat(self, context, setup_type: str) -> None:
                                             original_node_input=original_node_input,
                                             mat_slot=mat_slot
                                         )
-
                                     elif setup_type == NG_METALNESS_NAME and original_node_input.name == 'Metallic':
                                         node_found = bsdf_link_factory(
                                             input_name='Metalness Input',
@@ -375,7 +377,6 @@ def add_ng_to_mat(self, context, setup_type: str) -> None:
                                             original_node_input=original_node_input,
                                             mat_slot=mat_slot
                                         )
-
                                     elif setup_type == NG_NORMAL_NAME and original_node_input.name in {'Normal', 'Alpha'}:
                                         node_found = bsdf_link_factory(
                                             input_name=original_node_input.name,
@@ -391,21 +392,16 @@ def add_ng_to_mat(self, context, setup_type: str) -> None:
                                             and len(original_node_input.links)
                                         ):
                                             mat_slot.blend_method = 'CLIP'
-
                                     elif node_found:
                                         break
 
-                                if not node_found and setup_type != NG_NORMAL_NAME:
+                                if not node_found and setup_type != NG_NORMAL_NAME and mat_slot.name != GD_MATERIAL_NAME:
                                     self.report({'WARNING'}, "Material slots found without links & will be rendered using the sockets default value.")
 
-                    # Remove existing links on the output node
-                    if len(output_node.inputs['Volume'].links):
-                        for link in output_node.inputs['Volume'].links:
-                            mat_slot.node_tree.links.remove(link)
-
-                    if len(output_node.inputs['Displacement'].links):
-                        for link in output_node.inputs['Displacement'].links:
-                            mat_slot.node_tree.links.remove(link)
+                    for link in output_node.inputs['Volume'].links:
+                        mat_slot.node_tree.links.remove(link)
+                    for link in output_node.inputs['Displacement'].links:
+                        mat_slot.node_tree.links.remove(link)
 
                     # Link Node Group to the output
                     mat_slot.node_tree.links.new(output_node.inputs["Surface"], GD_node_group.outputs["Output"])

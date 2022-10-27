@@ -37,9 +37,8 @@ def export_bg_plane(context) -> None:
 
 def proper_scene_setup() -> bool:
     '''Look for grabdoc objects to decide if the scene is setup correctly'''
-    if COLL_NAME in bpy.data.collections:
-        if BG_PLANE_NAME in bpy.context.scene.objects:
-            return True
+    if COLL_NAME in bpy.data.collections and BG_PLANE_NAME in bpy.context.scene.objects:
+        return True
     return False
 
 

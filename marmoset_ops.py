@@ -93,7 +93,7 @@ class GrabDoc_OT_send_to_marmo(OpInfo, bpy.types.Operator):
         ]
 
         if self.send_type == 'refresh':
-            sub_proc = subprocess.check_output('tasklist', shell=True)
+            sub_proc = subprocess.check_output('tasklist', shell=True) # TODO don't use shell=True arg
             
             if not path_ext_only in sub_proc:
                 subprocess.Popen(subproc_args)
