@@ -16,8 +16,7 @@ def export_bg_plane(context) -> None:
     bpy.ops.object.select_all(action='DESELECT')
 
     # Select bg plane, export and deselect bg plane
-    bpy.data.collections[COLL_NAME].hide_select = False
-    bpy.data.objects[BG_PLANE_NAME].hide_select = False
+    bpy.data.collections[COLL_NAME].hide_select = bpy.data.objects[BG_PLANE_NAME].hide_select = False
     bpy.data.objects[BG_PLANE_NAME].select_set(True)
     
     bpy.ops.export_scene.fbx(

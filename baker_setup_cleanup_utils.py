@@ -11,6 +11,34 @@ from .gd_constants import *
 ################################################################################################################
 
 
+def set_color_management_settings(display_device: str='None'):
+    '''Helper function for supporting AGX and other obscure color management profiles (ignoring anything that isn't compatible)'''
+    display_settings = bpy.context.scene.display_settings
+    view_settings = bpy.context.scene.view_settings
+    
+    if display_device not in display_settings.display_device:
+        if display_device == 'sRGB':
+            alt_display_device = 'Blender Display'
+            alt_view_transform = 'sRGB'
+        else: # None
+            alt_display_device = 'Blender Display'
+            alt_view_transform = 'Raw'
+
+        try:
+            display_settings.display_device = alt_display_device
+            view_settings.view_transform = alt_view_transform
+        except TypeError:
+            pass
+    else:
+        display_settings.display_device = display_device
+
+        view_settings.view_transform = 'Standard'
+
+    view_settings.look = 'None'
+    view_settings.exposure = 0
+    view_settings.gamma = 1
+
+
 def export_and_preview_setup(self, context):
     scene = context.scene
     grabDoc = scene.grabDoc
@@ -80,11 +108,8 @@ def export_and_preview_setup(self, context):
     self.savedExposure = view_settings.exposure
     self.savedGamma = view_settings.gamma 
     self.savedTransparency = render.film_transparent
-
-    view_settings.view_transform = 'Standard'
-    view_settings.look = 'None'
-    view_settings.exposure = 0
-    view_settings.gamma = 1
+    
+    set_color_management_settings('sRGB')
 
     # Save & Set - Performance 
     if bpy.app.version >= (2, 83, 0):
@@ -301,7 +326,7 @@ def normals_setup(self, context) -> None:
 
     render.engine = str(scene.grabDoc.engineNormals).upper()
 
-    scene.display_settings.display_device = 'None'
+    set_color_management_settings('None')
 
     ng_normal = bpy.data.node_groups[NG_NORMAL_NAME]
     vec_transform_node = ng_normal.nodes.get('Vector Transform')
@@ -326,13 +351,16 @@ def curvature_setup(self, context) -> None:
     scene_shading = bpy.data.scenes[str(scene.name)].display.shading
     
     # Set - Render engine settings
-    scene.view_settings.look = grabDoc.contrastCurvature.replace('_', ' ')
-
     scene.render.engine = 'BLENDER_WORKBENCH'
     scene.display.render_aa = scene.display.viewport_aa = grabDoc.samplesCurvature
     scene_shading.light = 'FLAT'
     scene_shading.color_type =  'SINGLE'
-    scene.display_settings.display_device = 'sRGB'
+    set_color_management_settings('sRGB')
+
+    try:
+        scene.view_settings.look = grabDoc.contrastCurvature.replace('_', ' ')
+    except TypeError:
+        pass
 
     # Save & Set - Cavity
     self.savedCavityType = scene_shading.cavity_type
@@ -378,7 +406,12 @@ def occlusion_setup(self, context) -> None:
     
     scene.render.engine = 'BLENDER_EEVEE'
     eevee.taa_render_samples = eevee.taa_samples = grabDoc.samplesOcclusion
-    scene.display_settings.display_device = 'None'
+    set_color_management_settings('None')
+
+    try:
+        scene.view_settings.look = grabDoc.contrastOcclusion.replace('_', ' ')
+    except TypeError:
+        pass
 
     # Save & Set - Overscan (Can help with screenspace effects)
     self.savedUseOverscan = eevee.use_overscan
@@ -389,8 +422,6 @@ def occlusion_setup(self, context) -> None:
 
     # Set - Ambient Occlusion
     eevee.use_gtao = True
-
-    scene.view_settings.look = grabDoc.contrastOcclusion.replace('_', ' ')
 
     add_ng_to_mat(self, context, setup_type=NG_AO_NAME)
 
@@ -413,9 +444,12 @@ def height_setup(self, context) -> None:
 
     scene.render.engine = 'BLENDER_EEVEE'
     scene.eevee.taa_render_samples = scene.eevee.taa_samples = grabDoc.samplesHeight
-    scene.display_settings.display_device = 'None'
+    set_color_management_settings('None')
 
-    scene.view_settings.look = grabDoc.contrastHeight.replace('_', ' ')
+    try:
+        scene.view_settings.look = grabDoc.contrastHeight.replace('_', ' ')
+    except TypeError:
+        pass
 
     add_ng_to_mat(self, context, setup_type=NG_HEIGHT_NAME)
 
@@ -433,7 +467,7 @@ def id_setup(self, context) -> None:
     render.engine = 'BLENDER_WORKBENCH'
     scene.display.render_aa = scene.display.viewport_aa = grabDoc.samplesMatID
     scene_shading.light = 'FLAT'
-    scene.display_settings.display_device = 'sRGB'
+    set_color_management_settings('sRGB')
 
     # Choose the method of ID creation based on user preference
     scene_shading.color_type = grabDoc.methodMatID
@@ -446,7 +480,7 @@ def alpha_setup(self, context) -> None:
 
     render.engine = 'BLENDER_EEVEE'
     scene.eevee.taa_render_samples = scene.eevee.taa_samples = scene.grabDoc.samplesAlpha
-    scene.display_settings.display_device = 'None'
+    set_color_management_settings('None')
 
     add_ng_to_mat(self, context, setup_type=NG_ALPHA_NAME)
 
@@ -463,7 +497,7 @@ def albedo_setup(self, context) -> None:
 
     render.engine = str(scene.grabDoc.engineAlbedo).upper()
 
-    scene.display_settings.display_device = 'sRGB'
+    set_color_management_settings('sRGB')
 
     add_ng_to_mat(self, context, setup_type=NG_ALBEDO_NAME)
 
@@ -480,7 +514,7 @@ def roughness_setup(self, context) -> None:
 
     render.engine = str(scene.grabDoc.engineRoughness).upper()
 
-    scene.display_settings.display_device = 'sRGB'
+    set_color_management_settings('sRGB')
 
     add_ng_to_mat(self, context, setup_type=NG_ROUGHNESS_NAME)
 
@@ -497,7 +531,7 @@ def metalness_setup(self, context) -> None:
 
     render.engine = str(scene.grabDoc.engineMetalness).upper()
 
-    scene.display_settings.display_device = 'sRGB'
+    set_color_management_settings('sRGB')
 
     add_ng_to_mat(self, context, setup_type=NG_METALNESS_NAME)
 
