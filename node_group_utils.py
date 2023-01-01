@@ -15,7 +15,9 @@ def ng_setup() -> None:
 
         # Create group inputs/outputs
         group_outputs = ng_normal.nodes.new('NodeGroupOutput')
+        group_outputs.name = "Group Output"
         group_inputs = ng_normal.nodes.new('NodeGroupInput')
+        group_inputs.name = "Group Input"
         group_inputs.location = (-1400,100)
         ng_normal.outputs.new('NodeSocketShader','Output')
         ng_normal.inputs.new('NodeSocketShader','Saved Surface')
@@ -27,19 +29,23 @@ def ng_setup() -> None:
 
         # Create group nodes
         bevel_node = ng_normal.nodes.new('ShaderNodeBevel')
+        bevel_node.name = "Bevel"
         bevel_node.inputs[0].default_value = 0
         bevel_node.location = (-1000,0)
 
         bevel_node_2 = ng_normal.nodes.new('ShaderNodeBevel')
+        bevel_node_2.name = "Bevel.001"
         bevel_node_2.location = (-1000,-200)
         bevel_node_2.inputs[0].default_value = 0
 
         vec_transform_node = ng_normal.nodes.new('ShaderNodeVectorTransform')
+        vec_transform_node.name = "Vector Transform"
         vec_transform_node.vector_type = 'NORMAL'
         vec_transform_node.convert_to = 'CAMERA'
         vec_transform_node.location = (-800,0)
 
         vec_multiply_node = ng_normal.nodes.new('ShaderNodeVectorMath')
+        vec_multiply_node.name = "Vector Math"
         vec_multiply_node.operation = 'MULTIPLY'
         vec_multiply_node.inputs[1].default_value[0] = .5
         vec_multiply_node.inputs[1].default_value[1] = -.5 if grabDoc.flipYNormals else .5
@@ -47,22 +53,27 @@ def ng_setup() -> None:
         vec_multiply_node.location = (-600,0)
 
         vec_add_node = ng_normal.nodes.new('ShaderNodeVectorMath')
+        vec_add_node.name = "Vector Math.001"
         vec_add_node.inputs[1].default_value[0] = vec_add_node.inputs[1].default_value[1] = vec_add_node.inputs[1].default_value[2] = 0.5
         vec_add_node.location = (-400,0)
 
         invert_node = ng_normal.nodes.new('ShaderNodeInvert')
+        invert_node.name = "Invert"
         invert_node.location = (-1000,200)
 
         subtract_node = ng_normal.nodes.new('ShaderNodeMixRGB')
         subtract_node.blend_type = 'SUBTRACT'
+        subtract_node.name = "Subtract"
         subtract_node.inputs[0].default_value = 1
         subtract_node.inputs[1].default_value = (1, 1, 1, 1)
         subtract_node.location = (-800,300)
 
         transp_shader_node = ng_normal.nodes.new('ShaderNodeBsdfTransparent')
+        transp_shader_node.name = "Transparent BSDF"
         transp_shader_node.location = (-400,200)
 
         mix_shader_node = ng_normal.nodes.new('ShaderNodeMixShader')
+        mix_shader_node.name = "Mix Shader"
         mix_shader_node.location = (-200,300)
 
         # Link nodes
@@ -89,6 +100,7 @@ def ng_setup() -> None:
 
         # Create group inputs/outputs
         group_outputs = ng_ao.nodes.new('NodeGroupOutput')
+        group_outputs.name = "Group Output"
         ng_ao.outputs.new('NodeSocketShader','Output')
         ng_ao.inputs.new('NodeSocketShader','Saved Surface')
         ng_ao.inputs.new('NodeSocketShader','Saved Volume')
@@ -96,14 +108,17 @@ def ng_setup() -> None:
 
         # Create group nodes
         ao_node = ng_ao.nodes.new('ShaderNodeAmbientOcclusion')
+        ao_node.name = "Ambient Occlusion"
         ao_node.samples = 32
         ao_node.location = (-600,0)
 
         gamma_node = ng_ao.nodes.new('ShaderNodeGamma')
+        gamma_node.name = "Gamma"
         gamma_node.inputs[1].default_value = grabDoc.gammaOcclusion
         gamma_node.location = (-400,0)
 
         emission_node = ng_ao.nodes.new('ShaderNodeEmission')
+        emission_node.name = "Emission"
         emission_node.location = (-200,0)
 
         # Link nodes
@@ -119,6 +134,7 @@ def ng_setup() -> None:
     
         # Create group inputs/outputs
         group_outputs = ng_height.nodes.new('NodeGroupOutput')
+        group_outputs.name = "Group Output"
         ng_height.outputs.new('NodeSocketShader','Output')
         ng_height.inputs.new('NodeSocketShader','Saved Surface')
         ng_height.inputs.new('NodeSocketShader','Saved Volume')
@@ -126,12 +142,15 @@ def ng_setup() -> None:
 
         # Create group nodes
         camera_data_node = ng_height.nodes.new('ShaderNodeCameraData')
+        camera_data_node.name = "Camera Data"
         camera_data_node.location = (-800,0)
 
         map_range_node = ng_height.nodes.new('ShaderNodeMapRange') # Map Range updates handled on map preview
+        map_range_node.name = "Map Range"
         map_range_node.location = (-600,0)
 
         ramp_node = ng_height.nodes.new('ShaderNodeValToRGB')
+        ramp_node.name = "ColorRamp"
         ramp_node.color_ramp.elements[0].color = (1, 1, 1, 1)
         ramp_node.color_ramp.elements[1].color = (0, 0, 0, 1)
         ramp_node.location = (-400,0)
@@ -149,6 +168,7 @@ def ng_setup() -> None:
     
         # Create group input/outputs
         group_outputs = ng_alpha.nodes.new('NodeGroupOutput')
+        group_outputs.name = "Group Output"
         ng_alpha.outputs.new('NodeSocketShader','Output')
         ng_alpha.inputs.new('NodeSocketShader','Saved Surface')
         ng_alpha.inputs.new('NodeSocketShader','Saved Volume')
@@ -156,19 +176,23 @@ def ng_setup() -> None:
 
         # Create group nodes
         camera_data_node = ng_alpha.nodes.new('ShaderNodeCameraData')
+        camera_data_node.name = "Camera Data"
         camera_data_node.location = (-800,0)
 
         gd_camera_ob_z = bpy.data.objects.get(TRIM_CAMERA_NAME).location[2]
 
         map_range_node = ng_alpha.nodes.new('ShaderNodeMapRange')
+        map_range_node.name = "Map Range"
         map_range_node.location = (-600,0)
         map_range_node.inputs[1].default_value = gd_camera_ob_z - .00001
         map_range_node.inputs[2].default_value = gd_camera_ob_z
 
         invert_node = ng_alpha.nodes.new('ShaderNodeInvert')
+        invert_node.name = "Invert"
         invert_node.location = (-400,0)
 
         emission_node = ng_alpha.nodes.new('ShaderNodeEmission')
+        emission_node.name = "Emission"
         emission_node.location = (-200,0)
 
         # Link nodes
@@ -185,7 +209,9 @@ def ng_setup() -> None:
     
         # Create group inputs/outputs
         group_outputs = ng_albedo.nodes.new('NodeGroupOutput')
+        group_outputs.name = "Group Output"
         group_inputs = ng_albedo.nodes.new('NodeGroupInput')
+        group_inputs.name = "Group Input"
         group_inputs.location = (-400,0)
         ng_albedo.outputs.new('NodeSocketShader','Output')
         ng_albedo.inputs.new('NodeSocketColor', 'Color Input')
@@ -194,6 +220,7 @@ def ng_setup() -> None:
         ng_albedo.inputs.new('NodeSocketShader','Saved Displacement')
         
         emission_node = ng_albedo.nodes.new('ShaderNodeEmission')
+        emission_node.name = "Emission"
         emission_node.location = (-200,0)
 
         # Link nodes
@@ -208,7 +235,9 @@ def ng_setup() -> None:
     
         # Create group inputs/outputs
         group_outputs = ng_roughness.nodes.new('NodeGroupOutput')
+        group_outputs.name = "Group Output"
         group_inputs = ng_roughness.nodes.new('NodeGroupInput')
+        group_inputs.name = "Group Input"
         group_inputs.location = (-600,0)
         ng_roughness.outputs.new('NodeSocketShader','Output')
         ng_roughness.inputs.new('NodeSocketFloat', 'Roughness Input')
@@ -221,6 +250,7 @@ def ng_setup() -> None:
         invert_node.inputs[0].default_value = 0
 
         emission_node = ng_roughness.nodes.new('ShaderNodeEmission')
+        emission_node.name = "Emission"
         emission_node.location = (-200,0)
 
         # Link nodes
@@ -236,7 +266,9 @@ def ng_setup() -> None:
     
         # Create group inputs/outputs
         group_outputs = ng_roughness.nodes.new('NodeGroupOutput')
+        group_outputs.name = "Group Output"
         group_inputs = ng_roughness.nodes.new('NodeGroupInput')
+        group_inputs.name = "Group Input"
         group_inputs.location = (-400,0)
         ng_roughness.outputs.new('NodeSocketShader','Output')
         ng_roughness.inputs.new('NodeSocketFloat', 'Metalness Input')
@@ -245,6 +277,7 @@ def ng_setup() -> None:
         ng_roughness.inputs.new('NodeSocketShader','Saved Displacement')
         
         emission_node = ng_roughness.nodes.new('ShaderNodeEmission')
+        emission_node.name = "Emission"
         emission_node.location = (-200,0)
 
         # Link nodes
