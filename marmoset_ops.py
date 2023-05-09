@@ -1,9 +1,9 @@
 
-import bpy, os, subprocess, json
-from .gd_constants import *
-from .generic_utils import OpInfo, bad_setup_check, export_bg_plane
+import bpy, os, subprocess, json, bpy.types as types
+from .generic_utils import OpInfo, bad_setup_check, export_bg_plane, get_create_addon_temp_dir
 from .render_setup_utils import find_tallest_object
-from .gd_constants import *
+from .constants import GlobalVariableConstants as GlobalVarConst
+from .constants import ErrorCodeConstants as ErrorCodeConst
 
 
 ################################################################################################################
@@ -11,11 +11,11 @@ from .gd_constants import *
 ################################################################################################################
 
 
-class GrabDoc_OT_send_to_marmo(OpInfo, bpy.types.Operator):
+class GrabDoc_OT_send_to_marmo(OpInfo, types.Operator):
     """Export your models, open & bake (if turned on) in Marmoset Toolbag utilizing the settings set within the 'View / Edit Maps' tab"""
     bl_idname = "grab_doc.bake_marmoset"
     bl_label = "Open / Refresh in Marmoset"
-    
+
     send_type: bpy.props.EnumProperty(
         items=(
             ('open',"Open",""),
@@ -25,10 +25,10 @@ class GrabDoc_OT_send_to_marmo(OpInfo, bpy.types.Operator):
     )
 
     @classmethod
-    def poll(cls, context):
+    def poll(cls, context: types.Context) -> bool:
         return os.path.exists(context.preferences.addons[__package__].preferences.marmoEXE)
 
-    def open_marmoset(self, context, temps_path, addon_path):
+    def open_marmoset(self, context: types.Context, temps_path, addon_path):
         grabDoc = context.scene.grabDoc
         marmo_exe = context.preferences.addons[__package__].preferences.marmoEXE
 
@@ -74,14 +74,14 @@ class GrabDoc_OT_send_to_marmo(OpInfo, bpy.types.Operator):
         for key, value in marmo_vars.items():
             marmo_vars[key] = value.replace("\\", "/")
             break
-        
+
         # Serializing
         marmo_json = json.dumps(marmo_vars, indent = 4)
 
         # Writing
         with open(os.path.join(temps_path, "marmo_vars.json"), "w") as outfile:
             outfile.write(marmo_json)
-        
+
         path_ext_only = os.path.basename(os.path.normpath(marmo_exe)).encode()
 
         if grabDoc.exportPlane:
@@ -94,37 +94,28 @@ class GrabDoc_OT_send_to_marmo(OpInfo, bpy.types.Operator):
 
         if self.send_type == 'refresh':
             sub_proc = subprocess.check_output('tasklist', shell=True) # TODO don't use shell=True arg
-            
+
             if not path_ext_only in sub_proc:
                 subprocess.Popen(subproc_args)
 
-                self.report({'INFO'}, "Export completed! Opening Marmoset Toolbag...")
+                self.report({'INFO'}, ErrorCodeConst.MARMO_EXPORT_COMPLETE)
             else:
-                self.report({'INFO'}, "Models re-exported! Check Marmoset Toolbag.")
+                self.report({'INFO'}, ErrorCodeConst.MARMO_RE_EXPORT_COMPLETE)
         else:
             subprocess.Popen(subproc_args)
 
-            self.report({'INFO'}, "Export completed! Opening Marmoset Toolbag...")
-        return{'FINISHED'}
+            self.report({'INFO'}, ErrorCodeConst.MARMO_EXPORT_COMPLETE)
+        return {'FINISHED'}
 
-    def execute(self, context):
+    def execute(self, context: types.Context):
         grabDoc = context.scene.grabDoc
 
         report_value, report_string = bad_setup_check(self, context, active_export=True)
-
         if report_value:
             self.report({'ERROR'}, report_string)
-            return{'CANCELLED'}
+            return {'CANCELLED'}
 
-        # Add-on root path 
-        addon_path = os.path.dirname(__file__)
-        
-        # Temporary model path 
-        temps_path = os.path.join(addon_path, "temp")
-
-        # Create the directory 
-        if not os.path.exists(temps_path):
-            os.mkdir(temps_path)
+        addon_path, temps_path = get_create_addon_temp_dir()
 
         saved_selected = context.view_layer.objects.selected.keys()
 
@@ -138,26 +129,26 @@ class GrabDoc_OT_send_to_marmo(OpInfo, bpy.types.Operator):
         for ob in context.view_layer.objects:
             ob.select_set(False)
 
-            if ob.name in self.rendered_obs and ob.visible_get() and ob.name != BG_PLANE_NAME:
+            if ob.name in self.rendered_obs and ob.visible_get() and ob.name != GlobalVarConst.BG_PLANE_NAME:
                 ob.select_set(True)
-                
-                ob.name = f"{GD_HIGH_PREFIX} {ob.name}"
+
+                ob.name = f"{GlobalVarConst.GD_HIGH_PREFIX} {ob.name}"
 
         # Get background plane low and high poly
-        bg_plane_ob = bpy.data.objects.get(BG_PLANE_NAME)
-        bg_plane_ob.name = f"{GD_LOW_PREFIX} {BG_PLANE_NAME}"
-        bpy.data.collections[COLL_NAME].hide_select = bg_plane_ob.hide_select = False
+        bg_plane_ob = bpy.data.objects.get(GlobalVarConst.BG_PLANE_NAME)
+        bg_plane_ob.name = f"{GlobalVarConst.GD_LOW_PREFIX} {GlobalVarConst.BG_PLANE_NAME}"
+        bpy.data.collections[GlobalVarConst.COLL_NAME].hide_select = bg_plane_ob.hide_select = False
         bg_plane_ob.select_set(True)
 
         # Copy the object, link into the scene & rename as high poly
         bg_plane_ob_copy = bg_plane_ob.copy()
         context.collection.objects.link(bg_plane_ob_copy)
-        bg_plane_ob_copy.name = f"{GD_HIGH_PREFIX} {BG_PLANE_NAME}"
+        bg_plane_ob_copy.name = f"{GlobalVarConst.GD_HIGH_PREFIX} {GlobalVarConst.BG_PLANE_NAME}"
         bg_plane_ob_copy.select_set(True)
 
         # Remove reference material
-        if REFERENCE_NAME in bpy.data.materials:
-            bpy.data.materials.remove(bpy.data.materials.get(REFERENCE_NAME))
+        if GlobalVarConst.REFERENCE_NAME in bpy.data.materials:
+            bpy.data.materials.remove(bpy.data.materials.get(GlobalVarConst.REFERENCE_NAME))
 
         # Export models
         bpy.ops.export_scene.fbx(
@@ -166,18 +157,18 @@ class GrabDoc_OT_send_to_marmo(OpInfo, bpy.types.Operator):
             path_mode='ABSOLUTE'
         )
 
-        bpy.data.objects.remove(bg_plane_ob_copy)
+        bpy.data.objects.remove(bg_plane_ob_copy) # TODO remove mesh instead? Verify this doesn't leave floating data
 
         for ob in context.selected_objects:
             ob.select_set(False)
 
-            if ob.name == f"{GD_LOW_PREFIX} {BG_PLANE_NAME}":
-                ob.name = BG_PLANE_NAME
+            if ob.name == f"{GlobalVarConst.GD_LOW_PREFIX} {GlobalVarConst.BG_PLANE_NAME}":
+                ob.name = GlobalVarConst.BG_PLANE_NAME
             else:
                 ob.name = ob.name[8:] # TODO what does this represent?
 
         if not grabDoc.collSelectable:
-            bpy.data.collections[COLL_NAME].hide_select = True
+            bpy.data.collections[GlobalVarConst.COLL_NAME].hide_select = True
 
         for ob_name in saved_selected:
             ob = context.scene.objects.get(ob_name)
@@ -186,7 +177,7 @@ class GrabDoc_OT_send_to_marmo(OpInfo, bpy.types.Operator):
                 ob.select_set(True)
 
         self.open_marmoset(context, temps_path, addon_path)
-        return{'FINISHED'}
+        return {'FINISHED'}
 
 
 ################################################################################################################

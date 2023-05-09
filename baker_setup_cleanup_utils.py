@@ -1,10 +1,9 @@
 
-import bpy, os
+import bpy, os, bpy.types as types
 from .node_group_utils import add_ng_to_mat
 from .render_setup_utils import find_tallest_object
 from .generic_utils import get_format_extension
-from .gd_constants import *
-
+from .constants import GlobalVariableConstants as GlobalVarConst
 
 ################################################################################################################
 # BAKER SETUP & CLEANUP
@@ -12,10 +11,10 @@ from .gd_constants import *
 
 
 def set_color_management_settings(display_device: str='None'):
-    '''Helper function for supporting AGX and other obscure color management profiles (ignoring anything that isn't compatible)'''
+    """Helper function for supporting AGX and other obscure color management profiles (ignoring anything that isn't compatible)"""
     display_settings = bpy.context.scene.display_settings
     view_settings = bpy.context.scene.view_settings
-    
+
     if display_device not in display_settings.display_device:
         if display_device == 'sRGB':
             alt_display_device = 'Blender Display'
@@ -39,7 +38,7 @@ def set_color_management_settings(display_device: str='None'):
     view_settings.gamma = 1
 
 
-def export_and_preview_setup(self, context):
+def export_and_preview_setup(self, context: types.Context):
     scene = context.scene
     grabDoc = scene.grabDoc
     render = scene.render
@@ -53,7 +52,7 @@ def export_and_preview_setup(self, context):
                 space.use_local_camera = False
                 break
 
-    scene.camera = bpy.data.objects.get(TRIM_CAMERA_NAME)
+    scene.camera = bpy.data.objects.get(GlobalVarConst.TRIM_CAMERA_NAME)
 
         ## VIEW LAYER PROPERTIES ##
 
@@ -106,15 +105,24 @@ def export_and_preview_setup(self, context):
     self.savedViewTransform = view_settings.view_transform
     self.savedContrastType = view_settings.look
     self.savedExposure = view_settings.exposure
-    self.savedGamma = view_settings.gamma 
+    self.savedGamma = view_settings.gamma
     self.savedTransparency = render.film_transparent
-    
+
     set_color_management_settings('sRGB')
 
-    # Save & Set - Performance 
+    # Save & Set - Performance
     if bpy.app.version >= (2, 83, 0):
         self.savedHQNormals = render.use_high_quality_normals
         render.use_high_quality_normals = True
+
+    # Save & Set - Film
+    self.savedFilterSize = render.filter_size
+    render.filter_size = grabDoc.widthFiltering
+
+    self.savedFilterSizeCycles = context.scene.cycles.filter_width
+    self.savedFilterSizeTypeCycles = context.scene.cycles.pixel_filter_type
+    context.scene.cycles.filter_width = render.filter_size
+    context.scene.cycles.pixel_filter_type = 'BLACKMAN_HARRIS'
 
         ## OUTPUT PROPERTIES ##
 
@@ -131,7 +139,7 @@ def export_and_preview_setup(self, context):
 
     if not grabDoc.collRendered: # If background plane not visible in render, create alpha channel
         render.film_transparent = True
-        
+
         image_settings.color_mode = 'RGBA'
     else:
         image_settings.color_mode = 'RGB'
@@ -145,7 +153,7 @@ def export_and_preview_setup(self, context):
 
     if grabDoc.imageType == "PNG":
         image_settings.compression = grabDoc.imageCompPNG
-    
+
     self.savedColorDepth = image_settings.color_depth
 
     # Save & Set - Post Processing
@@ -178,17 +186,17 @@ def export_and_preview_setup(self, context):
         ## PLANE REFERENCE ##
 
     self.savedRefSelection = grabDoc.refSelection.name if grabDoc.refSelection else None
-    
+
         ## OBJECT VISIBILITY ##
 
-    bg_plane = bpy.data.objects.get(BG_PLANE_NAME)
-   
+    bg_plane = bpy.data.objects.get(GlobalVarConst.BG_PLANE_NAME)
+
     bg_plane.hide_viewport = not grabDoc.collVisible
     bg_plane.hide_render = not grabDoc.collRendered
     bg_plane.hide_set(False)
 
 
-def export_refresh(self, context) -> None:
+def export_refresh(self, context: types.Context) -> None:
     scene = context.scene
     grabDoc = scene.grabDoc
     render = scene.render
@@ -214,7 +222,7 @@ def export_refresh(self, context) -> None:
     scene.display.viewport_aa = self.savedWorkbenchVPSampling
     scene.eevee.taa_render_samples = self.savedEeveeRenderSampling
     scene.eevee.taa_samples = self.savedEeveeSampling
-    
+
     self.savedCyclesSampling = context.scene.cycles.preview_samples
     self.savedCyclesRenderSampling = context.scene.cycles.samples
 
@@ -235,6 +243,12 @@ def export_refresh(self, context) -> None:
     # Refresh - Performance
     if bpy.app.version >= (2, 83, 0):
         render.use_high_quality_normals = self.savedHQNormals
+
+    # Refresh - Film
+    render.filter_size = self.savedFilterSize
+
+    context.scene.cycles.filter_width = self.savedFilterSizeCycles
+    context.scene.cycles.pixel_filter_type = self.savedFilterSizeTypeCycles
 
         ## OUTPUT PROPERTIES ##
 
@@ -271,7 +285,7 @@ def export_refresh(self, context) -> None:
 
 
 def reimport_as_material(suffix) -> None:
-    '''Reimport an exported map as a material for further use inside of Blender'''
+    """Reimport an exported map as a material for further use inside of Blender"""
     grabDoc = bpy.context.scene.grabDoc
 
     mat_name = f'{grabDoc.exportName}_{suffix}'
@@ -315,7 +329,7 @@ def reimport_as_material(suffix) -> None:
 
 
 # NORMALS
-def normals_setup(self, context) -> None:
+def normals_setup(self, context: types.Context) -> None:
     scene = context.scene
     render = scene.render
 
@@ -328,7 +342,7 @@ def normals_setup(self, context) -> None:
 
     set_color_management_settings('None')
 
-    ng_normal = bpy.data.node_groups[NG_NORMAL_NAME]
+    ng_normal = bpy.data.node_groups[GlobalVarConst.NG_NORMAL_NAME]
     vec_transform_node = ng_normal.nodes.get('Vector Transform')
     group_output_node = ng_normal.nodes.get('Group Output')
 
@@ -341,15 +355,15 @@ def normals_setup(self, context) -> None:
         link.new(vec_transform_node.inputs["Vector"], ng_normal.nodes.get('Bevel.001').outputs["Normal"])
         link.new(group_output_node.inputs["Output"], ng_normal.nodes.get('Vector Math.001').outputs["Vector"])
 
-    add_ng_to_mat(self, context, setup_type=NG_NORMAL_NAME)
+    add_ng_to_mat(self, context, setup_type=GlobalVarConst.NG_NORMAL_NAME)
 
 
 # CURVATURE
-def curvature_setup(self, context) -> None:
+def curvature_setup(self, context: types.Context) -> None:
     scene = context.scene
     grabDoc = scene.grabDoc
     scene_shading = bpy.data.scenes[str(scene.name)].display.shading
-    
+
     # Set - Render engine settings
     scene.render.engine = 'BLENDER_WORKBENCH'
     scene.display.render_aa = scene.display.viewport_aa = grabDoc.samplesCurvature
@@ -382,7 +396,7 @@ def curvature_setup(self, context) -> None:
     scene.display.matcap_ssao_distance = .075
 
 
-def curvature_refresh(self, context) -> None:
+def curvature_refresh(self, context: types.Context) -> None:
     scene_shading = bpy.data.scenes[str(context.scene.name)].display.shading
 
     scene_shading.cavity_ridge_factor = self.savedCavityRidgeFactor
@@ -394,16 +408,16 @@ def curvature_refresh(self, context) -> None:
     scene_shading.show_cavity = self.savedCavity
 
     context.scene.display.matcap_ssao_distance = self.savedRidgeDistance
-    
-    bpy.data.objects[BG_PLANE_NAME].color[3] = 1
+
+    bpy.data.objects[GlobalVarConst.BG_PLANE_NAME].color[3] = 1
 
 
 # AMBIENT OCCLUSION
-def occlusion_setup(self, context) -> None:
+def occlusion_setup(self, context: types.Context) -> None:
     scene = context.scene
     grabDoc = scene.grabDoc
     eevee = scene.eevee
-    
+
     scene.render.engine = 'BLENDER_EEVEE'
     eevee.taa_render_samples = eevee.taa_samples = grabDoc.samplesOcclusion
     set_color_management_settings('None')
@@ -423,10 +437,10 @@ def occlusion_setup(self, context) -> None:
     # Set - Ambient Occlusion
     eevee.use_gtao = True
 
-    add_ng_to_mat(self, context, setup_type=NG_AO_NAME)
+    add_ng_to_mat(self, context, setup_type=GlobalVarConst.NG_AO_NAME)
 
 
-def occlusion_refresh(self, context) -> None:
+def occlusion_refresh(self, context: types.Context) -> None:
     eevee = context.scene.eevee
 
     eevee.use_overscan = self.savedUseOverscan
@@ -438,7 +452,7 @@ def occlusion_refresh(self, context) -> None:
 
 
 # HEIGHT
-def height_setup(self, context) -> None:
+def height_setup(self, context: types.Context) -> None:
     scene = context.scene
     grabDoc = scene.grabDoc
 
@@ -451,14 +465,14 @@ def height_setup(self, context) -> None:
     except TypeError:
         pass
 
-    add_ng_to_mat(self, context, setup_type=NG_HEIGHT_NAME)
+    add_ng_to_mat(self, context, setup_type=GlobalVarConst.NG_HEIGHT_NAME)
 
     if grabDoc.rangeTypeHeight == 'AUTO':
         find_tallest_object(self, context)
 
 
 # MATERIAL ID
-def id_setup(self, context) -> None:
+def id_setup(self, context: types.Context) -> None:
     scene = context.scene
     grabDoc = scene.grabDoc
     render = scene.render
@@ -474,7 +488,7 @@ def id_setup(self, context) -> None:
 
 
 # ALPHA
-def alpha_setup(self, context) -> None:
+def alpha_setup(self, context: types.Context) -> None:
     scene = context.scene
     render = scene.render
 
@@ -482,11 +496,11 @@ def alpha_setup(self, context) -> None:
     scene.eevee.taa_render_samples = scene.eevee.taa_samples = scene.grabDoc.samplesAlpha
     set_color_management_settings('None')
 
-    add_ng_to_mat(self, context, setup_type=NG_ALPHA_NAME)
+    add_ng_to_mat(self, context, setup_type=GlobalVarConst.NG_ALPHA_NAME)
 
 
 # ALBEDO
-def albedo_setup(self, context) -> None:
+def albedo_setup(self, context: types.Context) -> None:
     scene = context.scene
     render = scene.render
 
@@ -499,11 +513,11 @@ def albedo_setup(self, context) -> None:
 
     set_color_management_settings('sRGB')
 
-    add_ng_to_mat(self, context, setup_type=NG_ALBEDO_NAME)
+    add_ng_to_mat(self, context, setup_type=GlobalVarConst.NG_ALBEDO_NAME)
 
 
 # ROUGHNESS
-def roughness_setup(self, context) -> None:
+def roughness_setup(self, context: types.Context) -> None:
     scene = context.scene
     render = scene.render
 
@@ -516,11 +530,11 @@ def roughness_setup(self, context) -> None:
 
     set_color_management_settings('sRGB')
 
-    add_ng_to_mat(self, context, setup_type=NG_ROUGHNESS_NAME)
+    add_ng_to_mat(self, context, setup_type=GlobalVarConst.NG_ROUGHNESS_NAME)
 
 
 # METALNESS
-def metalness_setup(self, context) -> None:
+def metalness_setup(self, context: types.Context) -> None:
     scene = context.scene
     render = scene.render
 
@@ -533,7 +547,7 @@ def metalness_setup(self, context) -> None:
 
     set_color_management_settings('sRGB')
 
-    add_ng_to_mat(self, context, setup_type=NG_METALNESS_NAME)
+    add_ng_to_mat(self, context, setup_type=GlobalVarConst.NG_METALNESS_NAME)
 
 
 # ##### BEGIN GPL LICENSE BLOCK #####

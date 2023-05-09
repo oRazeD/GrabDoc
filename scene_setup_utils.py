@@ -1,17 +1,19 @@
 
-import bpy, bmesh
+import bpy, bmesh, bpy.types as types
 from .node_group_utils import ng_setup
-from .gd_constants import *
+from .generic_utils import is_camera_in_3d_view
+from .constants import GlobalVariableConstants as GlobalVarConst
 
-def remove_setup(context, hard_reset: bool=True) -> None | list:
-    '''Completely removes every element of GrabDoc from the scene, not including images reimported after bakes
-    
-hard_reset: When refreshing a scene we may want to keep certain data-blocks that the user can manipulates'''
+
+def remove_setup(context: types.Context, hard_reset: bool=True) -> None | list:
+    """Completely removes every element of GrabDoc from the scene, not including images reimported after bakes
+
+hard_reset: When refreshing a scene we may want to keep certain data-blocks that the user can manipulates"""
     # COLLECTIONS
 
     # Move objects contained inside the bake group collection to the root collection level and delete the collection
     saved_bake_group_obs = []
-    bake_group_coll = bpy.data.collections.get(COLL_OB_NAME)
+    bake_group_coll = bpy.data.collections.get(GlobalVarConst.COLL_OB_NAME)
     if bake_group_coll is not None:
         for ob in bake_group_coll.all_objects:
             # Move object to the master collection
@@ -19,17 +21,17 @@ hard_reset: When refreshing a scene we may want to keep certain data-blocks that
                 context.scene.collection.objects.link(ob)
             else:
                 saved_bake_group_obs.append(ob)
-            
+
             # Remove the objects from the grabdoc collection
             ob.users_collection[0].objects.unlink(ob)
 
         bpy.data.collections.remove(bake_group_coll)
 
     # Move objects accidentally placed in the GD collection to the master collection and then remove the collection
-    gd_coll = bpy.data.collections.get(COLL_NAME)
+    gd_coll = bpy.data.collections.get(GlobalVarConst.COLL_NAME)
     if gd_coll is not None:
         for ob in gd_coll.all_objects:
-            if ob.name not in {BG_PLANE_NAME, ORIENT_GUIDE_NAME, HEIGHT_GUIDE_NAME, TRIM_CAMERA_NAME}:
+            if ob.name not in (GlobalVarConst.BG_PLANE_NAME, GlobalVarConst.ORIENT_GUIDE_NAME, GlobalVarConst.HEIGHT_GUIDE_NAME, GlobalVarConst.TRIM_CAMERA_NAME):
                 # Move object to the master collection
                 context.scene.collection.objects.link(ob)
 
@@ -41,18 +43,18 @@ hard_reset: When refreshing a scene we may want to keep certain data-blocks that
     # HARD RESET - a simpler method for clearing all gd related object
 
     if hard_reset:
-        for ob_name in {BG_PLANE_NAME, ORIENT_GUIDE_NAME, HEIGHT_GUIDE_NAME}:
+        for ob_name in (GlobalVarConst.BG_PLANE_NAME, GlobalVarConst.ORIENT_GUIDE_NAME, GlobalVarConst.HEIGHT_GUIDE_NAME):
             if ob_name in bpy.data.objects:
                 bpy.data.meshes.remove(bpy.data.meshes[ob_name])
 
-        if TRIM_CAMERA_NAME in bpy.data.objects:
-            bpy.data.cameras.remove(bpy.data.cameras[TRIM_CAMERA_NAME])
+        if GlobalVarConst.TRIM_CAMERA_NAME in bpy.data.objects:
+            bpy.data.cameras.remove(bpy.data.cameras[GlobalVarConst.TRIM_CAMERA_NAME])
 
-        if REFERENCE_NAME in bpy.data.materials:
-            bpy.data.materials.remove(bpy.data.materials[REFERENCE_NAME])
+        if GlobalVarConst.REFERENCE_NAME in bpy.data.materials:
+            bpy.data.materials.remove(bpy.data.materials[GlobalVarConst.REFERENCE_NAME])
 
         for ngroup in bpy.data.node_groups:
-            if ngroup.name.startswith(GD_PREFIX):
+            if ngroup.name.startswith(GlobalVarConst.GD_PREFIX):
                 bpy.data.node_groups.remove(ngroup)
 
         return None
@@ -62,8 +64,8 @@ hard_reset: When refreshing a scene we may want to keep certain data-blocks that
     # Bg plane
     saved_mat = None
     saved_plane_loc = saved_plane_rot = (0, 0, 0)
-    if BG_PLANE_NAME in bpy.data.objects:
-        plane_ob = bpy.data.objects[BG_PLANE_NAME]
+    if GlobalVarConst.BG_PLANE_NAME in bpy.data.objects:
+        plane_ob = bpy.data.objects[GlobalVarConst.BG_PLANE_NAME]
 
         # Save material/reference & transforms
         saved_mat = plane_ob.active_material
@@ -75,22 +77,22 @@ hard_reset: When refreshing a scene we may want to keep certain data-blocks that
     # Camera
     # Forcibly exit the camera before deleting it so the original users camera position is retained
     reposition_cam = False
-    if [area.spaces.active.region_3d.view_perspective for area in context.screen.areas if area.type == 'VIEW_3D'] == ['CAMERA']:
+    if is_camera_in_3d_view():
         reposition_cam = True
         bpy.ops.view3d.view_camera()
 
-    if TRIM_CAMERA_NAME in bpy.data.cameras:
-        bpy.data.cameras.remove(bpy.data.cameras[TRIM_CAMERA_NAME])
-    if HEIGHT_GUIDE_NAME in bpy.data.objects:
-        bpy.data.meshes.remove(bpy.data.objects[HEIGHT_GUIDE_NAME].data)
-    if ORIENT_GUIDE_NAME in bpy.data.objects:
-        bpy.data.meshes.remove(bpy.data.objects[ORIENT_GUIDE_NAME].data)
+    if GlobalVarConst.TRIM_CAMERA_NAME in bpy.data.cameras:
+        bpy.data.cameras.remove(bpy.data.cameras[GlobalVarConst.TRIM_CAMERA_NAME])
+    if GlobalVarConst.HEIGHT_GUIDE_NAME in bpy.data.meshes:
+        bpy.data.meshes.remove(bpy.data.meshes[GlobalVarConst.HEIGHT_GUIDE_NAME])
+    if GlobalVarConst.ORIENT_GUIDE_NAME in bpy.data.meshes:
+        bpy.data.meshes.remove(bpy.data.meshes[GlobalVarConst.ORIENT_GUIDE_NAME])
 
     return saved_plane_loc, saved_plane_rot, saved_mat, reposition_cam, saved_bake_group_obs
 
 
-def scene_setup(self, context) -> None: # Needs self for update functions to register?
-    '''Generate/setup all relevant GrabDoc object, collections, node groups and scene settings'''
+def scene_setup(self, context: types.Context) -> None: # Needs self for update functions to register?
+    """Generate/setup all relevant GrabDoc object, collections, node groups and scene settings"""
     grabDoc = context.scene.grabDoc
     view_layer = context.view_layer
 
@@ -99,7 +101,7 @@ def scene_setup(self, context) -> None: # Needs self for update functions to reg
     saved_active_collection = view_layer.active_layer_collection
     saved_selected_obs = view_layer.objects.selected.keys()
 
-    gd_coll = bpy.data.collections.get(COLL_NAME)
+    gd_coll = bpy.data.collections.get(GlobalVarConst.COLL_NAME)
 
     if context.object:
         active_ob = context.object
@@ -129,7 +131,7 @@ def scene_setup(self, context) -> None: # Needs self for update functions to reg
 
     # Create a bake group collection if requested
     if grabDoc.onlyRenderColl:
-        bake_group_coll = bpy.data.collections.new(name = COLL_OB_NAME)
+        bake_group_coll = bpy.data.collections.new(name=GlobalVarConst.COLL_OB_NAME)
         bake_group_coll.is_gd_collection = True
 
         context.scene.collection.children.link(bake_group_coll)
@@ -140,7 +142,7 @@ def scene_setup(self, context) -> None: # Needs self for update functions to reg
                 bake_group_coll.objects.link(ob)
 
     # Create main GrabDoc collection
-    gd_coll = bpy.data.collections.new(name = COLL_NAME)
+    gd_coll = bpy.data.collections.new(name=GlobalVarConst.COLL_NAME)
     gd_coll.is_gd_collection = True
 
     context.scene.collection.children.link(gd_coll)
@@ -150,7 +152,7 @@ def scene_setup(self, context) -> None: # Needs self for update functions to reg
     view_layer.active_layer_collection = view_layer.layer_collection.children[gd_coll.name]
 
     # BG PLANE
-    
+
     bpy.ops.mesh.primitive_plane_add(
         size=grabDoc.scalingSet,
         calc_uvs=True,
@@ -160,8 +162,8 @@ def scene_setup(self, context) -> None: # Needs self for update functions to reg
     )
 
     # Rename newly made BG Plane & set a reference to it
-    context.object.name = context.object.data.name = BG_PLANE_NAME
-    plane_ob = bpy.data.objects[BG_PLANE_NAME]
+    context.object.name = context.object.data.name = GlobalVarConst.BG_PLANE_NAME
+    plane_ob = bpy.data.objects[GlobalVarConst.BG_PLANE_NAME]
 
     # Prepare proper plane scaling
     if grabDoc.exportResX != grabDoc.exportResY:
@@ -175,7 +177,7 @@ def scene_setup(self, context) -> None: # Needs self for update functions to reg
             plane_ob.scale[0] /= div_factor
 
         bpy.ops.object.transform_apply(location=False, rotation=False)
-    
+
     plane_ob.select_set(False)
     plane_ob.is_gd_object = True
     plane_ob.show_wire = True
@@ -184,12 +186,12 @@ def scene_setup(self, context) -> None: # Needs self for update functions to reg
     # Add reference to the plane if one has been added, else find and remove any existing reference materials
     if grabDoc.refSelection and not grabDoc.modalState:
         for mat in bpy.data.materials:
-            if mat.name == REFERENCE_NAME:
+            if mat.name == GlobalVarConst.REFERENCE_NAME:
                 mat.node_tree.nodes.get('Image Texture').image = grabDoc.refSelection
                 break
         else:
             # Create a new material & turn on node use
-            mat = bpy.data.materials.new(REFERENCE_NAME)
+            mat = bpy.data.materials.new(GlobalVarConst.REFERENCE_NAME)
             mat.use_nodes = True
 
             # Get / load nodes
@@ -204,8 +206,8 @@ def scene_setup(self, context) -> None: # Needs self for update functions to reg
 
             # Link materials
             mat.node_tree.links.new(output_node.inputs["Surface"], image_node.outputs["Color"])
-            
-        plane_ob.active_material = bpy.data.materials[REFERENCE_NAME]
+
+        plane_ob.active_material = bpy.data.materials[GlobalVarConst.REFERENCE_NAME]
 
         for area in context.screen.areas:
             if area.type == 'VIEW_3D':
@@ -217,8 +219,8 @@ def scene_setup(self, context) -> None: # Needs self for update functions to reg
             plane_ob.active_material = saved_mat
 
         # TODO This is the exception to splitting the setup and remove operations into separate functions, maybe can fix?
-        if REFERENCE_NAME in bpy.data.materials:
-            bpy.data.materials.remove(bpy.data.materials[REFERENCE_NAME])
+        if GlobalVarConst.REFERENCE_NAME in bpy.data.materials:
+            bpy.data.materials.remove(bpy.data.materials[GlobalVarConst.REFERENCE_NAME])
 
     # Grid for better snapping and measurements
     if grabDoc.gridSubdivisions and grabDoc.useGrid:
@@ -235,8 +237,8 @@ def scene_setup(self, context) -> None: # Needs self for update functions to reg
     # CAMERA
 
     # Add Trim Camera & change settings
-    trim_cam_data = bpy.data.cameras.new(TRIM_CAMERA_NAME)
-    trim_cam_ob = bpy.data.objects.new(TRIM_CAMERA_NAME, trim_cam_data)
+    trim_cam_data = bpy.data.cameras.new(GlobalVarConst.TRIM_CAMERA_NAME)
+    trim_cam_ob = bpy.data.objects.new(GlobalVarConst.TRIM_CAMERA_NAME, trim_cam_data)
 
     trim_cam_ob.location = (0, 0, 15 * grabDoc.scalingSet)
     trim_cam_ob.parent = plane_ob
@@ -248,7 +250,7 @@ def scene_setup(self, context) -> None: # Needs self for update functions to reg
     trim_cam_data.passepartout_alpha = 1
     trim_cam_data.ortho_scale = grabDoc.scalingSet
     trim_cam_data.clip_start = 0.1
-    trim_cam_data.clip_end = 1000 * (grabDoc.scalingSet / 25) # Match scale to cameras clipping distance 
+    trim_cam_data.clip_end = 1000 * (grabDoc.scalingSet / 25) # Match scale to cameras clipping distance
 
     gd_coll.objects.link(trim_cam_ob)
     context.scene.camera = trim_cam_ob
@@ -259,12 +261,12 @@ def scene_setup(self, context) -> None: # Needs self for update functions to reg
     # HEIGHT GUIDE
 
     if grabDoc.exportHeight and grabDoc.rangeTypeHeight == 'MANUAL':
-        generate_manual_height_guide_mesh(HEIGHT_GUIDE_NAME, plane_ob)
+        generate_manual_height_guide_mesh(GlobalVarConst.HEIGHT_GUIDE_NAME, plane_ob)
 
     # ORIENT GUIDE
 
-    generate_plane_orient_guide_mesh(ORIENT_GUIDE_NAME, plane_ob)
-    
+    generate_plane_orient_guide_mesh(GlobalVarConst.ORIENT_GUIDE_NAME, plane_ob)
+
     # NODE GROUPS
 
     ng_setup()
@@ -295,9 +297,9 @@ def scene_setup(self, context) -> None: # Needs self for update functions to reg
 
 
 def generate_manual_height_guide_mesh(ob_name: str, plane_ob: bpy.types.Object) -> None:
-    '''Generate a mesh that gauges the height map range. This is for the "Manual" height map mode and can better inform a correct 0-1 range'''
+    """Generate a mesh that gauges the height map range. This is for the "Manual" height map mode and can better inform a correct 0-1 range"""
     # Make a tuple for the planes vertex positions
-    camera_corner_vecs = bpy.data.objects[TRIM_CAMERA_NAME].data.view_frame(scene = bpy.context.scene)
+    camera_corner_vecs = bpy.data.objects[GlobalVarConst.TRIM_CAMERA_NAME].data.view_frame(scene = bpy.context.scene)
 
     stems_vecs = [(vec[0], vec[1], bpy.context.scene.grabDoc.guideHeight) for vec in camera_corner_vecs]
     ring_vecs = [(vec[0], vec[1], vec[2] + 1) for vec in camera_corner_vecs]
@@ -328,7 +330,7 @@ def generate_manual_height_guide_mesh(ob_name: str, plane_ob: bpy.types.Object) 
 
 
 def generate_plane_orient_guide_mesh(ob_name: str, plane_ob: bpy.types.Object) -> None:
-    '''Generate a mesh that sits beside the background plane to guide the user to the correct "up" orientation'''
+    """Generate a mesh that sits beside the background plane to guide the user to the correct "up" orientation"""
     # Create new mesh & object data blocks
     new_mesh = bpy.data.meshes.new(ob_name)
     new_ob = bpy.data.objects.new(ob_name, new_mesh)

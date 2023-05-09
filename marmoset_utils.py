@@ -1,5 +1,5 @@
 import mset, os, json
-from .gd_constants import *
+from .constants import GlobalVariableConstants as GlobalVarConst
 
 
 temps_path = os.path.join(os.path.dirname(mset.getPluginPath()), "Temp")
@@ -49,7 +49,7 @@ def refresh_scene() -> None:
 
         # Make a folder for Mat ID materials
         for mat in mset.getAllMaterials():
-            if mat.name.startswith(GD_PREFIX):
+            if mat.name.startswith(GlobalVarConst.GD_PREFIX):
                 mat.setGroup('Mat ID')
 
         ## BAKE MAPS SETUP
@@ -111,9 +111,9 @@ def refresh_scene() -> None:
             else:
                 # Hide the _High group
                 mset.findObject('High').visible = False
-                
+
                 # Scale up the high poly plane
-                mset.findObject(f'{GD_HIGH_PREFIX} {BG_PLANE_NAME}').scale = [300, 300, 300]
+                mset.findObject(f'{GlobalVarConst.GD_HIGH_PREFIX} {GlobalVarConst.BG_PLANE_NAME}').scale = [300, 300, 300]
 
                 findDefault = mset.findMaterial("Default")
 

@@ -1049,7 +1049,7 @@ class Singleton_updater(object):
 		addon_utils.modules(refresh=True)
 		bpy.utils.refresh_script_paths()
 
-		# not allowed in restricted context, such as register module
+		# not allowed in restricted context: types.Context, such as register module
 		# toggle to refresh
 		bpy.ops.wm.addon_disable(module=self._addon_package)
 		bpy.ops.wm.addon_refresh()

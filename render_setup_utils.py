@@ -1,41 +1,12 @@
 
-import bpy
+import bpy, bpy.types as types
 from mathutils import Vector
-from .gd_constants import *
+from .constants import GlobalVariableConstants as GlobalVarConst
 
 
-def get_rendered_objects(context) -> set:
-    '''Generate a list of all objects that will be rendered based on its origin position in world space'''
-    rendered_obs = [BG_PLANE_NAME]
-
-    if context.scene.grabDoc.onlyRenderColl:
-        for coll in bpy.data.collections:
-            if coll.is_gd_collection:
-                for ob in coll.all_objects:
-                    if (
-                        not ob.hide_render
-                        and ob.type not in {'EMPTY', 'VOLUME', 'ARMATURE', 'LATTICE', 'LIGHT', 'LIGHT_PROBE', 'CAMERA'}
-                        and not ob.is_gd_object
-                        ):
-                        rendered_obs.append(ob.name)
-    else:
-        for ob in context.view_layer.objects:
-            if (
-                not ob.hide_render
-                and ob.type not in {'EMPTY', 'VOLUME', 'ARMATURE', 'LATTICE', 'LIGHT', 'LIGHT_PROBE', 'CAMERA'}
-                and not ob.is_gd_object
-                ):
-                local_bbox_center = .125 * sum((Vector(b) for b in ob.bound_box), Vector())
-                global_bbox_center = ob.matrix_world @ local_bbox_center
-
-                if is_in_viewing_spectrum(global_bbox_center):
-                    rendered_obs.append(ob.name)
-    return set(rendered_obs)
-
-
-def is_in_viewing_spectrum(vec_check: Vector) -> bool:
-    '''Decide whether a given object is within the cameras viewing spectrum'''
-    bg_plane = bpy.data.objects[BG_PLANE_NAME]
+def is_in_viewing_frustrum(vec_check: Vector) -> bool:
+    """Decide whether a given object is within the cameras viewing frustrum"""
+    bg_plane = bpy.data.objects[GlobalVarConst.BG_PLANE_NAME]
 
     vec1 = Vector((bg_plane.dimensions.x * -1.25 + bg_plane.location[0], bg_plane.dimensions.y * -1.25 + bg_plane.location[1], -100))
     vec2 = Vector((bg_plane.dimensions.x * 1.25 + bg_plane.location[0], bg_plane.dimensions.y * 1.25 + bg_plane.location[1], 100))
@@ -46,13 +17,42 @@ def is_in_viewing_spectrum(vec_check: Vector) -> bool:
     return True
 
 
-def find_tallest_object(self, context) -> None:
-    '''Find the tallest points in the viewlayer by looping through objects to find the highest vertex on the Z axis'''
+def get_rendered_objects(context: types.Context) -> set:
+    """Generate a list of all objects that will be rendered based on its origin position in world space"""
+    rendered_obs = {GlobalVarConst.BG_PLANE_NAME}
+
+    if context.scene.grabDoc.onlyRenderColl:
+        for coll in bpy.data.collections:
+            if coll.is_gd_collection:
+                for ob in coll.all_objects:
+                    if (
+                        not ob.hide_render
+                        and ob.type not in GlobalVarConst.UNRENDERABLE_TYPES
+                        and not ob.is_gd_object
+                        ):
+                        rendered_obs.add(ob.name)
+    else:
+        for ob in context.view_layer.objects:
+            if (
+                not ob.hide_render
+                and ob.type not in GlobalVarConst.UNRENDERABLE_TYPES
+                and not ob.is_gd_object
+                ):
+                local_bbox_center = .125 * sum((Vector(b) for b in ob.bound_box), Vector())
+                global_bbox_center = ob.matrix_world @ local_bbox_center
+
+                if is_in_viewing_frustrum(global_bbox_center):
+                    rendered_obs.add(ob.name)
+    return rendered_obs
+
+
+def find_tallest_object(self, context: types.Context) -> None:
+    """Find the tallest points in the viewlayer by looping through objects to find the highest vertex on the Z axis"""
     depsgraph = context.evaluated_depsgraph_get()
 
     all_tallest_verts = []
     for ob in context.view_layer.objects:
-        if ob.name in self.rendered_obs and ob.type in {'MESH', 'CURVE', 'SURFACE', 'FONT', 'META'} and not ob.name.startswith(GD_PREFIX):
+        if ob.name in self.rendered_obs and ob.type in {'MESH', 'CURVE', 'SURFACE', 'FONT', 'META'} and not ob.name.startswith(GlobalVarConst.GD_PREFIX):
             # Invoke to_mesh() for evaluated object.
             ob_eval = ob.evaluated_get(depsgraph)
             mesh_from_eval = ob_eval.to_mesh()
@@ -71,7 +71,7 @@ def find_tallest_object(self, context) -> None:
 
     # Set the heights guide to the tallest found point
     if len(all_tallest_verts):
-        context.scene.grabDoc.guideHeight = max(all_tallest_verts) - bpy.data.objects.get(BG_PLANE_NAME).location[2]
+        context.scene.grabDoc.guideHeight = max(all_tallest_verts) - bpy.data.objects.get(GlobalVarConst.BG_PLANE_NAME).location[2]
 
 
 # ##### BEGIN GPL LICENSE BLOCK #####
