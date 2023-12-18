@@ -1,0 +1,21 @@
+{
+  "python.analysis.typeCheckingMode": "off",
+  "python.analysis.autoImportCompletions": true,
+  "cSpell.words": [
+    "backface",
+    "BLACKMAN",
+    "BSDF",
+    "colorspace",
+    "depsgraph",
+    "eevee",
+    "frustrum",
+    "gtao",
+    "matcap",
+    "mathutils",
+    "Metalness",
+    "overscan",
+    "ssao",
+    "Toolbag",
+    "viewlayer"
+]
+}

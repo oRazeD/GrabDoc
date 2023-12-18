@@ -176,7 +176,7 @@ class Singleton_updater(object):
 		return self._backup_current
 	@backup_current.setter
 	def backup_current(self, value):
-		if value == None:
+		if value is None:
 			self._backup_current = False
 			return
 		else:
@@ -187,7 +187,7 @@ class Singleton_updater(object):
 		return self._backup_ignore_patterns
 	@backup_ignore_patterns.setter
 	def backup_ignore_patterns(self, value):
-		if value == None:
+		if value is None:
 			self._backup_ignore_patterns = None
 			return
 		elif type(value) != type(['list']):
@@ -271,7 +271,7 @@ class Singleton_updater(object):
 	@include_branch_list.setter
 	def include_branch_list(self, value):
 		try:
-			if value == None:
+			if value is None:
 				self._include_branch_list = ['master']
 			elif type(value) != type(['master']) or value==[]:
 				raise ValueError("include_branch_list should be a list of valid branches")
@@ -298,7 +298,7 @@ class Singleton_updater(object):
 
 	@property
 	def latest_release(self):
-		if self._latest_release == None:
+		if self._latest_release is None:
 			return None
 		return self._latest_release
 
@@ -317,7 +317,7 @@ class Singleton_updater(object):
 		return self._overwrite_patterns
 	@overwrite_patterns.setter
 	def overwrite_patterns(self, value):
-		if value == None:
+		if value is None:
 			self._overwrite_patterns = ["*.py","*.pyc"]
 		elif type(value) != type(['']):
 			raise ValueError("overwrite_patterns needs to be in a list format")
@@ -339,7 +339,7 @@ class Singleton_updater(object):
 		return self._remove_pre_update_patterns
 	@remove_pre_update_patterns.setter
 	def remove_pre_update_patterns(self, value):
-		if value == None:
+		if value is None:
 			self._remove_pre_update_patterns = []
 		elif type(value) != type(['']):
 			raise ValueError("remove_pre_update_patterns needs to be in a list format")
@@ -372,7 +372,7 @@ class Singleton_updater(object):
 		return self._updater_path
 	@stage_path.setter
 	def stage_path(self, value):
-		if value == None:
+		if value is None:
 			if self._verbose: print("Aborting assigning stage_path, it's null")
 			return
 		elif value != None and not os.path.exists(value):
@@ -401,7 +401,7 @@ class Singleton_updater(object):
 
 	@property
 	def tag_latest(self):
-		if self._tag_latest == None:
+		if self._tag_latest is None:
 			return None
 		return self._tag_latest["name"]
 
@@ -454,7 +454,7 @@ class Singleton_updater(object):
 		return self._version_max_update
 	@version_max_update.setter
 	def version_max_update(self, value):
-		if value == None:
+		if value is None:
 			self._version_max_update = None
 			return
 		if type(value) != type((1,2,3)):
@@ -469,7 +469,7 @@ class Singleton_updater(object):
 		return self._version_min_update
 	@version_min_update.setter
 	def version_min_update(self, value):
-		if value == None:
+		if value is None:
 			self._version_min_update = None
 			return
 		if type(value) != type((1,2,3)):
@@ -588,14 +588,14 @@ class Singleton_updater(object):
 				}
 				self._tags = [include] + self._tags  # append to front
 
-		if self._tags == None:
+		if self._tags is None:
 			# some error occurred
 			self._tag_latest = None
 			self._tags = []
 			return
 		elif self._prefiltered_tag_count == 0 and self._include_branches == False:
 			self._tag_latest = None
-			if self._error == None: # if not None, could have had no internet
+			if self._error is None: # if not None, could have had no internet
 				self._error = "No releases found"
 				self._error_msg = "No releases or tags found on this repository"
 			if self._verbose: print("No releases or tags found on this repository")
@@ -905,7 +905,7 @@ class Singleton_updater(object):
 		if os.path.isfile(os.path.join(unpath,"__init__.py")) == False:
 			dirlist = os.listdir(unpath)
 			if len(dirlist)>0:
-				if self._subfolder_path == "" or self._subfolder_path == None:
+				if self._subfolder_path == "" or self._subfolder_path is None:
 					unpath = os.path.join(unpath, dirlist[0])
 				else:
 					unpath = os.path.join(unpath, self._subfolder_path)
@@ -1083,7 +1083,7 @@ class Singleton_updater(object):
 
 
 	def version_tuple_from_text(self,text):
-		if text == None: return ()
+		if text is None: return ()
 
 		# should go through string and remove all non-integers,
 		# and for any given break split into a different section
@@ -1125,7 +1125,7 @@ class Singleton_updater(object):
 		elif self._async_checking == True:
 			if self._verbose: print("Skipping async check, already started")
 			return  # already running the bg thread
-		elif self._update_ready == None:
+		elif self._update_ready is None:
 			self.start_async_check_update(False, callback)
 
 
@@ -1139,7 +1139,7 @@ class Singleton_updater(object):
 		if self._async_checking == True:
 			if self._verbose: print("Skipping async check, already started")
 			return  # already running the bg thread
-		elif self._update_ready == None:
+		elif self._update_ready is None:
 			self.start_async_check_update(True, callback)
 		else:
 			self._update_ready = None
@@ -1160,11 +1160,11 @@ class Singleton_updater(object):
 		if self._update_ready != None and now == False:
 			return (self._update_ready,self._update_version,self._update_link)
 
-		if self._current_version == None:
+		if self._current_version is None:
 			raise ValueError("current_version not yet defined")
-		if self._repo == None:
+		if self._repo is None:
 			raise ValueError("repo not yet defined")
-		if self._user == None:
+		if self._user is None:
 			raise ValueError("username not yet defined")
 
 		self.set_updater_json()  # self._json
@@ -1325,7 +1325,7 @@ class Singleton_updater(object):
 						self._addon_package,
 						"Update stopped, new version not ready")
 				return "Update stopped, new version not ready"
-			elif self._update_link == None:
+			elif self._update_link is None:
 				# this shouldn't happen if update is ready
 				if self._verbose:
 					print("Update stopped, update link unavailable")
@@ -1353,7 +1353,7 @@ class Singleton_updater(object):
 				return res
 
 		else:
-			if self._update_link == None:
+			if self._update_link is None:
 				if self._verbose:
 					print("Update stopped, could not get link")
 				return "Update stopped, could not get link"
@@ -1427,7 +1427,7 @@ class Singleton_updater(object):
 
 	def set_updater_json(self):
 		"""Load or initialize JSON dictionary data for updater state"""
-		if self._updater_path == None:
+		if self._updater_path is None:
 			raise ValueError("updater_path is not defined")
 		elif os.path.isdir(self._updater_path) == False:
 			os.makedirs(self._updater_path)
@@ -1586,7 +1586,7 @@ class BitbucketEngine(object):
 			name=name)
 
 	def parse_tags(self, response, updater):
-		if response == None:
+		if response is None:
 			return []
 		return [{"name": tag["name"], "zipball_url": self.get_zip_url(tag["name"], updater)} for tag in response["values"]]
 
@@ -1617,7 +1617,7 @@ class GithubEngine(object):
 							"/zipball/",branch)
 
 	def parse_tags(self, response, updater):
-		if response == None:
+		if response is None:
 			return []
 		return response
 
@@ -1660,7 +1660,7 @@ class GitlabEngine(object):
 	# 	return self.form_repo_url(updater)+"/repository/archive.zip?sha:"+id
 
 	def parse_tags(self, response, updater):
-		if response == None:
+		if response is None:
 			return []
 		return [{"name": tag["name"], "zipball_url": self.get_zip_url(tag["commit"]["id"], updater)} for tag in response]
 

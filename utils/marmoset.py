@@ -1,14 +1,20 @@
-import mset, os, json
-from .constants import GlobalVariableConstants as GlobalVarConst
+import os
+import json
+
+import mset
+
+from ..constants import GlobalVariableConstants as Global
 
 
-temps_path = os.path.join(os.path.dirname(mset.getPluginPath()), "Temp")
+temps_path = os.path.join(os.path.dirname(mset.getPluginPath()), "_temp")
 
 def refresh_scene() -> None:
     if os.path.exists(os.path.join(temps_path, "marmo_vars.json")):
         mset.newScene()
 
-        with open(os.path.join(temps_path, "marmo_vars.json"), 'r') as openfile:
+        with open(
+            os.path.join(temps_path, "marmo_vars.json"), 'r', encoding='utf-8'
+        ) as openfile:
             marmo_json = json.load(openfile)
 
         ## BAKER SETUP
@@ -34,7 +40,9 @@ def refresh_scene() -> None:
             baker.outputSamples = marmo_json["samples"]
 
         # Import the models
-        baker.importModel(os.path.normpath(os.path.join(temps_path, "GD_temp_model.fbx")))
+        baker.importModel(
+            os.path.normpath(os.path.join(temps_path, "GD_temp_model.fbx"))
+        )
 
         # Set cage offset
         mset.findObject('Low').maxOffset = marmo_json["cage_height"] + .01
@@ -49,7 +57,7 @@ def refresh_scene() -> None:
 
         # Make a folder for Mat ID materials
         for mat in mset.getAllMaterials():
-            if mat.name.startswith(GlobalVarConst.GD_PREFIX):
+            if mat.name.startswith(Global.GD_PREFIX):
                 mat.setGroup('Mat ID')
 
         ## BAKE MAPS SETUP
@@ -113,22 +121,29 @@ def refresh_scene() -> None:
                 mset.findObject('High').visible = False
 
                 # Scale up the high poly plane
-                mset.findObject(f'{GlobalVarConst.GD_HIGH_PREFIX} {GlobalVarConst.BG_PLANE_NAME}').scale = [300, 300, 300]
+                mset.findObject(
+                    f'{Global.GD_HIGH_PREFIX} {Global.BG_PLANE_NAME}'
+                ).scale = [300, 300, 300]
 
                 findDefault = mset.findMaterial("Default")
 
                 # Material preview
                 if marmo_json["export_normal"]:
-                    findDefault.getSubroutine('surface').setField('Normal Map', marmo_json["file_path"][:-4] + '_' + marmo_json['suffix_normal'] + '.' + marmo_json['file_ext'])
+                    findDefault.getSubroutine('surface').setField(
+                        'Normal Map', marmo_json["file_path"][:-4] + '_' + marmo_json['suffix_normal'] + '.' + marmo_json['file_ext']
+                    )
 
                 if marmo_json["export_occlusion"]:
                     findDefault.setSubroutine('occlusion', 'Occlusion')
-                    findDefault.getSubroutine('occlusion').setField('Occlusion Map', marmo_json["file_path"][:-4] + '_' + marmo_json['suffix_occlusion'] + '.' + marmo_json['file_ext'])
+                    findDefault.getSubroutine('occlusion').setField(
+                        'Occlusion Map', marmo_json["file_path"][:-4] + '_' + marmo_json['suffix_occlusion'] + '.' + marmo_json['file_ext']
+                    )
 
                 # Rename bake material
                 findDefault.name = 'Bake Material'
 
-        # Remove the json file to signal the no rebakes need to take place until a new one is made
+        # Remove the json file to signal the no rebakes
+        # need to take place until a new one is made
         os.remove(os.path.join(temps_path, "marmo_vars.json"))
 
 

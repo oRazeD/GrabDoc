@@ -1,9 +1,9 @@
 bl_info = {
     "name": "GrabDoc Pro",
     "author": "Ethan Simon-Law",
-    "location": "3D View > Sidebar > GrabDoc Tab",
+    "location": "3D View > Sidebar > GrabDoc",
     "version": (1, 4, 0),
-    "blender": (3, 5, 0),
+    "blender": (4, 0, 1),
     "tracker_url": "https://discord.com/invite/wHAyVZG",
     "category": "3D View"
 }
@@ -13,11 +13,11 @@ import importlib
 
 
 module_names = (
-    "ui",
-    "operators",
-    "mat_id_ops",
-    "marmoset_ops",
-    "preferences"
+    "operators.operators",
+    "operators.material",
+    "operators.marmoset",
+    "preferences",
+    "ui"
 )
 
 modules = []
@@ -26,7 +26,7 @@ for module_name in module_names:
     if module_name in locals():
         modules.append(importlib.reload(locals()[module_name]))
     else:
-        modules.append(importlib.import_module("." + module_name, __package__))
+        modules.append(importlib.import_module(f".{module_name}", __package__))
 
 def register():
     for mod in modules:

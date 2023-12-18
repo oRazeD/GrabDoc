@@ -1,36 +1,57 @@
-import bpy, os, bpy.types as types
-from bpy.props import BoolProperty, PointerProperty, StringProperty, EnumProperty, IntProperty, FloatProperty
+import os
+
+import bpy
 from bl_operators.presets import AddPresetBase
 from bl_ui.utils import PresetPanel
-from .operators import find_tallest_object
-from .scene_setup_utils import scene_setup
-from .render_setup_utils import get_rendered_objects
+from bpy.types import (
+    Menu,
+    Panel,
+    Operator,
+    AddonPreferences,
+    Context,
+    PropertyGroup,
+    Image,
+    Scene,
+    Collection,
+    Object
+)
+from bpy.props import (
+    BoolProperty,
+    PointerProperty,
+    StringProperty,
+    EnumProperty,
+    IntProperty,
+    FloatProperty
+)
+
+from .constants import GlobalVariableConstants as Global
+from .utils.scene import scene_setup
+from .utils.render import get_rendered_objects, set_guide_height
+
 from .addon_updater import Updater as updater
-from .__init__ import bl_info
-from .constants import GlobalVariableConstants as GlobalVarConst
-from .generic_utils import OpInfo
+from .constants import VERSION
 
 
-################################################################################################################
+################################################
 # PRESETS
-################################################################################################################
+################################################
 
 
-class GRABDOC_MT_presets(types.Menu):
+class GRABDOC_MT_presets(Menu):
     bl_label = ""
     preset_subdir = "grabDoc"
     preset_operator = "script.execute_preset"
-    draw = types.Menu.draw_preset
+    draw = Menu.draw_preset
 
 
-class GRABDOC_PT_presets(PresetPanel, types.Panel):
+class GRABDOC_PT_presets(PresetPanel, Panel):
     bl_label = 'GrabDoc Presets'
     preset_subdir = 'grab_doc'
     preset_operator = 'script.execute_preset'
     preset_add_operator = 'grab_doc.preset_add'
 
 
-class GRABDOC_OT_add_preset(AddPresetBase, types.Operator):
+class GRABDOC_OT_add_preset(AddPresetBase, Operator):
     bl_idname = "grab_doc.preset_add"
     bl_label = "Add a new preset"
     preset_menu = "GRABDOC_MT_presets"
@@ -38,109 +59,112 @@ class GRABDOC_OT_add_preset(AddPresetBase, types.Operator):
     # Variable used for all preset values
     preset_defines = ["grabDoc=bpy.context.scene.grabDoc"]
 
+    # TODO: Create a function that
+    # generates this list below
+
     # Properties to store in the preset
     preset_values = [
-        "grabDoc.collSelectable",
-        "grabDoc.collVisible",
-        "grabDoc.collRendered",
-        "grabDoc.useGrid",
-        "grabDoc.gridSubdivisions",
-        "grabDoc.useFiltering",
-        "grabDoc.widthFiltering",
-        "grabDoc.scalingSet",
+        "gd.collSelectable",
+        "gd.collVisible",
+        "gd.collRendered",
+        "gd.useGrid",
+        "gd.gridSubdivisions",
+        "gd.useFiltering",
+        "gd.widthFiltering",
+        "gd.scalingSet",
 
-        "grabDoc.bakerType",
-        "grabDoc.exportPath",
-        "grabDoc.exportName",
-        "grabDoc.exportResX",
-        "grabDoc.exportResY",
-        "grabDoc.lockRes",
-        "grabDoc.imageType",
-        "grabDoc.colorDepth",
-        "grabDoc.colorDepthTGA",
-        "grabDoc.imageCompPNG",
+        "gd.bakerType",
+        "gd.exportPath",
+        "gd.exportName",
+        "gd.exportResX",
+        "gd.exportResY",
+        "gd.lockRes",
+        "gd.imageType",
+        "gd.colorDepth",
+        "gd.colorDepthTGA",
+        "gd.imageCompPNG",
 
-        "grabDoc.onlyRenderColl",
-        "grabDoc.exportPlane",
-        "grabDoc.openFolderOnExport",
-        "grabDoc.autoExitCamera",
+        "gd.useBakeCollection",
+        "gd.exportPlane",
+        "gd.openFolderOnExport",
+        "gd.autoExitCamera",
 
-        "grabDoc.uiVisibilityNormals",
-        "grabDoc.uiVisibilityCurvature",
-        "grabDoc.uiVisibilityOcclusion",
-        "grabDoc.uiVisibilityHeight",
-        "grabDoc.uiVisibilityMatID",
-        "grabDoc.uiVisibilityAlpha",
-        "grabDoc.uiVisibilityAlbedo",
-        "grabDoc.uiVisibilityRoughness",
-        "grabDoc.uiVisibilityMetalness",
+        "gd.uiVisibilityNormals",
+        "gd.uiVisibilityCurvature",
+        "gd.uiVisibilityOcclusion",
+        "gd.uiVisibilityHeight",
+        "gd.uiVisibilityMatID",
+        "gd.uiVisibilityAlpha",
+        "gd.uiVisibilityAlbedo",
+        "gd.uiVisibilityRoughness",
+        "gd.uiVisibilityMetalness",
 
-        "grabDoc.exportNormals",
-        "grabDoc.reimportAsMatNormals",
-        "grabDoc.flipYNormals",
-        "grabDoc.useTextureNormals",
-        "grabDoc.samplesNormals",
-        "grabDoc.suffixNormals",
-        "grabDoc.samplesCyclesNormals",
-        "grabDoc.engineNormals",
+        "gd.exportNormals",
+        "gd.reimportAsMatNormals",
+        "gd.flipYNormals",
+        "gd.useTextureNormals",
+        "gd.samplesNormals",
+        "gd.suffixNormals",
+        "gd.samplesCyclesNormals",
+        "gd.engineNormals",
 
-        "grabDoc.exportCurvature",
-        "grabDoc.ridgeCurvature",
-        "grabDoc.valleyCurvature",
-        "grabDoc.samplesCurvature",
-        "grabDoc.contrastCurvature",
-        "grabDoc.suffixCurvature",
+        "gd.exportCurvature",
+        "gd.ridgeCurvature",
+        "gd.valleyCurvature",
+        "gd.samplesCurvature",
+        "gd.contrastCurvature",
+        "gd.suffixCurvature",
 
-        "grabDoc.exportOcclusion",
-        "grabDoc.reimportAsMatOcclusion",
-        "grabDoc.gammaOcclusion",
-        "grabDoc.distanceOcclusion",
-        "grabDoc.samplesOcclusion",
-        "grabDoc.contrastOcclusion",
-        "grabDoc.suffixOcclusion",
+        "gd.exportOcclusion",
+        "gd.reimportAsMatOcclusion",
+        "gd.gammaOcclusion",
+        "gd.distanceOcclusion",
+        "gd.samplesOcclusion",
+        "gd.contrastOcclusion",
+        "gd.suffixOcclusion",
 
-        "grabDoc.exportHeight",
-        "grabDoc.rangeTypeHeight",
-        "grabDoc.guideHeight",
-        "grabDoc.invertMaskHeight",
-        "grabDoc.samplesHeight",
-        "grabDoc.contrastHeight",
-        "grabDoc.suffixHeight",
+        "gd.exportHeight",
+        "gd.rangeTypeHeight",
+        "gd.guideHeight",
+        "gd.invertMaskHeight",
+        "gd.samplesHeight",
+        "gd.contrastHeight",
+        "gd.suffixHeight",
 
-        "grabDoc.exportAlpha",
-        "grabDoc.invertMaskAlpha",
-        "grabDoc.samplesAlpha",
-        "grabDoc.suffixAlpha",
+        "gd.exportAlpha",
+        "gd.invertMaskAlpha",
+        "gd.samplesAlpha",
+        "gd.suffixAlpha",
 
-        "grabDoc.exportMatID",
-        "grabDoc.methodMatID",
-        "grabDoc.samplesMatID",
-        "grabDoc.suffixID",
+        "gd.exportMatID",
+        "gd.methodMatID",
+        "gd.samplesMatID",
+        "gd.suffixID",
 
-        "grabDoc.exportAlbedo",
-        "grabDoc.samplesAlbedo",
-        "grabDoc.suffixAlbedo",
-        "grabDoc.samplesCyclesAlbedo",
-        "grabDoc.engineAlbedo",
+        "gd.exportAlbedo",
+        "gd.samplesAlbedo",
+        "gd.suffixAlbedo",
+        "gd.samplesCyclesAlbedo",
+        "gd.engineAlbedo",
 
-        "grabDoc.exportRoughness",
-        "grabDoc.invertMaskRoughness",
-        "grabDoc.samplesRoughness",
-        "grabDoc.suffixRoughness",
-        "grabDoc.samplesCyclesRoughness",
-        "grabDoc.engineRoughness",
+        "gd.exportRoughness",
+        "gd.invertMaskRoughness",
+        "gd.samplesRoughness",
+        "gd.suffixRoughness",
+        "gd.samplesCyclesRoughness",
+        "gd.engineRoughness",
 
-        "grabDoc.exportMetalness",
-        "grabDoc.samplesMetalness",
-        "grabDoc.suffixMetalness",
-        "grabDoc.samplesCyclesMetalness",
-        "grabDoc.engineMetalness",
+        "gd.exportMetalness",
+        "gd.samplesMetalness",
+        "gd.suffixMetalness",
+        "gd.samplesCyclesMetalness",
+        "gd.engineMetalness",
 
-        "grabDoc.marmoAutoBake",
-        "grabDoc.marmoClosePostBake",
-        "grabDoc.marmoSamples",
-        "grabDoc.marmoAORayCount",
-        "grabDoc.imageType_marmo"
+        "gd.marmoAutoBake",
+        "gd.marmoClosePostBake",
+        "gd.marmoSamples",
+        "gd.marmoAORayCount",
+        "gd.imageType_marmo"
     ]
 
     # Where to store the preset
@@ -152,17 +176,18 @@ class GRABDOC_OT_add_preset(AddPresetBase, types.Operator):
 ############################################################
 
 
-class GRABDOC_OT_check_for_update(OpInfo, types.Operator):
+class GRABDOC_OT_check_for_update(Operator):
     bl_idname = "updater_gd.check_for_update"
-    bl_options = {'INTERNAL'}
+    bl_label = ""
+    bl_options = {'REGISTER', 'UNDO', 'INTERNAL'}
 
-    def execute(self, _context: types.Context):
+    def execute(self, _context: Context):
         updater.check_for_update_now()
         return {'FINISHED'}
 
 
-class GRABDOC_MT_addon_prefs(bpy.types.AddonPreferences):
-    bl_idname=__package__
+class GRABDOC_MT_addon_preferences(AddonPreferences):
+    bl_idname = __package__
 
     # Store this here so the value is saved across project files
     marmoEXE: StringProperty(
@@ -172,23 +197,26 @@ class GRABDOC_MT_addon_prefs(bpy.types.AddonPreferences):
         subtype="FILE_PATH"
     )
 
-    def draw(self, _context: types.Context):
-        layout=self.layout
-        row=layout.row()
+    def draw(self, _context: Context):
+        layout = self.layout
+        row = layout.row()
 
-        if updater.update_ready == None:
+        if updater.update_ready is None:
             row.label(text="Checking for an update...")
 
             updater.check_for_update_now()
 
         elif updater.update_ready:
-            row.alert=True
-            row.label(text="There is a GrabDoc update available! Get it on Gumroad :D")
+            row.alert = True
+            row.label(
+                text="There is a GrabDoc update available! Get it on Gumroad :D")
 
         elif not updater.update_ready:
-            row.label(text="You have the latest version of GrabDoc! There are no new versions available.")
-
-            row.operator("updater_gd.check_for_update", text="", icon="FILE_REFRESH")
+            row.label(
+                text="You have the latest version of GrabDoc! There are no new versions available."
+            )
+            row.operator("updater_gd.check_for_update",
+                         text="", icon="FILE_REFRESH")
 
 
 ############################################################
@@ -196,146 +224,178 @@ class GRABDOC_MT_addon_prefs(bpy.types.AddonPreferences):
 ############################################################
 
 
-class GRABDOC_property_group(bpy.types.PropertyGroup):
+class GRABDOC_property_group(PropertyGroup):
     # UPDATE FUNCTIONS
 
-    def update_scaling_set(self, context: types.Context):
+    def update_scaling_set(self, context: Context):
         scene_setup(self, context)
 
-        gd_camera_ob_z = bpy.data.objects.get(GlobalVarConst.TRIM_CAMERA_NAME).location[2]
+        gd_camera_ob_z = bpy.data.objects.get(
+            Global.TRIM_CAMERA_NAME
+        ).location[2]
+        height_ng = bpy.data.node_groups.get(Global.NG_HEIGHT_NAME)
 
-        map_range_node = bpy.data.node_groups[GlobalVarConst.NG_HEIGHT_NAME].nodes.get('Map Range')
-        map_range_node.inputs[1].default_value = -self.guideHeight + gd_camera_ob_z
-        map_range_node.inputs[2].default_value = gd_camera_ob_z
+        map_range = height_ng.nodes.get('Map Range')
+        map_range.inputs[1].default_value = \
+            - self.guideHeight + gd_camera_ob_z
+        map_range.inputs[2].default_value = gd_camera_ob_z
 
-        map_range_alpha_node = bpy.data.node_groups[GlobalVarConst.NG_ALPHA_NAME].nodes.get('Map Range')
-        map_range_alpha_node.inputs[1].default_value = gd_camera_ob_z - .00001
-        map_range_alpha_node.inputs[2].default_value = gd_camera_ob_z
+        map_range_alpha = \
+            bpy.data.node_groups[Global.NG_ALPHA_NAME].nodes.get('Map Range')
+        map_range_alpha.inputs[1].default_value = gd_camera_ob_z - .00001
+        map_range_alpha.inputs[2].default_value = gd_camera_ob_z
 
-    def update_res_x(self, context: types.Context):
-        if self.lockRes:
-            if self.exportResX != self.exportResY:
+    def update_res_x(self, context: Context):
+        if self.lockRes and self.exportResX != self.exportResY:
                 self.exportResY = self.exportResX
-
         scene_setup(self, context)
 
-    def update_res_y(self, context: types.Context):
-        if self.lockRes:
-            if self.exportResY != self.exportResX:
-                self.exportResX = self.exportResY
-
+    def update_res_y(self, context: Context):
+        if self.lockRes and self.exportResY != self.exportResX:
+            self.exportResX = self.exportResY
         scene_setup(self, context)
 
-    def update_export_name(self, _context: types.Context):
+    def update_export_name(self, _context: Context):
         if not self.exportName:
             self.exportName = "untitled"
 
-    def update_useTextureNormals(self, _context: types.Context):
+    def update_useTextureNormals(self, _context: Context) -> None:
+        if not self.modalState:
+            return
+        ng_normal = bpy.data.node_groups[Global.NG_NORMAL_NAME]
+        vec_transform = ng_normal.nodes.get('Vector Transform')
+        group_output = ng_normal.nodes.get('Group Output')
+
+        links = ng_normal.links
+        if self.useTextureNormals:
+            links.new(
+                vec_transform.inputs["Vector"],
+                ng_normal.nodes.get('Bevel').outputs["Normal"]
+            )
+            links.new(
+                group_output.inputs["Output"],
+                ng_normal.nodes.get('Mix Shader').outputs["Shader"]
+            )
+        else:
+            links.new(
+                vec_transform.inputs["Vector"],
+                ng_normal.nodes.get('Bevel.001').outputs["Normal"]
+            )
+            links.new(
+                group_output.inputs["Output"],
+                ng_normal.nodes.get('Vector Math.001').outputs["Vector"]
+            )
+
+    def update_curvature(self, context: Context):
         if self.modalState:
-            ng_normal = bpy.data.node_groups[GlobalVarConst.NG_NORMAL_NAME]
-            vec_transform_node = ng_normal.nodes.get('Vector Transform')
-            group_output_node = ng_normal.nodes.get('Group Output')
-
-            link = ng_normal.links
-
-            if self.useTextureNormals:
-                link.new(vec_transform_node.inputs["Vector"], ng_normal.nodes.get('Bevel').outputs["Normal"])
-                link.new(group_output_node.inputs["Output"], ng_normal.nodes.get('Mix Shader').outputs["Shader"])
-            else:
-                link.new(vec_transform_node.inputs["Vector"], ng_normal.nodes.get('Bevel.001').outputs["Normal"])
-                link.new(group_output_node.inputs["Output"], ng_normal.nodes.get('Vector Math.001').outputs["Vector"])
-
-    def update_curvature(self, context: types.Context):
-        if self.modalState:
-            scene_shading = bpy.data.scenes[str(context.scene.name)].display.shading
+            scene_shading = bpy.data.scenes[str(
+                context.scene.name)].display.shading
 
             scene_shading.cavity_ridge_factor = scene_shading.curvature_ridge_factor = self.ridgeCurvature
             scene_shading.curvature_valley_factor = self.valleyCurvature
 
-    def update_flip_y(self, _context: types.Context):
-        vec_multiply_node = bpy.data.node_groups[GlobalVarConst.NG_NORMAL_NAME].nodes.get('Vector Math')
-        vec_multiply_node.inputs[1].default_value[1] = -.5 if self.flipYNormals else .5
+    def update_flip_y(self, _context: Context):
+        vec_multiply = bpy.data.node_groups[Global.NG_NORMAL_NAME].nodes.get(
+            'Vector Math')
+        vec_multiply.inputs[1].default_value[1] = -.5 if self.flipYNormals else .5
 
-    def update_occlusion_gamma(self, _context: types.Context):
-        gamma_node = bpy.data.node_groups[GlobalVarConst.NG_AO_NAME].nodes.get('Gamma')
-        gamma_node.inputs[1].default_value = self.gammaOcclusion
+    def update_occlusion_gamma(self, _context: Context):
+        gamma = bpy.data.node_groups[Global.NG_AO_NAME].nodes.get('Gamma')
+        gamma.inputs[1].default_value = self.gammaOcclusion
 
-    def update_occlusion_distance(self, _context: types.Context):
-        ao_node = bpy.data.node_groups[GlobalVarConst.NG_AO_NAME].nodes.get('Ambient Occlusion')
-        ao_node.inputs[1].default_value = self.distanceOcclusion
+    def update_occlusion_distance(self, _context: Context):
+        ao = bpy.data.node_groups[Global.NG_AO_NAME].nodes.get(
+            'Ambient Occlusion')
+        ao.inputs[1].default_value = self.distanceOcclusion
 
-    def update_manual_height_range(self, context: types.Context):
+    def update_manual_height_range(self, context: Context):
         scene_setup(self, context)
-
         if self.modalState:
+            bpy.data.objects[Global.BG_PLANE_NAME].active_material = bpy.data.materials[Global.GD_MATERIAL_NAME]
             if self.rangeTypeHeight == 'AUTO':
-                self.rendered_obs = get_rendered_objects(context)
+                rendered_obs = get_rendered_objects(context)
+                set_guide_height(rendered_obs)
 
-                find_tallest_object(self, context)
+    def update_height_guide(self, context: Context):
+        gd_camera_ob_z = \
+            bpy.data.objects.get(Global.TRIM_CAMERA_NAME).location[2]
 
-            bpy.data.objects[GlobalVarConst.BG_PLANE_NAME].active_material = bpy.data.materials[GlobalVarConst.GD_MATERIAL_NAME]
+        map_range = \
+            bpy.data.node_groups[Global.NG_HEIGHT_NAME].nodes.get('Map Range')
+        map_range.inputs[1].default_value = \
+            gd_camera_ob_z + -self.guideHeight
+        map_range.inputs[2].default_value = \
+            gd_camera_ob_z
 
-    def update_height_guide(self, context: types.Context):
-        gd_camera_ob_z = bpy.data.objects.get(GlobalVarConst.TRIM_CAMERA_NAME).location[2]
-
-        map_range_node = bpy.data.node_groups[GlobalVarConst.NG_HEIGHT_NAME].nodes.get('Map Range')
-        map_range_node.inputs[1].default_value = gd_camera_ob_z + -self.guideHeight
-        map_range_node.inputs[2].default_value = gd_camera_ob_z
-
-        ramp_node = bpy.data.node_groups[GlobalVarConst.NG_HEIGHT_NAME].nodes.get('ColorRamp')
-        ramp_node.color_ramp.elements[0].color = (0, 0, 0, 1) if self.invertMaskHeight else (1, 1, 1, 1)
-        ramp_node.color_ramp.elements[1].color = (1, 1, 1, 1) if self.invertMaskHeight else (0, 0, 0, 1)
-        ramp_node.location = (-400,0)
+        ramp = bpy.data.node_groups[Global.NG_HEIGHT_NAME].nodes.get(
+            'ColorRamp')
+        ramp.color_ramp.elements[0].color = \
+            (0, 0, 0, 1) if self.invertMaskHeight else (1, 1, 1, 1)
+        ramp.color_ramp.elements[1].color = \
+            (1, 1, 1, 1) if self.invertMaskHeight else (0, 0, 0, 1)
+        ramp.location = \
+            (-400, 0)
 
         if self.rangeTypeHeight == 'MANUAL':
             scene_setup(self, context)
 
         # Update here so that it refreshes live in the VP
         if self.modalState:
-            bpy.data.objects[GlobalVarConst.BG_PLANE_NAME].active_material = bpy.data.materials[GlobalVarConst.GD_MATERIAL_NAME]
+            bpy.data.objects[Global.BG_PLANE_NAME].active_material = bpy.data.materials[Global.GD_MATERIAL_NAME]
 
-    def update_alpha(self, _context: types.Context):
-        gd_camera_ob_z = bpy.data.objects.get(GlobalVarConst.TRIM_CAMERA_NAME).location[2]
+    def update_alpha(self, _context: Context):
+        gd_camera_ob_z = bpy.data.objects.get(
+            Global.TRIM_CAMERA_NAME).location[2]
 
-        map_range_node = bpy.data.node_groups[GlobalVarConst.NG_ALPHA_NAME].nodes.get('Map Range')
-        map_range_node.inputs[1].default_value = gd_camera_ob_z - .00001
-        map_range_node.inputs[2].default_value = gd_camera_ob_z
+        map_range = bpy.data.node_groups[Global.NG_ALPHA_NAME].nodes.get(
+            'Map Range')
+        map_range.inputs[1].default_value = gd_camera_ob_z - .00001
+        map_range.inputs[2].default_value = gd_camera_ob_z
 
-        invert_node = bpy.data.node_groups[GlobalVarConst.NG_ALPHA_NAME].nodes.get('Invert')
-        invert_node.inputs[0].default_value = 0 if self.invertMaskAlpha else 1
+        invert = bpy.data.node_groups[Global.NG_ALPHA_NAME].nodes.get(
+            'Invert')
+        invert.inputs[0].default_value = 0 if self.invertMaskAlpha else 1
 
         # Update here so that it refreshes live in the VP
         if self.modalState:
-            bpy.data.objects[GlobalVarConst.BG_PLANE_NAME].active_material = bpy.data.materials[GlobalVarConst.GD_MATERIAL_NAME]
+            bpy.data.objects[Global.BG_PLANE_NAME].active_material = bpy.data.materials[Global.GD_MATERIAL_NAME]
 
-    def update_roughness(self, _context: types.Context):
-        invert_node = bpy.data.node_groups[GlobalVarConst.NG_ROUGHNESS_NAME].nodes.get('Invert')
-        invert_node.inputs[0].default_value = 1 if self.invertMaskRoughness else 0
+    def update_roughness(self, _context: Context):
+        invert = bpy.data.node_groups[Global.NG_ROUGHNESS_NAME].nodes.get(
+            'Invert')
+        invert.inputs[0].default_value = 1 if self.invertMaskRoughness else 0
 
         # Update here so that it refreshes live in the VP
-        #if self.modalState:
+        # if self.modalState:
         #    bpy.data.objects[BG_PLANE_NAME].active_material = bpy.data.materials[GD_MATERIAL_NAME]
 
-    def update_engine(self, context: types.Context):
-        if self.modalState:
-            if self.modalPreviewType == 'normals':
-                context.scene.render.engine = str(self.engineNormals).upper()
-            elif self.modalPreviewType == 'albedo':
-                context.scene.render.engine = str(self.engineAlbedo).upper()
-            elif self.modalPreviewType == 'roughness':
-                context.scene.render.engine = str(self.engineRoughness).upper()
-            elif self.modalPreviewType == 'metalness':
-                context.scene.render.engine = str(self.engineMetalness).upper()
+    def update_engine(self, context: Context):
+        if not self.modalState:
+            return
+        if self.modalPreviewType == 'normals':
+            context.scene.render.engine = str(self.engineNormals).upper()
+        elif self.modalPreviewType == 'albedo':
+            context.scene.render.engine = str(self.engineAlbedo).upper()
+        elif self.modalPreviewType == 'roughness':
+            context.scene.render.engine = str(self.engineRoughness).upper()
+        elif self.modalPreviewType == 'metalness':
+            context.scene.render.engine = str(self.engineMetalness).upper()
 
-    def update_export_path(self, _context: types.Context):
-        if self.exportPath != '' and not os.path.exists(bpy.path.abspath(self.exportPath)):
+    def update_export_path(self, _context: Context):
+        export_path_exists = \
+            os.path.exists(bpy.path.abspath(self.exportPath))
+        if self.exportPath != '' and not export_path_exists:
             self.exportPath = ''
 
     # PROPERTIES
 
     # Setup settings
-    collSelectable: BoolProperty(update=scene_setup, description='Sets the background plane selectibility')
-    collVisible: BoolProperty(default=True, update=scene_setup, description='Sets the visibility in the viewport')
+    collSelectable: BoolProperty(
+        update=scene_setup,
+        description='Sets the background plane selection capability'
+    )
+    collVisible: BoolProperty(default=True, update=scene_setup,
+                              description='Sets the visibility in the viewport')
     collRendered: BoolProperty(
         default=True,
         update=scene_setup,
@@ -352,7 +412,7 @@ class GRABDOC_property_group(bpy.types.PropertyGroup):
         description='Sets the scaling of the background plane and camera (WARNING: This will be the scaling used in tandem with `Export Plane as FBX`)',
         update=update_scaling_set
     )
-    useFiltering: BoolProperty( # TODO add to cycles
+    useFiltering: BoolProperty(  # TODO: add to cycles
         name='Use Filtering',
         default=True,
         description='Use pixel filtering on render. Useful to turn OFF for when you want to avoid aliased edges on stuff like Normal stamps',
@@ -370,7 +430,7 @@ class GRABDOC_property_group(bpy.types.PropertyGroup):
 
     refSelection: PointerProperty(
         name='Reference Selection',
-        type=bpy.types.Image,
+        type=Image,
         description='Select an image reference to use on the background plane',
         update=scene_setup
     )
@@ -406,10 +466,24 @@ class GRABDOC_property_group(bpy.types.PropertyGroup):
         update=update_export_path
     )
 
-    exportResX: IntProperty(name="Res X", default=2048, min=4, soft_max=8192, update=update_res_x)
-    exportResY: IntProperty(name="Res Y", default=2048, min=4, soft_max=8192, update=update_res_y)
+    exportResX: IntProperty(
+        name="Res X",
+        default=2048,
+        min=4, soft_max=8192,
+        update=update_res_x
+    )
+    exportResY: IntProperty(
+        name="Res Y",
+        default=2048,
+        min=4, soft_max=8192,
+        update=update_res_y
+    )
 
-    lockRes: BoolProperty(name='Sync Resolution', default=True, update=update_res_x)
+    lockRes: BoolProperty(
+        name='Sync Resolution',
+        default=True,
+        update=update_res_x
+    )
 
     exportName: StringProperty(
         name="",
@@ -436,7 +510,7 @@ class GRABDOC_property_group(bpy.types.PropertyGroup):
         )
     )
 
-    imageCompPNG: IntProperty( # Use our own property so we can assign a new default
+    imageCompPNG: IntProperty(  # Use our own property so we can assign a new default
         name="",
         default=50,
         min=0,
@@ -462,14 +536,18 @@ class GRABDOC_property_group(bpy.types.PropertyGroup):
         default='8'
     )
 
-    onlyRenderColl: BoolProperty(
+    useBakeCollection: BoolProperty(
         description="This will add a collection to the scene which GrabDoc will ONLY render from, ignoring objects outside of it. This option is useful if objects aren't visible in the renders",
         update=scene_setup
     )
 
-    exportPlane: BoolProperty(description="Exports the background plane as an FBX for use externally")
+    exportPlane: BoolProperty(
+        description="Exports the background plane as an FBX for use externally"
+    )
 
-    openFolderOnExport: BoolProperty(description="Open the folder path in your File Explorer on map export")
+    openFolderOnExport: BoolProperty(
+        description="Open the folder path in your File Explorer on map export"
+    )
 
     uiVisibilityNormals: BoolProperty(default=True)
     uiVisibilityCurvature: BoolProperty(default=True)
@@ -481,10 +559,13 @@ class GRABDOC_property_group(bpy.types.PropertyGroup):
     uiVisibilityRoughness: BoolProperty(default=True)
     uiVisibilityMetalness: BoolProperty(default=True)
 
-    # Map packing settings TODO ADD TO PRESETS
-    packMaps: BoolProperty(name='Enable Packing on Export', default=False)
+    # Map packing settings TODO: ADD TO PRESETS
+    packMaps: BoolProperty(
+        name='Enable Packing on Export',
+        default=False
+    )
 
-    MAPTYPES = (
+    MAP_TYPES = (
         ('curvature', "Curvature", ""),
         ('occlusion', "Occlusion", ""),
         ('height', "Height", ""),
@@ -493,33 +574,34 @@ class GRABDOC_property_group(bpy.types.PropertyGroup):
         ('metalness', "Metalness", ""),
     )
 
-    mapType_R: EnumProperty(
-        items=MAPTYPES,
+    channel_R: EnumProperty(
+        items=MAP_TYPES,
         default="occlusion",
         name='R'
     )
-    mapType_G: EnumProperty(
-        items=MAPTYPES,
+    channel_G: EnumProperty(
+        items=MAP_TYPES,
         default="roughness",
         name='G'
     )
-    mapType_B: EnumProperty(
-        items=MAPTYPES,
+    channel_B: EnumProperty(
+        items=MAP_TYPES,
         default="metalness",
         name='B'
     )
-    mapType_A: EnumProperty(
-        items=MAPTYPES,
+    channel_A: EnumProperty(
+        items=MAP_TYPES,
         default="alpha",
         name='A'
     )
-
 
     # BAKE MAP SETTINGS
 
     # Normals
     exportNormals: BoolProperty(name='Export Normals', default=True)
-    reimportAsMatNormals: BoolProperty(description="Reimport the Normal map as a material for use in Blender")
+    reimportAsMatNormals: BoolProperty(
+        description="Reimport the Normal map as a material for use in Blender"
+    )
     flipYNormals: BoolProperty(
         name="Flip Y (-Y)",
         description="Flip the normal map Y direction",
@@ -605,7 +687,9 @@ class GRABDOC_property_group(bpy.types.PropertyGroup):
 
     # Occlusion
     exportOcclusion: BoolProperty(name='Export Occlusion', default=True)
-    reimportAsMatOcclusion: BoolProperty(description="This will reimport the Occlusion map as a material for use in Blender")
+    reimportAsMatOcclusion: BoolProperty(
+        description="This will reimport the Occlusion map as a material for use in Blender"
+    )
     gammaOcclusion: FloatProperty(
         default=1,
         min=.001,
@@ -645,12 +729,21 @@ class GRABDOC_property_group(bpy.types.PropertyGroup):
     )
 
     # Height
-    exportHeight: BoolProperty(name='Export Height', default=True, update=scene_setup)
+    exportHeight: BoolProperty(
+        name='Export Height', default=True, update=scene_setup)
     invertMaskHeight: BoolProperty(
         description="Invert the Height mask, this is useful if you are sculpting into a plane mesh",
         update=update_height_guide
     )
-    guideHeight: FloatProperty(name="", default=1, min=.01, soft_max=100, step=.03, subtype='DISTANCE', update=update_height_guide)
+    guideHeight: FloatProperty(
+        name="",
+        default=1,
+        min=.01,
+        soft_max=100,
+        step=.03,
+        subtype='DISTANCE',
+        update=update_height_guide
+    )
     rangeTypeHeight: EnumProperty(
         items=(
             ('AUTO', "Auto", ""),
@@ -680,7 +773,9 @@ class GRABDOC_property_group(bpy.types.PropertyGroup):
 
     # Alpha
     exportAlpha: BoolProperty(name='Export Alpha', update=scene_setup)
-    invertMaskAlpha: BoolProperty(description="Invert the Alpha mask", update=update_alpha)
+    invertMaskAlpha: BoolProperty(
+        description="Invert the Alpha mask", update=update_alpha
+    )
     suffixAlpha: StringProperty(
         name="",
         description="The suffix of the exported bake map",
@@ -698,7 +793,7 @@ class GRABDOC_property_group(bpy.types.PropertyGroup):
         ),
         name='ID Method'
     )
-    fakeMethodMatID: EnumProperty( # Not actually used, just for UI representation
+    fakeMethodMatID: EnumProperty(  # Not actually used, just for UI representation
         items=(
             ('RANDOM', "Random", ""),
             ('MATERIAL', "Material", ""),
@@ -746,7 +841,9 @@ class GRABDOC_property_group(bpy.types.PropertyGroup):
 
     # Roughness
     exportRoughness: BoolProperty(name='Export Roughness', update=scene_setup)
-    invertMaskRoughness: BoolProperty(description="Invert the Roughess (to make Glossines)", update=update_roughness)
+    invertMaskRoughness: BoolProperty(
+        description="Invert the Roughess (to make Glossines)", update=update_roughness
+    )
     suffixRoughness: StringProperty(
         name="",
         description="The suffix of the exported bake map",
@@ -786,7 +883,9 @@ class GRABDOC_property_group(bpy.types.PropertyGroup):
     # MAP PREVIEW
 
     firstBakePreview: BoolProperty(default=True)
-    autoExitCamera: BoolProperty(description='Whether or not the camera view will automatically be left when exiting a Map Preview')
+    autoExitCamera: BoolProperty(
+        description='Whether or not the camera view will automatically be left when exiting a Map Preview'
+    )
     modalState: BoolProperty()
     modalPreviewType: EnumProperty(
         items=(
@@ -838,7 +937,7 @@ classes = (
     GRABDOC_PT_presets,
     GRABDOC_OT_add_preset,
     GRABDOC_property_group,
-    GRABDOC_MT_addon_prefs,
+    GRABDOC_MT_addon_preferences,
     GRABDOC_OT_check_for_update
 )
 
@@ -847,14 +946,14 @@ def register():
     for cls in classes:
         bpy.utils.register_class(cls)
 
-    bpy.types.Scene.grabDoc = PointerProperty(type=GRABDOC_property_group)
-    bpy.types.Collection.is_gd_collection = BoolProperty()
-    bpy.types.Object.is_gd_object = BoolProperty()
+    Scene.grabDoc = PointerProperty(type=GRABDOC_property_group)
+    Collection.is_gd_collection = BoolProperty()
+    Object.is_gd_object = BoolProperty()
 
     # Set the updaters repo
-    updater.user="oRazeD"
-    updater.repo="grabdoc"
-    updater.current_version=bl_info["version"]
+    updater.user = "oRazeD"
+    updater.repo = "grabdoc"
+    updater.current_version = VERSION
 
     # Initial check for repo updates
     updater.check_for_update_now()
