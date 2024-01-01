@@ -9,38 +9,66 @@
 
 NAME = "GrabDoc Pro"
 VERSION = (1, 4, 0)
-BLENDER_VERSION = (4, 0, 1)
+BLENDER_VERSION = (4, 0, 2)
 
 
 class GlobalVariableConstants:
     """A collection of constants used for global variable standardization"""
     ID_PREFIX = "grab_doc" # TODO: wrong prefix?
 
-    REFERENCE_NAME    = "GD_Reference"
-    TRIM_CAMERA_NAME  = "GD_Trim Camera"
-    BG_PLANE_NAME     = "GD_Background Plane"
+    GD_PREFIX      = "GD_"
+    GD_FLAG_PREFIX = "[GrabDoc] "
+    GD_LOW_PREFIX  = GD_PREFIX + "low"
+    GD_HIGH_PREFIX = GD_PREFIX + "high"
+
+    REFERENCE_NAME    = GD_PREFIX + "Reference"
+    TRIM_CAMERA_NAME  = GD_PREFIX + "Trim Camera"
+    BG_PLANE_NAME     = GD_PREFIX + "Background Plane"
+    HEIGHT_GUIDE_NAME = GD_PREFIX + "Height Guide"
+    ORIENT_GUIDE_NAME = GD_PREFIX + "Orient Guide"
+    GD_MATERIAL_NAME  = GD_PREFIX + "Material (do not touch contents)"
     COLL_NAME         = "GrabDoc (do not touch contents)"
     COLL_OB_NAME      = "GrabDoc Objects (put objects here)"
-    HEIGHT_GUIDE_NAME = "GD_Height Guide"
-    ORIENT_GUIDE_NAME = "GD_Orient Guide"
-    GD_MATERIAL_NAME  = "GD_Material (do not touch contents)"
 
-    GD_PREFIX      = "GD_"
-    GD_LOW_PREFIX  = "GD_low"
-    GD_HIGH_PREFIX = "GD_high"
+    MAT_ID_PREFIX      = GD_PREFIX + "ID"
+    MAT_ID_RAND_PREFIX = GD_PREFIX + "RANDOM_ID"
 
-    MAT_ID_PREFIX      = "GD_ID"
-    MAT_ID_RAND_PREFIX = "GD_RANDOM_ID"
+    REIMPORT_MAT_NAME = GD_FLAG_PREFIX + "Render Result"
 
-    NG_NORMAL_NAME    = "GD_Normal"
-    NG_AO_NAME        = "GD_Ambient Occlusion"
-    NG_HEIGHT_NAME    = "GD_Height"
-    NG_ALPHA_NAME     = "GD_Alpha"
-    NG_ALBEDO_NAME    = "GD_Albedo"
-    NG_ROUGHNESS_NAME = "GD_Roughness"
-    NG_METALNESS_NAME = "GD_Metalness"
+    NORMAL_NAME    = "Normal"
+    AO_NAME        = "Ambient Occlusion"
+    HEIGHT_NAME    = "Height"
+    ALPHA_NAME     = "Alpha"
+    COLOR_NAME     = "Base Color"
+    ROUGHNESS_NAME = "Roughness"
+    METALNESS_NAME = "Metalness"
 
-    INVALID_RENDER_TYPES = (
+    NORMAL_NG_NAME    = GD_PREFIX + NORMAL_NAME
+    AO_NG_NAME        = GD_PREFIX + AO_NAME
+    HEIGHT_NG_NAME    = GD_PREFIX + HEIGHT_NAME
+    ALPHA_NG_NAME     = GD_PREFIX + ALPHA_NAME
+    COLOR_NG_NAME     = GD_PREFIX + COLOR_NAME
+    ROUGHNESS_NG_NAME = GD_PREFIX + ROUGHNESS_NAME
+    METALNESS_NG_NAME = GD_PREFIX + METALNESS_NAME
+
+    ALL_MAP_NAMES = (
+        NORMAL_NAME,
+        AO_NAME,
+        HEIGHT_NAME,
+        ALPHA_NAME,
+        COLOR_NAME,
+        ROUGHNESS_NAME,
+        METALNESS_NAME
+    )
+
+    SHADER_MAP_NAMES = (
+        COLOR_NG_NAME,
+        ROUGHNESS_NG_NAME,
+        METALNESS_NG_NAME,
+        NORMAL_NG_NAME
+    )
+
+    INVALID_BAKE_TYPES = (
         'EMPTY',
         'VOLUME',
         'ARMATURE',
@@ -50,7 +78,7 @@ class GlobalVariableConstants:
         'CAMERA'
     )
 
-    FORMAT_MATCHED_EXTENSIONS = {
+    IMAGE_FORMATS = {
         'TIFF': 'tif',
         'TARGA': 'tga',
         'OPEN_EXR': 'exr',
@@ -64,11 +92,12 @@ do anyways it shouldn't be overwritten by GrabDoc until the node group is remove
 only happens when you use the `Remove Setup` operator."""
 
     PACK_MAPS_WARNING = \
-"""Map Packing is a new feature in GrabDoc for optimizing textures being exported (usually
-directly to engine) by cramming grayscale baked maps into each RGBA channel of a single
-texture reducing the amount of texture samples used and by extension the memory footprint.
-This is meant to be a simple alternative to pit-stopping over to compositing software to
-finish the job, but its usability is limited.
+"""Map Packing is a new feature in GrabDoc for optimizing textures being
+exported (usually directly to engine) by cramming grayscale baked maps into
+each RGBA channel of a single texture reducing the amount of texture samples
+used and by extension the memory footprint. This is meant to be a simple
+alternative to pit-stopping over to compositing software to finish the job
+but its usability is limited.
 
 Map Packing in GrabDoc is new, so here's a few things to keep note of:
 \u2022 Only grayscale maps can currently be packed
@@ -79,39 +108,33 @@ own maps and will also ignore `Import as Material` option
 bake maps, meaning without intervention G, B, and A channels will be empty."""
 
     PREVIEW_WARNING = \
-"""Live Material Preview allows you to visualize your bake maps in real-time!
-
-This feature is intended for previewing your materials, NOT for working while inside
-the preview. Once finished please exit previews to avoid scene altering changes.
-
-Pressing `OK` will dismiss this warning permanently for the current project file."""
+"""Material Preview allows you to visualize your bake maps in real-time!
+\u2022 This feature is intended for previewing your materials before baking, NOT
+\u2022 for working while inside a preview. Once finished, please exit previews
+\u2022 to avoid scene altering changes.
+\u2022 Pressing OK will dismiss this warning permanently for the project."""
 
 
 class ErrorCodeConstants:
     """A collection of constants used for error code/message standardization"""
 
     NO_OBJECTS_SELECTED = "There are no objects selected"
-
     TRIM_CAM_NOT_FOUND = \
-        "Trim Camera not found, refresh the scene to set everything up properly"
+        "GrabDoc Camera not found, please run the Refresh Scene operator"
     NO_OBJECTS_BAKE_GROUPS = \
-        "You have 'Use Bake Group' turned on, but no objects are inside the corresponding collection"
+        "No objects found in bake collections"
     NO_VALID_PATH_SET = \
         "There is no export path set"
-
     MAT_SLOTS_WITHOUT_LINKS = \
-        "Material slots found without links & will be rendered using the sockets default value"
-
+        "Material slots were found without links, using default values"
     MARMOSET_EXPORT_COMPLETE = \
         "Export completed! Opening Marmoset Toolbag..."
     MARMOSET_RE_EXPORT_COMPLETE = \
         "Models re-exported! Check Marmoset Toolbag"
-
     OFFLINE_RENDER_COMPLETE = \
         "Offline render completed!"
     EXPORT_COMPLETE = \
         "Export completed!"
-
 
 
 # ##### BEGIN GPL LICENSE BLOCK #####

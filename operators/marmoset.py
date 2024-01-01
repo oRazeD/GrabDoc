@@ -11,10 +11,10 @@ from ..constants import GlobalVariableConstants as Global
 from ..constants import ErrorCodeConstants as Error
 from ..utils.generic import (
     bad_setup_check,
-    export_bg_plane,
+    export_plane,
     get_create_addon_temp_dir
 )
-from ..utils.render import set_guide_height
+from ..utils.render import set_guide_height, get_rendered_objects
 
 
 ################################################
@@ -40,49 +40,48 @@ class GrabDoc_OT_send_to_marmo(OpInfo, Operator):
     @classmethod
     def poll(cls, context: Context) -> bool:
         return os.path.exists(
-            context.preferences.addons[__package__].preferences.marmoEXE
+            context.preferences.addons[__package__].preferences.marmoset_executable
         )
 
     def open_marmoset(self, context: Context, temps_path, addon_path):
-        gd = context.scene.grabDoc
-        marmo_exe = context.preferences.addons[__package__].preferences.marmoEXE
+        gd = context.scene.gd
+        marmo_exe = context.preferences.addons[__package__].preferences.marmoset_executable
 
         # Create a dictionary of variables to transfer into Marmoset
         marmo_vars = {
-            'file_path': f'{bpy.path.abspath(gd.exportPath)}{gd.exportName}.{gd.imageType_marmo.lower()}',
-            'file_ext': gd.imageType_marmo.lower(),
-            'file_path_no_ext': bpy.path.abspath(gd.exportPath),
+            'file_path': f'{bpy.path.abspath(gd.export_path)}{gd.export_name}.{gd.marmoset_format.lower()}',
+            'file_ext': gd.marmoset_format.lower(),
+            'file_path_no_ext': bpy.path.abspath(gd.export_path),
             'marmo_sky_path': f'{os.path.dirname(marmo_exe)}\\data\\sky\\Evening Clouds.tbsky',
 
-            'resolution_x': gd.exportResX,
-            'resolution_y': gd.exportResY,
-            'bits_per_channel': int(gd.colorDepth),
-            'samples': int(gd.marmoSamples),
+            'resolution_x': gd.export_res_x,
+            'resolution_y': gd.export_res_y,
+            'bits_per_channel': int(gd.depth),
+            'samples': int(gd.marmoset_samples),
 
-            'auto_bake': gd.marmoAutoBake,
-            'close_after_bake': gd.marmoClosePostBake,
-            'open_folder': gd.openFolderOnExport,
+            'auto_bake': gd.metalness_auto_bake,
+            'close_after_bake': gd.marmoset_auto_close,
 
-            'export_normal': gd.exportNormals & gd.uiVisibilityNormals,
-            'flipy_normal': gd.flipYNormals,
-            'suffix_normal': gd.suffixNormals,
+            'export_normal': gd.normals[0].enabled & gd.normals[0].ui_visibility,
+            'flipy_normal': gd.normals[0].flip_y,
+            'suffix_normal': gd.normals[0].suffix,
 
-            'export_curvature': gd.exportCurvature & gd.uiVisibilityCurvature,
-            'suffix_curvature': gd.suffixCurvature,
+            'export_curvature': gd.curvature[0].enabled & gd.curvature[0].ui_visibility,
+            'suffix_curvature': gd.curvature[0].suffix,
 
-            'export_occlusion': gd.exportOcclusion & gd.uiVisibilityOcclusion,
-            'ray_count_occlusion': gd.marmoAORayCount,
-            'suffix_occlusion': gd.suffixOcclusion,
+            'export_occlusion': gd.occlusion[0].enabled & gd.occlusion[0].ui_visibility,
+            'ray_count_occlusion': gd.marmoset_occlusion_ray_count,
+            'suffix_occlusion': gd.occlusion[0].suffix,
 
-            'export_height': gd.exportHeight & gd.uiVisibilityHeight,
-            'cage_height': gd.guideHeight * 100 * 2,
-            'suffix_height': gd.suffixHeight,
+            'export_height': gd.height[0].enabled & gd.height[0].ui_visibility,
+            'cage_height': gd.height[0].distance * 100 * 2,
+            'suffix_height': gd.height[0].suffix,
 
-            'export_alpha': gd.exportAlpha & gd.uiVisibilityAlpha,
-            'suffix_alpha': gd.suffixAlpha,
+            'export_alpha': gd.alpha[0].enabled & gd.alpha[0].ui_visibility,
+            'suffix_alpha': gd.alpha[0].suffix,
 
-            'export_matid': gd.exportMatID & gd.uiVisibilityMatID,
-            'suffix_id': gd.suffixID
+            'export_matid': gd.id[0].enabled & gd.id[0].ui_visibility,
+            'suffix_id': gd.id[0].suffix
         }
 
         # Flip the slashes of the first Dict value (It's
@@ -103,8 +102,8 @@ class GrabDoc_OT_send_to_marmo(OpInfo, Operator):
 
         path_ext_only = os.path.basename(os.path.normpath(marmo_exe)).encode()
 
-        if gd.exportPlane:
-            export_bg_plane(context)
+        if gd.export_plane:
+            export_plane(context)
 
         subproc_args = [
             marmo_exe,
@@ -128,9 +127,10 @@ class GrabDoc_OT_send_to_marmo(OpInfo, Operator):
         return {'FINISHED'}
 
     def execute(self, context: Context):
-        gd = context.scene.grabDoc
+        gd = context.scene.gd
 
-        report_value, report_string = bad_setup_check(self, context, active_export=True)
+        report_value, report_string = \
+            bad_setup_check(context, active_export=True)
         if report_value:
             self.report({'ERROR'}, report_string)
             return {'CANCELLED'}
@@ -142,14 +142,15 @@ class GrabDoc_OT_send_to_marmo(OpInfo, Operator):
         if bpy.ops.object.mode_set.poll():
             bpy.ops.object.mode_set(mode='OBJECT')
 
-        if gd.exportHeight and gd.rangeTypeHeight == 'AUTO':
-            set_guide_height()
+        rendered_obs = get_rendered_objects()
+        if gd.height[0].enabled and gd.height[0].method == 'AUTO':
+            set_guide_height(rendered_obs)
 
         # Set high poly naming
         for ob in context.view_layer.objects:
             ob.select_set(False)
 
-            if ob.name in self.rendered_obs \
+            if ob.name in rendered_obs \
             and ob.visible_get() and ob.name != Global.BG_PLANE_NAME:
                 ob.select_set(True)
 
@@ -165,7 +166,8 @@ class GrabDoc_OT_send_to_marmo(OpInfo, Operator):
         # Copy the object, link into the scene & rename as high poly
         bg_plane_ob_copy = bg_plane_ob.copy()
         context.collection.objects.link(bg_plane_ob_copy)
-        bg_plane_ob_copy.name = f"{Global.GD_HIGH_PREFIX} {Global.BG_PLANE_NAME}"
+        bg_plane_ob_copy.name = \
+            f"{Global.GD_HIGH_PREFIX} {Global.BG_PLANE_NAME}"
         bg_plane_ob_copy.select_set(True)
 
         # Remove reference material
@@ -185,13 +187,12 @@ class GrabDoc_OT_send_to_marmo(OpInfo, Operator):
 
         for ob in context.selected_objects:
             ob.select_set(False)
-
             if ob.name == f"{Global.GD_LOW_PREFIX} {Global.BG_PLANE_NAME}":
                 ob.name = Global.BG_PLANE_NAME
             else:
                 ob.name = ob.name[8:] # TODO: what does this represent?
 
-        if not gd.collSelectable:
+        if not gd.coll_selectable:
             bpy.data.collections[Global.COLL_NAME].hide_select = True
 
         for ob_name in saved_selected:

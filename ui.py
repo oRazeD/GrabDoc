@@ -42,16 +42,17 @@ class GRABDOC_PT_grabdoc(Panel, PanelInfo):
         if proper_scene_setup():
             # NOTE: This method already has
             # self but the IDE trips on it
+            # pylint: disable=no-value-for-parameter
             GRABDOC_PT_presets.draw_panel_header(self.layout)
 
     def draw(self, context: Context):
-        gd = context.scene.grabDoc
+        gd = context.scene.gd
 
         layout = self.layout
         col = layout.column(align=True)
 
         row = col.row(align=True)
-        row.enabled = not gd.modalState
+        row.enabled = not gd.preview_state
         row.scale_y = 1.5
         row.operator(
             "grab_doc.setup_scene",
@@ -69,19 +70,19 @@ class GRABDOC_PT_grabdoc(Panel, PanelInfo):
         row.scale_y = .95
 
         row.prop(
-            gd, "collSelectable",
+            gd, "coll_selectable",
             text="Select",
-            icon='RESTRICT_SELECT_OFF' if gd.collSelectable else 'RESTRICT_SELECT_ON'
+            icon='RESTRICT_SELECT_OFF' if gd.coll_selectable else 'RESTRICT_SELECT_ON'
         )
         row.prop(
-            gd, "collVisible",
+            gd, "coll_visible",
             text="Visible",
-            icon='RESTRICT_VIEW_OFF' if gd.collVisible else 'RESTRICT_VIEW_ON'
+            icon='RESTRICT_VIEW_OFF' if gd.coll_visible else 'RESTRICT_VIEW_ON'
         )
         row.prop(
-            gd, "collRendered",
+            gd, "coll_rendered",
             text="Render",
-            icon='RESTRICT_RENDER_OFF' if gd.collRendered else 'RESTRICT_RENDER_ON'
+            icon='RESTRICT_RENDER_OFF' if gd.coll_rendered else 'RESTRICT_RENDER_ON'
         )
 
         box = col.box()
@@ -89,24 +90,24 @@ class GRABDOC_PT_grabdoc(Panel, PanelInfo):
         box.use_property_decorate = False
 
         col = box.column()
-        col.prop(gd, "scalingSet", text='Scaling', expand=True)
+        col.prop(gd, "scale", text='Scaling', expand=True)
         col.separator(factor=.5)
         row = col.row()
-        row.prop(gd, "widthFiltering", text="Filtering")
+        row.prop(gd, "filter_width", text="Filtering")
         row.separator()
-        row.prop(gd, "useFiltering", text="")
+        row.prop(gd, "filter", text="")
 
         col.separator()
 
         row = col.row()
-        row.enabled = not gd.modalState
-        row.prop(gd, "refSelection", text='Reference')
+        row.enabled = not gd.preview_state
+        row.prop(gd, "reference", text='Reference')
         row.operator("grab_doc.load_ref", text="", icon='FILE_FOLDER')
         col.separator(factor=.5)
         row = col.row()
-        row.prop(gd, "gridSubdivisions", text="Grid")
+        row.prop(gd, "grid_subdivs", text="Grid")
         row.separator()
-        row.prop(gd, "useGrid", text="")
+        row.prop(gd, "use_grid", text="")
 
 
 class GRABDOC_PT_export(PanelInfo, Panel):
@@ -139,7 +140,7 @@ class GRABDOC_PT_export(PanelInfo, Panel):
             row.scale_y = 1.5
             row.operator(
                 "grab_doc.bake_marmoset",
-                text="Bake in Marmoset" if bpy.context.scene.grabDoc.marmoAutoBake else "Open in Marmoset",
+                text="Bake in Marmoset" if bpy.context.scene.gd.marmoset_auto_bake else "Open in Marmoset",
                 icon="EXPORT"
             ).send_type = 'open'
             row.operator(
@@ -155,78 +156,73 @@ class GRABDOC_PT_export(PanelInfo, Panel):
         col2 = box.column()
 
         row = col2.row()
-        row.enabled = not gd.modalState
-        row.prop(gd, 'bakerType', text="Baker")
+        row.enabled = not gd.preview_state
+        row.prop(gd, 'baker_type', text="Baker")
 
         col2.separator(factor=.5)
 
         row = col2.row()
         row.alert = not self.export_path_exists
-        row.prop(gd, 'exportPath', text="Export Path")
+        row.prop(gd, 'export_path', text="Export Path")
         row.alert = False
         row.operator("grab_doc.open_folder", text='', icon="FOLDER_REDIRECT")
 
         col2.separator(factor=.5)
 
-        col2.prop(gd, "exportName", text="Name")
+        col2.prop(gd, "export_name", text="Name")
 
         col2.separator(factor=.5)
 
         row = col2.row()
-        row.prop(gd, "exportResX", text='Resolution')
-        row.prop(gd, "exportResY", text='')
-        row.prop(gd, 'lockRes', icon_only=True, icon="LOCKED" if gd.lockRes else "UNLOCKED")
+        row.prop(gd, "export_res_x", text='Resolution')
+        row.prop(gd, "export_res_y", text='')
+        row.prop(gd, 'lock_res', icon_only=True, icon="LOCKED" if gd.lock_res else "UNLOCKED")
 
         col2.separator(factor=.5)
 
         row = col2.row()
-        row.prop(gd, "imageType_marmo")
+        row.prop(gd, "marmoset_format")
 
         row.separator(factor=.5)
 
         row2 = row.row()
-        if gd.imageType == "OPEN_EXR":
-            row2.prop(gd, "colorDepthEXR", expand=True)
-        elif gd.imageType != "TARGA" or gd.bakerType == 'Marmoset':
-            row2.prop(gd, "colorDepth", expand=True)
+        if gd.format == "OPEN_EXR":
+            row2.prop(gd, "exr_depth", expand=True)
+        elif gd.format != "TARGA" or gd.baker_type == 'Marmoset':
+            row2.prop(gd, "depth", expand=True)
         else:
             row2.enabled = False
-            row2.prop(gd, "colorDepthTGA", expand=True)
+            row2.prop(gd, "tga_depth", expand=True)
 
         col2.separator(factor=.5)
 
         row = col2.row(align=True)
-        row.prop(gd, "marmoSamples", text="Samples", expand=True)
+        row.prop(gd, "marmoset_samples", text="Samples", expand=True)
 
         box.use_property_split = False
 
         col = box.column(align=True)
         col.prop(
-            gd, "useBakeCollection",
+            gd, "use_bake_collections",
             text="Use Bake Group",
-            icon='CHECKBOX_HLT' if gd.useBakeCollection else 'CHECKBOX_DEHLT'
+            icon='CHECKBOX_HLT' if gd.use_bake_collections else 'CHECKBOX_DEHLT'
         )
         col.prop(
-            gd, "exportPlane",
+            gd, "export_plane",
             text='Export Plane as FBX',
-            icon='CHECKBOX_HLT' if gd.exportPlane else 'CHECKBOX_DEHLT'
-        )
-        col.prop(
-            gd, "openFolderOnExport",
-            text="Open Folder on Export",
-            icon='CHECKBOX_HLT' if gd.openFolderOnExport else 'CHECKBOX_DEHLT'
+            icon='CHECKBOX_HLT' if gd.export_plane else 'CHECKBOX_DEHLT'
         )
 
         col = box.column(align=True)
-        col.prop(gd, 'marmoAutoBake', text='Bake on Import', icon='CHECKBOX_HLT' if gd.marmoAutoBake else 'CHECKBOX_DEHLT')
+        col.prop(gd, 'marmoset_auto_bake', text='Bake on Import', icon='CHECKBOX_HLT' if gd.marmoset_auto_bake else 'CHECKBOX_DEHLT')
 
         col = col.column(align=True)
-        col.enabled = True if gd.marmoAutoBake else False
+        col.enabled = True if gd.marmoset_auto_bake else False
         col.prop(
             gd,
-            'marmoClosePostBake',
+            'marmoset_auto_close',
             text='Close Toolbag after Baking',
-            icon='CHECKBOX_HLT' if gd.marmoClosePostBake else 'CHECKBOX_DEHLT'
+            icon='CHECKBOX_HLT' if gd.marmoset_auto_close else 'CHECKBOX_DEHLT'
         )
 
     def blender_ui(self, gd, layout: UILayout):
@@ -241,54 +237,54 @@ class GRABDOC_PT_export(PanelInfo, Panel):
 
         if is_pro_version():
             row = col2.row()
-            row.enabled = not gd.modalState
-            row.prop(gd, 'bakerType', text="Baker")
+            row.enabled = not gd.preview_state
+            row.prop(gd, 'baker_type', text="Baker")
 
         col2.separator(factor=.5)
 
         row = col2.row()
         row.alert = not self.export_path_exists
-        row.prop(gd, 'exportPath', text="Export Path")
+        row.prop(gd, 'export_path', text="Export Path")
         row.alert = False
         row.operator("grab_doc.open_folder", text='', icon="FOLDER_REDIRECT")
 
         col2.separator(factor=.5)
 
-        col2.prop(gd, "exportName", text="Name")
+        col2.prop(gd, "export_name", text="Name")
 
         col2.separator(factor=.5)
 
         row = col2.row()
-        row.prop(gd, "exportResX", text='Resolution')
-        row.prop(gd, "exportResY", text='')
-        row.prop(gd, 'lockRes', icon_only=True, icon="LOCKED" if gd.lockRes else "UNLOCKED")
+        row.prop(gd, "export_res_x", text='Resolution')
+        row.prop(gd, "export_res_y", text='')
+        row.prop(
+            gd,
+            'lock_res',
+            icon_only=True,
+            icon="LOCKED" if gd.lock_res else "UNLOCKED"
+        )
 
         col2.separator(factor=.5)
 
         row = col2.row()
-        row.prop(gd, "imageType")
-
+        row.prop(gd, "format")
         row.separator(factor=.5)
-
         row2 = row.row()
-        if gd.imageType == "OPEN_EXR":
-            row2.prop(gd, "colorDepthEXR", expand=True)
-        elif gd.imageType != "TARGA" or gd.bakerType == 'Marmoset':
-            row2.prop(gd, "colorDepth", expand=True)
+        if gd.format == "OPEN_EXR":
+            row2.prop(gd, "exr_depth", expand=True)
+        elif gd.format != "TARGA" or gd.baker_type == 'Marmoset':
+            row2.prop(gd, "depth", expand=True)
         else:
             row2.enabled = False
-            row2.prop(gd, "colorDepthTGA", expand=True)
-
+            row2.prop(gd, "tga_depth", expand=True)
         col2.separator(factor=.5)
-
-        if gd.imageType != "TARGA":
+        if gd.format != "TARGA":
             image_settings = bpy.context.scene.render.image_settings
-
             row = col2.row(align=True)
 
-            if gd.imageType == "PNG":
-                row.prop(gd, "imageCompPNG", text="Compression")
-            elif gd.imageType == "OPEN_EXR":
+            if gd.format == "PNG":
+                row.prop(gd, "png_compression", text="Compression")
+            elif gd.format == "OPEN_EXR":
                 row.prop(image_settings, "exr_codec", text="Codec")
             else: # TIFF
                 row.prop(image_settings, "tiff_codec", text="Codec")
@@ -297,31 +293,27 @@ class GRABDOC_PT_export(PanelInfo, Panel):
 
         col = box.column(align=True)
         col.prop(
-            gd, "useBakeCollection",
+            gd, "use_bake_collections",
             text="Use Bake Group",
-            icon='CHECKBOX_HLT' if gd.useBakeCollection else 'CHECKBOX_DEHLT'
+            icon='CHECKBOX_HLT' if gd.use_bake_collections else 'CHECKBOX_DEHLT'
         )
         col.prop(
-            gd, "openFolderOnExport",
-            text="Open Folder on Export",
-            icon='CHECKBOX_HLT' if gd.openFolderOnExport else 'CHECKBOX_DEHLT'
-        )
-        col.prop(
-            gd, "exportPlane",
+            gd, "export_plane",
             text='Export Plane as FBX',
-            icon='CHECKBOX_HLT' if gd.exportPlane else 'CHECKBOX_DEHLT'
+            icon='CHECKBOX_HLT' if gd.export_plane else 'CHECKBOX_DEHLT'
         )
 
     def draw(self, context: Context):
-        gd = context.scene.grabDoc
-        self.export_path_exists = os.path.exists(bpy.path.abspath(gd.exportPath))
+        gd = context.scene.gd
+        self.export_path_exists = \
+            os.path.exists(bpy.path.abspath(gd.export_path))
 
         layout = self.layout
         layout.activate_init = True
         layout.use_property_split = True
         layout.use_property_decorate = False
 
-        if gd.bakerType == 'Blender':
+        if gd.baker_type == 'Blender':
             self.blender_ui(gd, layout)
         elif is_pro_version(): # Marmoset
             self.marmoset_export_header_ui(layout)
@@ -329,30 +321,48 @@ class GRABDOC_PT_export(PanelInfo, Panel):
 
 
 class GRABDOC_OT_config_maps(Operator):
-    """Configure the UI visibility of maps, also disabling them from baking when hidden"""
+    """Configure bake map UI visibility, will also disable baking"""
     bl_idname = "grab_doc.config_maps"
     bl_label = "Configure Map Visibility"
     bl_options = {'REGISTER'}
 
     def execute(self, _context):
-        return {'FINISHED'} # NOTE: Funky and neat
+        return {'FINISHED'}
 
     def invoke(self, context: Context, _event: Event):
         return context.window_manager.invoke_props_dialog(self, width = 200)
 
     def draw(self, context: Context):
-        gd = context.scene.grabDoc
-
+        gd = context.scene.gd
         layout = self.layout
-        layout.prop(gd, 'uiVisibilityNormals', text="Normals")
-        layout.prop(gd, 'uiVisibilityCurvature', text="Curvature")
-        layout.prop(gd, 'uiVisibilityOcclusion', text="Ambient Occlusion")
-        layout.prop(gd, 'uiVisibilityHeight', text="Height")
-        layout.prop(gd, 'uiVisibilityMatID', text="Material ID")
-        layout.prop(gd, 'uiVisibilityAlpha', text="Alpha")
-        layout.prop(gd, 'uiVisibilityAlbedo', text="Albedo (Blender Only)")
-        layout.prop(gd, 'uiVisibilityRoughness', text="Roughness (Blender Only)")
-        layout.prop(gd, 'uiVisibilityMetalness', text="Metalness (Blender Only)")
+        col = layout.column(align=True)
+        col.prop(
+            gd.normals[0], 'ui_visibility', text="Normals", icon="WORLD"
+        )
+        col.prop(
+            gd.curvature[0], 'ui_visibility', text="Curvature", icon="WORLD"
+        )
+        col.prop(
+            gd.occlusion[0], 'ui_visibility', text="Ambient Occlusion", icon="WORLD"
+        )
+        col.prop(
+            gd.height[0], 'ui_visibility', text="Height", icon="WORLD"
+        )
+        col.prop(
+            gd.id[0], 'ui_visibility', text="Material ID", icon="WORLD"
+        )
+        col.prop(
+            gd.alpha[0], 'ui_visibility', text="Alpha", icon="WORLD"
+        )
+        col.prop(
+            gd.color[0], 'ui_visibility', text="Base Color", icon="BLENDER"
+        )
+        col.prop(
+            gd.roughness[0], 'ui_visibility', text="Roughness", icon="BLENDER"
+        )
+        col.prop(
+            gd.metalness[0], 'ui_visibility', text="Metalness", icon="BLENDER"
+        )
 
 
 class GRABDOC_PT_view_edit_maps(PanelInfo, Panel):
@@ -364,10 +374,15 @@ class GRABDOC_PT_view_edit_maps(PanelInfo, Panel):
         return proper_scene_setup()
 
     def draw_header_preset(self, _context: Context):
-        self.layout.operator("grab_doc.config_maps", emboss=False, text="", icon="SETTINGS")
+        self.layout.operator(
+            "grab_doc.config_maps",
+            emboss=False,
+            text="",
+            icon="SETTINGS"
+        )
 
     def draw(self, context: Context):
-        gd = context.scene.grabDoc
+        gd = context.scene.gd
 
         layout = self.layout
         col = layout.column(align=True)
@@ -383,12 +398,12 @@ class GRABDOC_PT_view_edit_maps(PanelInfo, Panel):
 
         col.prop(
             gd,
-            'autoExitCamera',
+            'preview_auto_exit_camera',
             text="Leave Cam on Preview Exit",
-            icon='CHECKBOX_HLT' if gd.autoExitCamera else 'CHECKBOX_DEHLT'
+            icon='CHECKBOX_HLT' if gd.preview_auto_exit_camera else 'CHECKBOX_DEHLT'
         )
 
-        if not gd.modalState:
+        if not gd.preview_state:
             return
 
         col.separator()
@@ -399,27 +414,37 @@ class GRABDOC_PT_view_edit_maps(PanelInfo, Panel):
 
         row = col.row(align=True)
         row.scale_y = 1.1
-        mat_preview_type = "Material ID" if gd.modalPreviewType == 'ID' else gd.modalPreviewType.capitalize()
-        row.operator("grab_doc.export_preview", text = f"Export {mat_preview_type}", icon="EXPORT")
+        mat_preview_type = \
+            "Material ID" if gd.preview_type == 'ID' else gd.preview_type.capitalize()
+        row.operator(
+            "grab_doc.export_preview",
+            text=f"Export {mat_preview_type}",
+            icon="EXPORT"
+        )
 
-        if gd.modalPreviewType == 'normals':
-            GRABDOC_PT_normals_settings.draw(self, context)
-        elif gd.modalPreviewType == 'curvature':
-            GRABDOC_PT_curvature_settings.draw(self, context)
-        elif gd.modalPreviewType == 'occlusion':
-            GRABDOC_PT_occlusion_settings.draw(self, context)
-        elif gd.modalPreviewType == 'height':
-            GRABDOC_PT_height_settings.draw(self, context)
-        elif gd.modalPreviewType == 'ID':
-            GRABDOC_PT_id_settings.draw(self, context)
-        elif gd.modalPreviewType == 'alpha':
-            GRABDOC_PT_alpha_settings.draw(self, context)
-        elif gd.modalPreviewType == 'albedo':
-            GRABDOC_PT_albedo_settings.draw(self, context)
-        elif gd.modalPreviewType == 'roughness':
-            GRABDOC_PT_roughness_settings.draw(self, context)
-        elif gd.modalPreviewType == 'metalness':
-            GRABDOC_PT_metalness_settings.draw(self, context)
+        # TODO: May be able to circumvent if elif chain by
+        # just grabbing the CollectionProperty directly
+        # and running draw
+        #print(gd.get())
+
+        if gd.preview_type == 'normals':
+            GRABDOC_PT_normals.draw(self, context)
+        elif gd.preview_type == 'curvature':
+            GRABDOC_PT_curvature.draw(self, context)
+        elif gd.preview_type == 'occlusion':
+            GRABDOC_PT_occlusion.draw(self, context)
+        elif gd.preview_type == 'height':
+            GRABDOC_PT_height.draw(self, context)
+        elif gd.preview_type == 'ID':
+            GRABDOC_PT_id.draw(self, context)
+        elif gd.preview_type == 'alpha':
+            GRABDOC_PT_alpha.draw(self, context)
+        elif gd.preview_type == 'color':
+            GRABDOC_PT_color.draw(self, context)
+        elif gd.preview_type == 'roughness':
+            GRABDOC_PT_roughness.draw(self, context)
+        elif gd.preview_type == 'metalness':
+            GRABDOC_PT_metalness.draw(self, context)
 
 
 #class GRABDOC_PT_pack_maps(PanelInfo, Panel):
@@ -428,7 +453,7 @@ class GRABDOC_PT_view_edit_maps(PanelInfo, Panel):
 
 #    @classmethod
 #    def poll(cls, context: Context) -> bool:
-#        return proper_scene_setup() and not context.scene.grabDoc.modalState
+#        return proper_scene_setup() and not context.scene.gd.preview_state
 
 #    def draw_header_preset(self, _context: Context):
 #        self.layout.operator(
@@ -439,155 +464,152 @@ class GRABDOC_PT_view_edit_maps(PanelInfo, Panel):
 #        )
 
 #    def draw_header(self, context: Context):
-#        gd = context.scene.grabDoc
+#        gd = context.scene.gd
 #
 #        row = self.layout.row(align=True)
-#        row.prop(gd, 'packMaps', text='')
+#        row.prop(gd, '_use_pack_maps', text='')
 #        row.separator(factor=.5)
 
 #    def draw(self, context: Context):
-#        gd = context.scene.grabDoc
+#        gd = context.scene.gd
 
 #        layout = self.layout
 #        layout.use_property_split = True
 #        layout.use_property_decorate = False
 
 #        col = layout.column(align=True)
-#        col.prop(gd, 'channel_R')
-#        col.prop(gd, 'channel_G')
+#        col.prop(gd, '_channel_R')
+#        col.prop(gd, '_channel_G')
 #        col.prop(gd, 'channel_B')
 #        col.prop(gd, 'channel_A')
 
 
-class GRABDOC_PT_normals_settings(PanelInfo, SubPanelInfo, Panel):
+class GRABDOC_PT_baker_default(PanelInfo, SubPanelInfo, Panel):
+    NAME = None
+
     @classmethod
     def poll(cls, context: Context) -> bool:
-        gd = context.scene.grabDoc
-        return not gd.modalState and gd.uiVisibilityNormals
+        gd = context.scene.gd
+        try:
+            baker = getattr(gd, cls.NAME)[0]
+        except AttributeError:
+            return False
+        return not gd.preview_state and baker.ui_visibility
 
     def draw_header(self, context: Context):
-        gd = context.scene.grabDoc
+        gd = context.scene.gd
+
+        try:
+            baker = getattr(gd, self.NAME)[0]
+        except AttributeError:
+            return
 
         row = self.layout.row(align=True)
         row.separator(factor=.5)
-        row.prop(gd, 'exportNormals', text="")
-
+        row.prop(baker, 'enabled', text="")
         row.operator(
-            "grab_doc.preview_warning" if gd.firstBakePreview else "grab_doc.preview_map",
-            text="Normals Preview"
-        ).map_types = 'normals'
-
+            "grab_doc.preview_map",
+            text=f"{self.ALIAS} Preview"
+        ).map_types = self.NAME
         row.operator(
             "grab_doc.offline_render",
             text="",
             icon="RENDER_STILL"
-        ).map_types = 'normals'
+        ).map_types = self.NAME
         row.separator(factor=1.3)
 
+    def draw_custom_properties(self, context: Context):
+        pass
+
     def draw(self, context: Context):
-        gd = context.scene.grabDoc
+        gd = context.scene.gd
+
+        try:
+            baker = getattr(gd, self.NAME)[0]
+        except AttributeError:
+            return
 
         layout = self.layout
         layout.use_property_split = True
         layout.use_property_decorate = False
 
+        # Core
         col = layout.column()
-        col.prop(gd, "engineNormals", text="Engine")
+        if len(baker.SUPPORTED_ENGINES) > 1:
+            col.prop(baker, 'engine', text="Engine")
 
-        col = layout.column()
-        col.prop(gd, 'flipYNormals', text="Flip Y (-Y)")
+        self.draw_custom_properties(context)
 
-        if gd.bakerType == 'Blender':
+        # Baker
+        if gd.baker_type == 'Blender':
             col.separator(factor=.5)
-            col.prop(gd, 'useTextureNormals', text="Texture Normals")
-            col.separator(factor=.5)
-            col.prop(gd, 'reimportAsMatNormals', text="Import as Material")
+            col.prop(baker, 'reimport', text="Re-import")
+            if "BLENDER_EEVEE" in baker.SUPPORTED_ENGINES \
+                    or "CYCLES" in baker.SUPPORTED_ENGINES:
+                col.separator(factor=1.5)
+                if baker.engine == 'blender_eevee':
+                    prop = "samples"
+                else:
+                    prop = "samples_cycles"
+                col.prop(
+                    baker,
+                    prop,
+                    text='Samples'
+                )
 
-            col.separator(factor=1.5)
-            col.prop(
-                gd,
-                "samplesNormals" if gd.engineNormals == 'blender_eevee' else "samplesCyclesNormals",
-                text='Samples'
-            )
-
+        # Misc
         col.separator(factor=.5)
-        col.prop(gd, 'suffixNormals', text="Suffix")
+        col.prop(baker, 'suffix', text="Suffix")
 
 
-class GRABDOC_PT_curvature_settings(PanelInfo, SubPanelInfo, Panel):
-    @classmethod
-    def poll(cls, context: Context) -> bool:
-        gd = context.scene.grabDoc
-        return not gd.modalState and gd.uiVisibilityCurvature
+class GRABDOC_PT_normals(GRABDOC_PT_baker_default):
+    NAME = "normals"
+    ALIAS = NAME.capitalize()
 
-    def draw_header(self, context: Context):
-        gd = context.scene.grabDoc
-
-        row = self.layout.row(align=True)
-        row.separator(factor=.5)
-        row.prop(gd, 'exportCurvature', text="")
-
-        row.operator(
-            "grab_doc.preview_warning" if gd.firstBakePreview else "grab_doc.preview_map",
-            text="Curvature Preview"
-        ).map_types = 'curvature'
-
-        row.operator(
-            "grab_doc.offline_render",
-            text="",
-            icon="RENDER_STILL"
-        ).map_types = 'curvature'
-        row.separator(factor=1.3)
-
-    def draw(self, context: Context):
-        gd = context.scene.grabDoc
+    def draw_custom_properties(self, context: Context):
+        gd = context.scene.gd
+        baker = getattr(gd, self.NAME)[0]
 
         layout = self.layout
         layout.use_property_split = True
         layout.use_property_decorate = False
 
         col = layout.column()
+        col.prop(baker, 'flip_y', text="Flip Y (-Y)")
 
-        if gd.bakerType == 'Blender':
-            col.prop(gd, 'ridgeCurvature', text="Ridge")
+        if gd.baker_type == 'Blender':
             col.separator(factor=.5)
-            col.prop(gd, 'valleyCurvature', text="Valley")
-            col.separator(factor=1.5)
-            col.prop(gd, "samplesCurvature", text="Samples")
-            col.separator(factor=.5)
-            col.prop(gd, 'contrastCurvature', text="Contrast")
+            col.prop(baker, 'use_texture', text="Texture Normals")
 
+
+class GRABDOC_PT_curvature(GRABDOC_PT_baker_default):
+    NAME = "curvature"
+    ALIAS = NAME.capitalize()
+
+    def draw_custom_properties(self, context: Context):
+        gd = context.scene.gd
+        baker = getattr(gd, self.NAME)[0]
+
+        if gd.baker_type != 'Blender':
+            return
+
+        layout = self.layout
+        layout.use_property_split = True
+        layout.use_property_decorate = False
+
+        col = layout.column()
+        col.prop(baker, 'ridge', text="Ridge")
         col.separator(factor=.5)
-        col.prop(gd, 'suffixCurvature', text="Suffix")
+        col.prop(baker, 'valley', text="Valley")
 
 
-class GRABDOC_PT_occlusion_settings(PanelInfo, SubPanelInfo, Panel):
-    @classmethod
-    def poll(cls, context: Context) -> bool:
-        gd = context.scene.grabDoc
-        return not gd.modalState and gd.uiVisibilityOcclusion
+class GRABDOC_PT_occlusion(GRABDOC_PT_baker_default):
+    NAME = "occlusion"
+    ALIAS = NAME.capitalize()
 
-    def draw_header(self, context: Context):
-        gd = context.scene.grabDoc
-
-        row = self.layout.row(align=True)
-        row.separator(factor=.5)
-        row.prop(gd, 'exportOcclusion', text="")
-
-        row.operator(
-            "grab_doc.preview_warning" if gd.firstBakePreview else "grab_doc.preview_map",
-            text="Occlusion Preview"
-        ).map_types = 'occlusion'
-
-        row.operator(
-            "grab_doc.offline_render",
-            text="",
-            icon="RENDER_STILL"
-        ).map_types = 'occlusion'
-        row.separator(factor=1.3)
-
-    def draw(self, context: Context):
-        gd = context.scene.grabDoc
+    def draw_custom_properties(self, context: Context):
+        gd = context.scene.gd
+        baker = getattr(gd, self.NAME)[0]
 
         layout = self.layout
         layout.use_property_split = True
@@ -595,122 +617,60 @@ class GRABDOC_PT_occlusion_settings(PanelInfo, SubPanelInfo, Panel):
 
         col = layout.column()
 
-        if gd.bakerType == 'Marmoset':
-            col.prop(gd, "marmoAORayCount", text="Ray Count")
+        if gd.baker_type == 'Marmoset':
+            col.prop(gd, "marmoset_occlusion_ray_count", text="Ray Count")
+            return
 
-        else: # Blender
-            col.prop(gd, 'reimportAsMatOcclusion', text="Import as Material")
-
-            col.separator(factor=.5)
-            col.prop(gd, 'gammaOcclusion', text="Intensity")
-            col.separator(factor=.5)
-            col.prop(gd, 'distanceOcclusion', text="Distance")
-            col.separator(factor=1.5)
-            col.prop(gd, "samplesOcclusion", text="Samples")
-            col.separator(factor=.5)
-            col.prop(gd, 'contrastOcclusion', text="Contrast")
-
+        col.prop(baker, 'gamma', text="Intensity")
         col.separator(factor=.5)
-        col.prop(gd, 'suffixOcclusion', text="Suffix")
+        col.prop(baker, 'distance', text="Distance")
 
 
-class GRABDOC_PT_height_settings(PanelInfo, SubPanelInfo, Panel):
-    @classmethod
-    def poll(cls, context: Context) -> bool:
-        gd = context.scene.grabDoc
-        return not gd.modalState and gd.uiVisibilityHeight
+class GRABDOC_PT_height(GRABDOC_PT_baker_default):
+    NAME = "height"
+    ALIAS = NAME.capitalize()
 
-    def draw_header(self, context: Context):
-        gd = context.scene.grabDoc
-
-        row = self.layout.row(align=True)
-        row.separator(factor=.5)
-        row.prop(gd, 'exportHeight', text="")
-
-        row.operator(
-            "grab_doc.preview_warning" if gd.firstBakePreview else "grab_doc.preview_map",
-            text="Height Preview"
-        ).map_types = 'height'
-
-        row.operator(
-            "grab_doc.offline_render",
-            text="",
-            icon="RENDER_STILL"
-        ).map_types = 'height'
-        row.separator(factor=1.3)
-
-    def draw(self, context: Context):
-        gd = context.scene.grabDoc
+    def draw_custom_properties(self, context: Context):
+        gd = context.scene.gd
+        baker = getattr(gd, self.NAME)[0]
 
         layout = self.layout
         layout.use_property_split = True
         layout.use_property_decorate = False
 
         col = layout.column()
-
-        if gd.bakerType == 'Blender':
-            col.prop(gd, 'invertMaskHeight', text="Invert Mask")
+        if gd.baker_type == 'Blender':
+            col.prop(baker, 'invert', text="Invert Mask")
             col.separator(factor=.5)
 
         row = col.row()
-        row.prop(gd, "rangeTypeHeight", text='Height Mode', expand=True)
-
-        if gd.rangeTypeHeight == 'MANUAL':
+        row.prop(baker, 'method', text="Height Mode", expand=True)
+        if baker.method == 'MANUAL':
             col.separator(factor=.5)
-            col.prop(gd, 'guideHeight', text="0-1 Range")
-
-        if gd.bakerType == 'Blender':
-            col.separator(factor=1.5)
-            col.prop(gd, "samplesHeight", text="Samples")
-            col.separator(factor=.5)
-            col.prop(gd, 'contrastHeight', text="Contrast")
-
-        col.separator(factor=.5)
-        col.prop(gd, 'suffixHeight', text="Suffix")
+            col.prop(baker, 'distance', text="0-1 Range")
 
 
-class GRABDOC_PT_id_settings(PanelInfo, SubPanelInfo, Panel):
-    @classmethod
-    def poll(cls, context: Context) -> bool:
-        gd = context.scene.grabDoc
-        return not gd.modalState and gd.uiVisibilityMatID
+class GRABDOC_PT_id(GRABDOC_PT_baker_default):
+    NAME = "id"
+    ALIAS = NAME.capitalize()
 
-    def draw_header(self, context: Context):
-        gd = context.scene.grabDoc
-
-        row = self.layout.row(align=True)
-        row.separator(factor=.5)
-        row.prop(gd, 'exportMatID', text="")
-
-        row.operator(
-            "grab_doc.preview_warning" if gd.firstBakePreview else "grab_doc.preview_map",
-            text="Mat ID Preview"
-        ).map_types = 'ID'
-
-        row.operator(
-            "grab_doc.offline_render",
-            text="",
-            icon="RENDER_STILL"
-        ).map_types = 'ID'
-        row.separator(factor=1.3)
-
-    def draw(self, context: Context):
-        gd = context.scene.grabDoc
+    def draw_custom_properties(self, context: Context):
+        gd = context.scene.gd
+        baker = getattr(gd, self.NAME)[0]
 
         layout = self.layout
         layout.use_property_split = True
         layout.use_property_decorate = False
 
         col = layout.column()
-
         row = col.row()
-        if gd.bakerType == 'Marmoset':
+        if gd.baker_type == 'Marmoset':
             row.enabled = False
-            row.prop(gd, "fakeMethodMatID", text="ID Method")
+            row.prop(baker, 'ui_method', text="ID Method")
         else:
-            row.prop(gd, "methodMatID", text="ID Method")
+            row.prop(baker, 'method', text="ID Method")
 
-        if gd.methodMatID == "MATERIAL" or gd.bakerType == 'Marmoset':
+        if baker.method == "MATERIAL" or gd.baker_type == 'Marmoset':
             col = layout.column(align=True)
             col.separator(factor=.5)
             col.scale_y = 1.1
@@ -719,7 +679,10 @@ class GRABDOC_PT_id_settings(PanelInfo, SubPanelInfo, Panel):
             row = col.row(align=True)
             row.scale_y = .9
             row.label(text=" Remove:")
-            row.operator("grab_doc.remove_mats_by_name", text='All').mat_name = Global.MAT_ID_RAND_PREFIX
+            row.operator(
+                "grab_doc.remove_mats_by_name",
+                text='All'
+            ).mat_name = Global.MAT_ID_RAND_PREFIX
 
             col = layout.column(align=True)
             col.separator(factor=.5)
@@ -729,87 +692,53 @@ class GRABDOC_PT_id_settings(PanelInfo, SubPanelInfo, Panel):
             row = col.row(align=True)
             row.scale_y = .9
             row.label(text=" Remove:")
-            row.operator("grab_doc.remove_mats_by_name", text='All').mat_name = Global.MAT_ID_PREFIX
+            row.operator(
+                "grab_doc.remove_mats_by_name",
+                text='All'
+            ).mat_name = Global.MAT_ID_PREFIX
             row.operator("grab_doc.quick_remove_selected_mats", text='Selected')
 
-        if gd.bakerType == 'Blender':
-            col.separator(factor=1.5)
-            col.prop(gd, "samplesMatID", text="Samples")
 
-        col.separator(factor=.5)
-        col.prop(gd, 'suffixID', text="Suffix")
+class GRABDOC_PT_alpha(GRABDOC_PT_baker_default):
+    NAME = "alpha"
+    ALIAS = NAME.capitalize()
 
-
-class GRABDOC_PT_alpha_settings(PanelInfo, SubPanelInfo, Panel):
-    @classmethod
-    def poll(cls, context: Context) -> bool:
-        gd = context.scene.grabDoc
-        return not gd.modalState and gd.uiVisibilityAlpha
-
-    def draw_header(self, context: Context):
-        gd = context.scene.grabDoc
-
-        row = self.layout.row(align=True)
-        row.separator(factor=.5)
-        row.prop(gd, 'exportAlpha', text="")
-
-        row.operator(
-            "grab_doc.preview_warning" if gd.firstBakePreview else "grab_doc.preview_map",
-            text="Alpha Preview"
-        ).map_types = 'alpha'
-
-        row.operator(
-            "grab_doc.offline_render",
-            text="",
-            icon="RENDER_STILL"
-        ).map_types = 'alpha'
-        row.separator(factor=1.3)
-
-    def draw(self, context: Context):
-        gd = context.scene.grabDoc
+    def draw_custom_properties(self, context: Context):
+        gd = context.scene.gd
+        baker = getattr(gd, self.NAME)[0]
 
         layout = self.layout
         layout.use_property_split = True
         layout.use_property_decorate = False
 
         col = layout.column()
-
-        if gd.bakerType == 'Blender':
-            col.prop(gd, 'invertMaskAlpha', text="Invert Mask")
-            col.separator(factor=1.5)
-            col.prop(gd, 'samplesAlpha', text="Samples")
-
-        col.separator(factor=.5)
-        col.prop(gd, 'suffixAlpha', text="Suffix")
+        if gd.baker_type == 'Blender':
+            col.prop(baker, 'invert', text="Invert Mask")
 
 
-class GRABDOC_PT_albedo_settings(PanelInfo, SubPanelInfo, Panel):
-    @classmethod
-    def poll(cls, context: Context) -> bool:
-        gd = context.scene.grabDoc
-        return not gd.modalState and gd.uiVisibilityAlbedo and gd.bakerType == 'Blender'
+class GRABDOC_PT_color(GRABDOC_PT_baker_default):
+    NAME = "color"
+    ALIAS = NAME.capitalize()
 
-    def draw_header(self, context: Context):
-        gd = context.scene.grabDoc
+    def draw_custom_properties(self, context: Context):
+        gd = context.scene.gd
+        _baker = getattr(gd, self.NAME)[0]
 
-        row = self.layout.row(align=True)
-        row.separator(factor=.5)
-        row.prop(gd, 'exportAlbedo', text="")
+        layout = self.layout
 
-        row.operator(
-            "grab_doc.preview_warning" if gd.firstBakePreview else "grab_doc.preview_map",
-            text="Albedo Preview"
-        ).map_types = 'albedo'
+        warn_ui(layout)
 
-        row.operator(
-            "grab_doc.offline_render",
-            text="",
-            icon="RENDER_STILL"
-        ).map_types = 'albedo'
-        row.separator(factor=1.3)
+        layout.use_property_split = True
+        layout.use_property_decorate = False
 
-    def draw(self, context: Context):
-        gd = context.scene.grabDoc
+
+class GRABDOC_PT_roughness(GRABDOC_PT_baker_default):
+    NAME = "roughness"
+    ALIAS = NAME.capitalize()
+
+    def draw_custom_properties(self, context: Context):
+        gd = context.scene.gd
+        baker = getattr(gd, self.NAME)[0]
 
         layout = self.layout
 
@@ -819,100 +748,19 @@ class GRABDOC_PT_albedo_settings(PanelInfo, SubPanelInfo, Panel):
         layout.use_property_decorate = False
 
         col = layout.column()
-        col.prop(gd, "engineAlbedo", text="Engine")
-
-        col.separator(factor=1.5)
-        col.prop(
-            gd,
-            "samplesAlbedo" if gd.engineAlbedo == 'blender_eevee' else "samplesCyclesAlbedo",
-            text='Samples'
-        )
-
         col.separator(factor=.5)
-        col.prop(gd, 'suffixAlbedo', text="Suffix")
-
-
-class GRABDOC_PT_roughness_settings(PanelInfo, SubPanelInfo, Panel):
-    @classmethod
-    def poll(cls, context: Context) -> bool:
-        gd = context.scene.grabDoc
-        return not gd.modalState and gd.uiVisibilityRoughness and gd.bakerType == 'Blender'
-
-    def draw_header(self, context: Context):
-        gd = context.scene.grabDoc
-
-        row = self.layout.row(align=True)
-        row.separator(factor=.5)
-        row.prop(gd, 'exportRoughness', text="")
-
-        row.operator(
-            "grab_doc.preview_warning" if gd.firstBakePreview else "grab_doc.preview_map",
-            text="Roughness Preview"
-        ).map_types = 'roughness'
-
-        row.operator(
-            "grab_doc.offline_render",
-            text="",
-            icon="RENDER_STILL"
-        ).map_types = 'roughness'
-        row.separator(factor=1.3)
-
-    def draw(self, context: Context):
-        gd = context.scene.grabDoc
-
-        layout = self.layout
-
-        warn_ui(layout)
-
-        layout.use_property_split = True
-        layout.use_property_decorate = False
-
-        col = layout.column()
-        col.prop(gd, "engineRoughness", text="Engine")
-
-        col.separator(factor=.5)
-        if gd.bakerType == 'Blender':
-            col.prop(gd, 'invertMaskRoughness', text="Invert")
+        if gd.baker_type == 'Blender':
+            col.prop(baker, 'invert', text="Invert")
             col.separator(factor=.5)
 
-        col.separator(factor=1.5)
-        col.prop(
-            gd,
-            "samplesRoughness" if gd.engineRoughness == 'blender_eevee' else "samplesCyclesRoughness",
-            text='Samples'
-        )
 
-        col.separator(factor=.5)
-        col.prop(gd, 'suffixRoughness', text="Suffix")
+class GRABDOC_PT_metalness(GRABDOC_PT_baker_default):
+    NAME = "metalness"
+    ALIAS = NAME.capitalize()
 
-
-class GRABDOC_PT_metalness_settings(PanelInfo, SubPanelInfo, Panel):
-    @classmethod
-    def poll(cls, context: Context) -> bool:
-        gd = context.scene.grabDoc
-        return not gd.modalState and gd.uiVisibilityMetalness and gd.bakerType == 'Blender'
-
-    def draw_header(self, context: Context):
-        gd = context.scene.grabDoc
-
-        row = self.layout.row(align=True)
-        row.separator(factor=.5)
-        row.prop(gd, 'exportMetalness', text="")
-
-        row.operator(
-            "grab_doc.preview_warning" if gd.firstBakePreview else "grab_doc.preview_map",
-            text="Metalness Preview"
-        ).map_types = 'metalness'
-
-        row.operator(
-            "grab_doc.offline_render",
-            text="",
-            icon="RENDER_STILL"
-        ).map_types = 'metalness'
-        row.separator(factor=1.3)
-
-    def draw(self, context: Context):
-        gd = context.scene.grabDoc
+    def draw_custom_properties(self, context: Context):
+        gd = context.scene.gd
+        _baker = getattr(gd, self.NAME)[0]
 
         layout = self.layout
 
@@ -920,19 +768,6 @@ class GRABDOC_PT_metalness_settings(PanelInfo, SubPanelInfo, Panel):
 
         layout.use_property_split = True
         layout.use_property_decorate = False
-
-        col = layout.column()
-        col.prop(gd, "engineMetalness", text="Engine")
-
-        col.separator(factor=1.5)
-        col.prop(
-            gd,
-            "samplesMetalness" if gd.engineMetalness == 'blender_eevee' else "samplesCyclesMetalness",
-            text='Samples'
-        )
-
-        col.separator(factor=.5)
-        col.prop(gd, 'suffixMetalness', text="Suffix")
 
 
 ################################################
@@ -945,16 +780,16 @@ classes = (
     GRABDOC_OT_config_maps,
     GRABDOC_PT_export,
     GRABDOC_PT_view_edit_maps,
-    #GRABDOC_PT_pack_maps,
-    GRABDOC_PT_normals_settings,
-    GRABDOC_PT_curvature_settings,
-    GRABDOC_PT_occlusion_settings,
-    GRABDOC_PT_height_settings,
-    GRABDOC_PT_id_settings,
-    GRABDOC_PT_alpha_settings,
-    GRABDOC_PT_albedo_settings,
-    GRABDOC_PT_roughness_settings,
-    GRABDOC_PT_metalness_settings
+    GRABDOC_PT_normals,
+    GRABDOC_PT_curvature,
+    GRABDOC_PT_occlusion,
+    GRABDOC_PT_height,
+    GRABDOC_PT_id,
+    GRABDOC_PT_alpha,
+    GRABDOC_PT_color,
+    GRABDOC_PT_roughness,
+    GRABDOC_PT_metalness
+    # GRABDOC_PT_pack_maps
 )
 
 

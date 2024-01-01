@@ -6,8 +6,18 @@ import blf
 from bpy.types import SpaceView3D, Event, Context, Operator, UILayout
 from bpy.props import EnumProperty
 
+from ..utils.render import get_rendered_objects
 from ..utils.node import cleanup_ng_from_mat
 from ..utils.scene import scene_setup, remove_setup
+from ..utils.generic import (
+    proper_scene_setup,
+    bad_setup_check,
+    export_plane,
+    get_format,
+    is_camera_in_3d_view,
+    get_create_addon_temp_dir,
+    poll_message_error
+)
 from ..utils.baker import (
     export_and_preview_setup,
     normals_setup,
@@ -18,24 +28,15 @@ from ..utils.baker import (
     height_setup,
     alpha_setup,
     id_setup,
-    albedo_setup,
+    color_setup,
     roughness_setup,
     metalness_setup,
-    reimport_as_material,
+    #reimport_as_material,
     export_refresh
 )
 
 from ..constants import GlobalVariableConstants as Global
 from ..constants import ErrorCodeConstants as Error
-from ..utils.generic import (
-    proper_scene_setup,
-    bad_setup_check,
-    export_bg_plane,
-    get_format_extension,
-    is_camera_in_3d_view,
-    get_create_addon_temp_dir,
-    poll_message_error
-)
 
 
 class OpInfo:
@@ -59,7 +60,7 @@ class GRABDOC_OT_load_ref(OpInfo, Operator):
         # Load a new image into the main database
         bpy.data.images.load(self.filepath, check_existing=True)
 
-        context.scene.grabDoc.refSelection = \
+        context.scene.gd.reference = \
             bpy.data.images[os.path.basename(os.path.normpath(self.filepath))]
         return {'FINISHED'}
 
@@ -76,7 +77,7 @@ class GRABDOC_OT_open_folder(OpInfo, Operator):
     def execute(self, context: Context):
         try:
             bpy.ops.wm.path_open(
-                filepath=bpy.path.abspath(context.scene.grabDoc.exportPath)
+                filepath=bpy.path.abspath(context.scene.gd.export_path)
             )
         except RuntimeError:
             self.report({'ERROR'}, Error.NO_VALID_PATH_SET)
@@ -146,10 +147,10 @@ class GRABDOC_OT_export_maps(OpInfo, Operator, UILayout):
 
     @classmethod
     def poll(cls, context: Context) -> bool:
-        return not context.scene.grabDoc.modalState
+        return not context.scene.gd.preview_state
 
     def grabdoc_export(self, context: Context, export_suffix: str) -> None:
-        gd = context.scene.grabDoc
+        gd = context.scene.gd
         render = context.scene.render
 
         # Save - file output path
@@ -158,7 +159,7 @@ class GRABDOC_OT_export_maps(OpInfo, Operator, UILayout):
         # Set - Output path to add-on path + add-on name + the
         # type of map exported (file extensions handled automatically)
         render.filepath = \
-            bpy.path.abspath(gd.exportPath) + gd.exportName + '_' + export_suffix
+            bpy.path.abspath(gd.export_path) + gd.export_name + '_' + export_suffix
 
         context.scene.camera = bpy.data.objects[Global.TRIM_CAMERA_NAME]
 
@@ -172,16 +173,17 @@ class GRABDOC_OT_export_maps(OpInfo, Operator, UILayout):
         print("Layout:", layout)
 
     def execute(self, context: Context):
-        gd = context.scene.grabDoc
+        gd = context.scene.gd
 
-        #print(self.map_types)
         self.map_types = 'export'
-        print(self.map_types)
 
-        report_value, report_string = bad_setup_check(self, context, active_export=True)
+        report_value, report_string = \
+            bad_setup_check(context, active_export=True)
         if report_value:
             self.report({'ERROR'}, report_string)
             return {'CANCELLED'}
+
+        rendered_objects = get_rendered_objects()
 
         # Start execution timer & UI progress bar
         start = time.time()
@@ -189,15 +191,15 @@ class GRABDOC_OT_export_maps(OpInfo, Operator, UILayout):
 
         # System for dynamically deciding the progress percentage
         operation_counter = (
-            (gd.uiVisibilityNormals   and gd.exportNormals),
-            (gd.uiVisibilityCurvature and gd.exportCurvature),
-            (gd.uiVisibilityOcclusion and gd.exportOcclusion),
-            (gd.uiVisibilityHeight    and gd.exportHeight),
-            (gd.uiVisibilityAlpha     and gd.exportAlpha),
-            (gd.uiVisibilityMatID     and gd.exportMatID),
-            (gd.uiVisibilityAlbedo    and gd.exportAlbedo),
-            (gd.uiVisibilityRoughness and gd.exportRoughness),
-            (gd.uiVisibilityMetalness and gd.exportMetalness)
+            (gd.normals[0].ui_visibility   and gd.normals[0].enabled),
+            (gd.curvature[0].ui_visibility and gd.curvature[0].enabled),
+            (gd.occlusion[0].ui_visibility and gd.occlusion[0].enabled),
+            (gd.height[0].ui_visibility    and gd.height[0].enabled),
+            (gd.alpha[0].ui_visibility     and gd.alpha[0].enabled),
+            (gd.id[0].ui_visibility        and gd.id[0].enabled),
+            (gd.color[0].ui_visibility     and gd.color[0].enabled),
+            (gd.roughness[0].ui_visibility and gd.roughness[0].enabled),
+            (gd.metalness[0].ui_visibility and gd.metalness[0].enabled)
         )
 
         percentage_division = 100 / (1 + sum(operation_counter))
@@ -222,82 +224,82 @@ class GRABDOC_OT_export_maps(OpInfo, Operator, UILayout):
         percent_till_completed += percentage_division
         context.window_manager.progress_update(percent_till_completed)
 
-        if gd.uiVisibilityNormals and gd.exportNormals:
-            normals_setup(self, context)
-            self.grabdoc_export(context, export_suffix=gd.suffixNormals)
+        if gd.normals[0].ui_visibility and gd.normals[0].enabled:
+            normals_setup(self, rendered_objects)
+            self.grabdoc_export(context, export_suffix=gd.normals[0].suffix)
 
-            if gd.reimportAsMatNormals:
-                reimport_as_material(gd.suffixNormals)
+            #if gd.normals[0].reimport:
+            #    reimport_as_material(gd.normals[0].suffix)
 
-            cleanup_ng_from_mat(Global.NG_NORMAL_NAME)
-
-            percent_till_completed += percentage_division
-            context.window_manager.progress_update(percent_till_completed)
-
-        if gd.uiVisibilityCurvature and gd.exportCurvature:
-            curvature_setup(self, context)
-            self.grabdoc_export(context, export_suffix=gd.suffixCurvature)
-            curvature_refresh(self, context)
+            cleanup_ng_from_mat(Global.NORMAL_NG_NAME)
 
             percent_till_completed += percentage_division
             context.window_manager.progress_update(percent_till_completed)
 
-        if gd.uiVisibilityOcclusion and gd.exportOcclusion:
-            occlusion_setup(self, context)
-            self.grabdoc_export(context, export_suffix=gd.suffixOcclusion)
-
-            if gd.reimportAsMatOcclusion:
-                reimport_as_material(gd.suffixOcclusion)
-
-            cleanup_ng_from_mat(Global.NG_AO_NAME)
-            occlusion_refresh(self, context)
+        if gd.curvature[0].ui_visibility and gd.curvature[0].enabled:
+            curvature_setup(self)
+            self.grabdoc_export(context, export_suffix=gd.curvature[0].suffix)
+            curvature_refresh(self)
 
             percent_till_completed += percentage_division
             context.window_manager.progress_update(percent_till_completed)
 
-        if gd.uiVisibilityHeight and gd.exportHeight:
-            height_setup(self, context)
-            self.grabdoc_export(context, export_suffix=gd.suffixHeight)
-            cleanup_ng_from_mat(Global.NG_HEIGHT_NAME)
+        if gd.occlusion[0].ui_visibility and gd.occlusion[0].enabled:
+            occlusion_setup(self, rendered_objects)
+            self.grabdoc_export(context, export_suffix=gd.occlusion[0].suffix)
+
+            #if gd.occlusion[0].reimport:
+            #    reimport_as_material(gd.occlusion[0].suffix)
+
+            cleanup_ng_from_mat(Global.AO_NG_NAME)
+            occlusion_refresh(self)
 
             percent_till_completed += percentage_division
             context.window_manager.progress_update(percent_till_completed)
 
-        if gd.uiVisibilityAlpha and gd.exportAlpha:
-            alpha_setup(self, context)
-            self.grabdoc_export(context, export_suffix=gd.suffixAlpha)
-            cleanup_ng_from_mat(Global.NG_ALPHA_NAME)
+        if gd.height[0].ui_visibility and gd.height[0].enabled:
+            height_setup(self, rendered_objects)
+            self.grabdoc_export(context, export_suffix=gd.height[0].suffix)
+            cleanup_ng_from_mat(Global.HEIGHT_NG_NAME)
 
             percent_till_completed += percentage_division
             context.window_manager.progress_update(percent_till_completed)
 
-        if gd.uiVisibilityMatID and gd.exportMatID:
-            id_setup(self, context)
-            self.grabdoc_export(context, export_suffix=gd.suffixID)
+        if gd.alpha[0].ui_visibility and gd.alpha[0].enabled:
+            alpha_setup(self, rendered_objects)
+            self.grabdoc_export(context, export_suffix=gd.alpha[0].suffix)
+            cleanup_ng_from_mat(Global.ALPHA_NG_NAME)
 
             percent_till_completed += percentage_division
             context.window_manager.progress_update(percent_till_completed)
 
-        if gd.uiVisibilityAlbedo and gd.exportAlbedo:
-            albedo_setup(self, context)
-            self.grabdoc_export(context, export_suffix=gd.suffixAlbedo)
-            cleanup_ng_from_mat(Global.NG_ALBEDO_NAME)
+        if gd.id[0].ui_visibility and gd.id[0].enabled:
+            id_setup()
+            self.grabdoc_export(context, export_suffix=gd.id[0].suffix)
 
             percent_till_completed += percentage_division
             context.window_manager.progress_update(percent_till_completed)
 
-        if gd.uiVisibilityRoughness and gd.exportRoughness:
-            roughness_setup(self, context)
-            self.grabdoc_export(context, export_suffix=gd.suffixRoughness)
-            cleanup_ng_from_mat(Global.NG_ROUGHNESS_NAME)
+        if gd.color[0].ui_visibility and gd.color[0].enabled:
+            color_setup(self, rendered_objects)
+            self.grabdoc_export(context, export_suffix=gd.color[0].suffix)
+            cleanup_ng_from_mat(Global.COLOR_NG_NAME)
 
             percent_till_completed += percentage_division
             context.window_manager.progress_update(percent_till_completed)
 
-        if gd.uiVisibilityMetalness and gd.exportMetalness:
-            metalness_setup(self, context)
-            self.grabdoc_export(context, export_suffix=gd.suffixMetalness)
-            cleanup_ng_from_mat(Global.NG_METALNESS_NAME)
+        if gd.roughness[0].ui_visibility and gd.roughness[0].enabled:
+            roughness_setup(self, rendered_objects)
+            self.grabdoc_export(context, export_suffix=gd.roughness[0].suffix)
+            cleanup_ng_from_mat(Global.ROUGHNESS_NG_NAME)
+
+            percent_till_completed += percentage_division
+            context.window_manager.progress_update(percent_till_completed)
+
+        if gd.metalness[0].ui_visibility and gd.metalness[0].enabled:
+            metalness_setup(self, rendered_objects)
+            self.grabdoc_export(context, export_suffix=gd.metalness[0].suffix)
+            cleanup_ng_from_mat(Global.METALNESS_NG_NAME)
 
             percent_till_completed += percentage_division
             context.window_manager.progress_update(percent_till_completed)
@@ -308,11 +310,8 @@ class GRABDOC_OT_export_maps(OpInfo, Operator, UILayout):
         plane_ob = bpy.data.objects[Global.BG_PLANE_NAME]
         plane_ob.scale[0] = plane_ob.scale[1] = 1
 
-        if gd.exportPlane:
-            export_bg_plane(context)
-
-        if gd.openFolderOnExport:
-            bpy.ops.wm.path_open(filepath=bpy.path.abspath(gd.exportPath))
+        if gd.export_plane:
+            export_plane(context)
 
         # Call for Original Context Mode, use bpy.ops
         # so that Blenders viewport refreshes
@@ -346,9 +345,9 @@ class MapEnum():
             ('curvature', "Curvature", ""),
             ('occlusion', "Ambient Occlusion", ""),
             ('height', "Height", ""),
-            ('ID', "Material ID", ""),
+            ('id', "Material ID", ""),
             ('alpha', "Alpha", ""),
-            ('albedo', "Albedo", ""),
+            ('color', "Color", ""),
             ('roughness', "Roughness", ""),
             ('metalness', "Metalness", "")
         ),
@@ -365,11 +364,11 @@ class GRABDOC_OT_offline_render(OpInfo, MapEnum, Operator):
     # - Might be able to have this uniquely
     #   utilize compositing for mixing maps?
     # - Support Reimport as Materials
-    # - Support correct default colorspaces
+    # - Support correct default color spaces
 
     @classmethod
     def poll(cls, context: Context) -> bool:
-        return True if not context.scene.grabDoc.modalState else poll_message_error(
+        return True if not context.scene.gd.preview_state else poll_message_error(
             cls, "Cannot render, in a Modal State"
         )
 
@@ -383,7 +382,7 @@ class GRABDOC_OT_offline_render(OpInfo, MapEnum, Operator):
 
         image_name = 'GD_Render Result'
 
-        render.filepath = os.path.join(temps_path, image_name + get_format_extension())
+        render.filepath = os.path.join(temps_path, image_name + get_format())
 
         # Delete original image
         if image_name in bpy.data.images:
@@ -408,7 +407,7 @@ class GRABDOC_OT_offline_render(OpInfo, MapEnum, Operator):
 
     def execute(self, context: Context):
         report_value, report_string = \
-            bad_setup_check(self, context, active_export=False)
+            bad_setup_check(context, active_export=False)
         if report_value:
             self.report({'ERROR'}, report_string)
             return {'CANCELLED'}
@@ -432,44 +431,47 @@ class GRABDOC_OT_offline_render(OpInfo, MapEnum, Operator):
         plane_ob = bpy.data.objects[Global.BG_PLANE_NAME]
         plane_ob.scale[0] = plane_ob.scale[1] = 3
 
-        # NOTE: Match case exists, looks slightly better vs conditional in this case
+        rendered_objects = get_rendered_objects()
+
+        # NOTE: Match case exists, looks slightly
+        # better vs conditional in this case
         match self.map_types:
             case "normals":
-                normals_setup(self, context)
+                normals_setup(self, rendered_objects)
                 self.offline_render()
-                cleanup_ng_from_mat(Global.NG_NORMAL_NAME)
+                cleanup_ng_from_mat(Global.NORMAL_NG_NAME)
             case "curvature":
-                curvature_setup(self, context)
+                curvature_setup(self)
                 self.offline_render()
-                curvature_refresh(self, context)
+                curvature_refresh(self)
             case "occlusion":
-                occlusion_setup(self, context)
+                occlusion_setup(self, rendered_objects)
                 self.offline_render()
-                cleanup_ng_from_mat(Global.NG_AO_NAME)
-                occlusion_refresh(self, context)
+                cleanup_ng_from_mat(Global.AO_NG_NAME)
+                occlusion_refresh(self)
             case "height":
-                height_setup(self, context)
+                height_setup(self, rendered_objects)
                 self.offline_render()
-                cleanup_ng_from_mat(Global.NG_HEIGHT_NAME)
+                cleanup_ng_from_mat(Global.HEIGHT_NG_NAME)
             case "ID":
-                id_setup(self, context)
+                id_setup()
                 self.offline_render()
             case "alpha":
-                alpha_setup(self, context)
+                alpha_setup(self, rendered_objects)
                 self.offline_render()
-                cleanup_ng_from_mat(Global.NG_ALPHA_NAME)
-            case "albedo":
-                albedo_setup(self, context)
+                cleanup_ng_from_mat(Global.ALPHA_NG_NAME)
+            case "color":
+                color_setup(self, rendered_objects)
                 self.offline_render()
-                cleanup_ng_from_mat(Global.NG_ALBEDO_NAME)
+                cleanup_ng_from_mat(Global.COLOR_NG_NAME)
             case "roughness":
-                roughness_setup(self, context)
+                roughness_setup(self, rendered_objects)
                 self.offline_render()
-                cleanup_ng_from_mat(Global.NG_ROUGHNESS_NAME)
+                cleanup_ng_from_mat(Global.ROUGHNESS_NG_NAME)
             case "metalness":
-                metalness_setup(self, context)
+                metalness_setup(self, rendered_objects)
                 self.offline_render()
-                cleanup_ng_from_mat(Global.NG_METALNESS_NAME)
+                cleanup_ng_from_mat(Global.METALNESS_NG_NAME)
 
         # Refresh all original settings
         export_refresh(self, context)
@@ -512,7 +514,7 @@ class GRABDOC_OT_leave_map_preview(Operator):
         # switch, if it notices this has been disabled it will begin
         # the exiting sequence in the properties update function and
         # also in the modal method itself
-        context.scene.grabDoc.modalState = False
+        context.scene.gd.preview_state = False
         return {'FINISHED'}
 
 
@@ -526,13 +528,14 @@ class GRABDOC_OT_map_preview_warning(OpInfo, MapEnum, Operator):
         return context.window_manager.invoke_props_dialog(self, width=525)
 
     def draw(self, _context: Context):
-        col = self.layout.column(align=True)
-        for line in Global.PREVIEW_WARNING.split('\n')[1:][:-1]:
-            col.label(text=line)
+        self.layout.label(text=Global.PREVIEW_WARNING)
+        #col = self.layout.column(align=True)
+        #for line in Global.PREVIEW_WARNING.split('\n')[1:][:-1]:
+        #    col.label(text=line)
+        #    col.separator()
 
     def execute(self, context: Context):
-        context.scene.grabDoc.firstBakePreview = False
-
+        context.scene.gd.preview_first_time = False
         bpy.ops.grab_doc.preview_map(map_types=self.map_types)
         return {'FINISHED'}
 
@@ -541,8 +544,6 @@ def draw_callback_px(self, context: Context) -> None:
     """This needs to be outside of the class
     because of how draw_handler_add handles args"""
     render_text = self.map_types.capitalize()
-    if self.map_types == 'ID': # Exception for Material ID preview
-        render_text = "Material ID"
 
     font_id = 0
     font_size = 25
@@ -551,30 +552,29 @@ def draw_callback_px(self, context: Context) -> None:
     font_y_pos = 80
     font_pos_offset = 50
 
-    # Manually handle small viewports
+    # Handle small viewports
     for area in context.screen.areas:
-        if area.type == 'VIEW_3D':
-            for region in area.regions:
-                if region.type == 'WINDOW':
-                    if region.width < 700 or region.height < 400:
-                        font_size = 15
-                        font_pos_offset = 30
-                    break
+        if area.type != 'VIEW_3D':
+            continue
+        for region in area.regions:
+            if region.type != 'WINDOW':
+                continue
+            if region.width <= 700 or region.height <= 400:
+                font_size *= .5
+                font_pos_offset *= .5
+            break
 
-    # Enable shadow
     blf.enable(font_id, 4)
     blf.shadow(font_id, 0, *(0, 0, 0, font_opacity))
-
-    # Draw text
     blf.position(font_id, font_x_pos, (font_y_pos + font_pos_offset), 0)
     blf.size(font_id, font_size)
     blf.color(font_id, *(1, 1, 1, font_opacity))
     blf.draw(font_id, f"{render_text} Preview  |  [ESC] to exit")
-
     blf.position(font_id, font_x_pos, font_y_pos, 0)
     blf.size(font_id, font_size+1)
     blf.color(font_id, *(1, 1, 0, font_opacity))
     blf.draw(font_id, "You are in Map Preview mode!")
+
 
 class GRABDOC_OT_map_preview(OpInfo, MapEnum, Operator):
     """Preview the selected material"""
@@ -583,82 +583,74 @@ class GRABDOC_OT_map_preview(OpInfo, MapEnum, Operator):
 
     def modal(self, context: Context, event: Event):
         scene = context.scene
-        gd = scene.grabDoc
+        gd = scene.gd
 
         scene.camera = bpy.data.objects[Global.TRIM_CAMERA_NAME]
 
         # Set - Exporter settings
-        image_settings = scene.render.image_settings
-
         # If background plane not visible in render, enable alpha channel
-        if not gd.collRendered:
+        image_settings = scene.render.image_settings
+        if not gd.coll_rendered:
             scene.render.film_transparent = True
-
             image_settings.color_mode = 'RGBA'
         else:
             scene.render.film_transparent = False
-
             image_settings.color_mode = 'RGB'
 
         # Get correct file format and color depth
-        image_settings.file_format = gd.imageType
-
-        if gd.imageType == 'OPEN_EXR':
-            image_settings.color_depth = gd.colorDepthEXR
-        elif gd.imageType != 'TARGA':
-            image_settings.color_depth = gd.colorDepth
+        image_settings.file_format = gd.format
+        if gd.format == 'OPEN_EXR':
+            image_settings.color_depth = gd.exr_depth
+        elif gd.format != 'TARGA':
+            image_settings.color_depth = gd.depth
 
         # Bake map specific settings that are forcibly kept in check
         # TODO: update the node group input values for Mixed Normal
         view_settings = scene.view_settings
-
         if self.map_types == "curvature":
-            view_settings.look = gd.contrastCurvature.replace('_', ' ')
-
+            view_settings.look = gd.curvature[0].contrast.replace('_', ' ')
             bpy.data.objects[Global.BG_PLANE_NAME].color[3] = .9999
-
         elif self.map_types == "occlusion":
-            view_settings.look = gd.contrastOcclusion.replace('_', ' ')
-
-            #ao = bpy.data.node_groups[NG_AO_NAME].nodes.get('Ambient Occlusion')
-            #ao.inputs[1].default_value = gd.distanceOcclusion
-
+            view_settings.look = gd.occlusion[0].contrast.replace('_', ' ')
+            #ao = \
+            #    bpy.data.node_groups[NG_AO_NAME].nodes.get('Ambient Occlusion')
+            #ao.inputs[1].default_value = gd.occlusion[0].distance
         elif self.map_types == "height":
-            view_settings.look = gd.contrastHeight.replace('_', ' ')
-
+            view_settings.look = gd.height[0].contrast.replace('_', ' ')
         elif self.map_types == "ID":
-            scene.display.shading.color_type = gd.methodMatID
+            scene.display.shading.color_type = gd.id[0].method
 
         # Exit check
-        if not gd.modalState or event.type in {'ESC'} or not proper_scene_setup():
+        if not gd.preview_state \
+        or event.type in {'ESC'} \
+        or not proper_scene_setup():
             self.modal_cleanup(context)
             return {'CANCELLED'}
         return {'PASS_THROUGH'}
 
     def modal_cleanup(self, context: Context) -> None:
-        gd = context.scene.grabDoc
-
-        gd.modalState = False
+        gd = context.scene.gd
+        gd.preview_state = False
 
         SpaceView3D.draw_handler_remove(self._handle, 'WINDOW')
 
         if self.map_types == "normals":
-            cleanup_ng_from_mat(Global.NG_NORMAL_NAME)
+            cleanup_ng_from_mat(Global.NORMAL_NG_NAME)
         elif self.map_types == "curvature":
-            curvature_refresh(self, context)
+            curvature_refresh(self)
         elif self.map_types == "occlusion":
-            occlusion_refresh(self, context)
-            cleanup_ng_from_mat(Global.NG_AO_NAME)
+            occlusion_refresh(self)
+            cleanup_ng_from_mat(Global.AO_NG_NAME)
         elif self.map_types == "height":
-            cleanup_ng_from_mat(Global.NG_HEIGHT_NAME)
+            cleanup_ng_from_mat(Global.HEIGHT_NG_NAME)
         elif self.map_types == "alpha":
-            cleanup_ng_from_mat(Global.NG_ALPHA_NAME)
-        elif self.map_types == "albedo":
-            cleanup_ng_from_mat(Global.NG_ALBEDO_NAME)
+            cleanup_ng_from_mat(Global.ALPHA_NG_NAME)
+        elif self.map_types == "color":
+            cleanup_ng_from_mat(Global.COLOR_NG_NAME)
         elif self.map_types == "roughness":
-            cleanup_ng_from_mat(Global.NG_ROUGHNESS_NAME)
+            cleanup_ng_from_mat(Global.ROUGHNESS_NG_NAME)
         elif self.map_types == "metalness":
-            cleanup_ng_from_mat(Global.NG_METALNESS_NAME)
+            cleanup_ng_from_mat(Global.METALNESS_NG_NAME)
 
         export_refresh(self, context)
 
@@ -677,23 +669,23 @@ class GRABDOC_OT_map_preview(OpInfo, MapEnum, Operator):
                         space.shading.type = self.saved_render_view
                         break
 
-        gd.bakerType = self.savedBakerType
+        gd.baker_type = self.savedBakerType
 
         # Check for auto exit camera option, keep this
         # at the end of the stack to avoid pop in
-        if gd.autoExitCamera or not proper_scene_setup():
+        if gd.preview_auto_exit_camera or not proper_scene_setup():
             bpy.ops.grab_doc.view_cam(from_modal=True)
 
     def execute(self, context: Context):
-        gd = context.scene.grabDoc
+        gd = context.scene.gd
 
         report_value, report_string = \
-            bad_setup_check(self, context, active_export=False)
+            bad_setup_check(context, active_export=False)
         if report_value:
             self.report({'ERROR'}, report_string)
             return {'CANCELLED'}
 
-        gd.modalState = True
+        gd.preview_state = True
 
         if bpy.ops.object.mode_set.poll():
             bpy.ops.object.mode_set(mode='OBJECT')
@@ -714,30 +706,32 @@ class GRABDOC_OT_map_preview(OpInfo, MapEnum, Operator):
                     break
 
         # Save & Set - UI Baker Type
-        self.savedBakerType = gd.bakerType
-        gd.bakerType = 'Blender'
+        self.savedBakerType = gd.baker_type
+        gd.baker_type = 'Blender'
 
         # Set - Preview type
-        gd.modalPreviewType = self.map_types
+        gd.preview_type = self.map_types
+
+        rendered_objects = get_rendered_objects()
 
         if self.map_types == 'normals':
-            normals_setup(self, context)
+            normals_setup(self, rendered_objects)
         elif self.map_types == 'curvature':
-            curvature_setup(self, context)
+            curvature_setup(self)
         elif self.map_types == 'occlusion':
-            occlusion_setup(self, context)
+            occlusion_setup(self, rendered_objects)
         elif self.map_types == 'height':
-            height_setup(self, context)
+            height_setup(self, rendered_objects)
         elif self.map_types == 'alpha':
-            alpha_setup(self, context)
-        elif self.map_types == 'albedo':
-            albedo_setup(self, context)
+            alpha_setup(self, rendered_objects)
+        elif self.map_types == 'color':
+            color_setup(self, rendered_objects)
         elif self.map_types == 'roughness':
-            roughness_setup(self, context)
+            roughness_setup(self, rendered_objects)
         elif self.map_types == 'metalness':
-            metalness_setup(self, context)
+            metalness_setup(self, rendered_objects)
         else: # ID
-            id_setup(self, context)
+            id_setup()
 
         # Draw text handler
         self._handle = SpaceView3D.draw_handler_add(
@@ -756,74 +750,62 @@ class GRABDOC_OT_export_current_preview(OpInfo, Operator):
 
     @classmethod
     def poll(cls, context: Context) -> bool:
-        return context.scene.grabDoc.modalState
+        return context.scene.gd.preview_state
 
     def execute(self, context: Context):
-        gd = context.scene.grabDoc
+        gd = context.scene.gd
 
-        report_value, report_string = bad_setup_check(self, context, active_export=True)
+        report_value, report_string = bad_setup_check(context, active_export=True)
         if report_value:
             self.report({'ERROR'}, report_string)
             return {'CANCELLED'}
 
-        # Start counting execution time
         start = time.time()
 
-        # Save - file output path
-        render = context.scene.render
-        saved_path = render.filepath
-
-        if gd.modalPreviewType == 'normals':
-            export_suffix = gd.suffixNormals
-        elif gd.modalPreviewType == 'curvature':
-            export_suffix = gd.suffixCurvature
-        elif gd.modalPreviewType == 'occlusion':
-            export_suffix = gd.suffixOcclusion
-        elif gd.modalPreviewType == 'height':
-            export_suffix = gd.suffixHeight
-        elif gd.modalPreviewType == 'ID':
-            export_suffix = gd.suffixID
-        elif gd.modalPreviewType == 'alpha':
-            export_suffix = gd.suffixAlpha
-        elif gd.modalPreviewType == 'albedo':
-            export_suffix = gd.suffixAlbedo
-        elif gd.modalPreviewType == 'roughness':
-            export_suffix = gd.suffixRoughness
-        elif gd.modalPreviewType == 'metalness':
-            export_suffix = gd.suffixMetalness
-
-        # Set - Output path to add-on path + add-on name + the
-        # type of map exported (file extensions get handled automatically)
-        render.filepath = \
-            bpy.path.abspath(gd.exportPath) + gd.exportName + f"_{export_suffix}"
-
-        # Set - Scale up the plane
+        # NOTE: Scale plane to account for overscan
         plane_ob = bpy.data.objects[Global.BG_PLANE_NAME]
         plane_ob.scale[0] = plane_ob.scale[1] = 3
 
+        if gd.preview_type == 'normals':
+            suffix = gd.normals[0].suffix
+        elif gd.preview_type == 'curvature':
+            suffix = gd.curvature[0].suffix
+        elif gd.preview_type == 'occlusion':
+            suffix = gd.occlusion[0].suffix
+        elif gd.preview_type == 'height':
+            suffix = gd.height[0].suffix
+        elif gd.preview_type == 'ID':
+            suffix = gd.id[0].suffix
+        elif gd.preview_type == 'alpha':
+            suffix = gd.alpha[0].suffix
+        elif gd.preview_type == 'color':
+            suffix = gd.color[0].suffix
+        elif gd.preview_type == 'roughness':
+            suffix = gd.roughness[0].suffix
+        elif gd.preview_type == 'metalness':
+            suffix = gd.metalness[0].suffix
+
+        render = context.scene.render
+        saved_path = render.filepath
+        render.filepath = \
+            os.path.join(
+                bpy.path.abspath(gd.export_path),
+                gd.export_name + "_" + suffix
+            )
         bpy.ops.render.render(write_still=True)
-
-        # Refresh - file output path
         render.filepath = saved_path
-
-        # Reimport the Normal/Occlusion map as a material if requested
-        if gd.modalPreviewType == 'normals' and gd.reimportAsMatNormals:
-            reimport_as_material(gd.suffixNormals)
-        elif gd.modalPreviewType == 'occlusion' and gd.reimportAsMatOcclusion:
-            reimport_as_material(gd.suffixOcclusion)
-
-        # Refresh - Scale down the plane
-        plane_ob = bpy.data.objects[Global.BG_PLANE_NAME]
         plane_ob.scale[0] = plane_ob.scale[1] = 1
 
-        if gd.exportPlane:
-            export_bg_plane(context)
+        # Reimport the Normal/Occlusion map as a material if requested
+        #if gd.preview_type == 'normals' and gd.normals[0].reimport:
+        #    reimport_as_material(gd.normals[0].suffix)
+        #elif gd.preview_type == 'occlusion' and gd.occlusion[0].reimport:
+        #    reimport_as_material(gd.occlusion[0].suffix)
+        #reimport_as_material()
 
-        # Open export path location if requested
-        if gd.openFolderOnExport:
-            bpy.ops.wm.path_open(filepath=bpy.path.abspath(gd.exportPath))
+        if gd.export_plane:
+            export_plane(context)
 
-        # End the timer
         end = time.time()
         exc_time = round(end - start, 2)
 
@@ -867,7 +849,7 @@ classes = (
     GRABDOC_OT_map_preview_warning,
     GRABDOC_OT_map_preview,
     GRABDOC_OT_leave_map_preview,
-    GRABDOC_OT_export_current_preview
+    GRABDOC_OT_export_current_preview,
     #GRABDOC_OT_map_pack_info
 )
 

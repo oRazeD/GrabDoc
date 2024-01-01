@@ -5,16 +5,22 @@ from bpy.types import Context, Operator
 
 from .operators import OpInfo
 from ..constants import GlobalVariableConstants as Global
-from ..utils.generic import UseSelectedOnly, get_rendered_objects
+from ..utils.generic import UseSelectedOnly
+from ..utils.render import get_rendered_objects
 
 
-def generate_random_id(id_prefix: str='ID') -> str:
+def generate_random_name(
+        prefix: str='ID',
+        minimum: int=1000,
+        maximum: int=100000
+    ) -> str:
     """Generates a random id map name based on a given prefix"""
     while True:
-        new_mat_name = f"{id_prefix}.{randint(1000, 100000)}"
-        if new_mat_name not in bpy.data.materials:
+        name = f"{prefix}.{randint(minimum, maximum)}"
+        if name not in bpy.data.materials:
             break
-    return new_mat_name
+    return name
+
 
 
 class GRABDOC_OT_quick_id_setup(OpInfo, Operator):
@@ -27,26 +33,23 @@ class GRABDOC_OT_quick_id_setup(OpInfo, Operator):
             if mat.name.startswith(Global.MAT_ID_RAND_PREFIX):
                 bpy.data.materials.remove(mat)
 
-        self.rendered_obs = get_rendered_objects(context)
-        for ob in context.view_layer.objects:
+        rendered_obs = get_rendered_objects()
+        for ob in rendered_obs:
             add_mat = True
-
-            if not ob.name.startswith(Global.GD_PREFIX) \
-                and ob.name in self.rendered_obs:
+            if not ob.name.startswith(Global.GD_PREFIX):
                 for slot in ob.material_slots:
-                    # If a manual ID exists on the object, ignore it
                     if slot.name.startswith(Global.MAT_ID_PREFIX):
                         add_mat = False
                         break
-
                 if not add_mat:
                     continue
 
                 mat = bpy.data.materials.new(
-                    generate_random_id(Global.MAT_ID_RAND_PREFIX)
+                    generate_random_name(Global.MAT_ID_RAND_PREFIX)
                 )
                 mat.use_nodes = True
-                mat.diffuse_color = (random(), random(), random(), 1) # Viewport color
+                # NOTE: Viewport color
+                mat.diffuse_color = (random(), random(), random(), 1)
 
                 bsdf = mat.node_tree.nodes.get('Principled BSDF')
                 bsdf.inputs[0].default_value = mat.diffuse_color
@@ -55,7 +58,9 @@ class GRABDOC_OT_quick_id_setup(OpInfo, Operator):
                 ob.active_material = mat
 
         for mat in bpy.data.materials:
-            if (mat.name.startswith(Global.MAT_ID_PREFIX) or mat.name.startswith(Global.MAT_ID_RAND_PREFIX)) and not mat.users:
+            if mat.name.startswith(Global.MAT_ID_PREFIX) \
+            or mat.name.startswith(Global.MAT_ID_RAND_PREFIX) \
+            and not mat.users:
                 bpy.data.materials.remove(mat)
         return {'FINISHED'}
 
@@ -66,7 +71,9 @@ class GRABDOC_OT_quick_id_selected(OpInfo, UseSelectedOnly, Operator):
     bl_label = "Add ID to Selected"
 
     def execute(self, context: Context):
-        mat = bpy.data.materials.new(generate_random_id(Global.MAT_ID_PREFIX))
+        mat = bpy.data.materials.new(
+            generate_random_name(Global.MAT_ID_PREFIX)
+        )
         mat.use_nodes = True
         mat.diffuse_color = (random(), random(), random(), 1)
 
@@ -79,7 +86,9 @@ class GRABDOC_OT_quick_id_selected(OpInfo, UseSelectedOnly, Operator):
                 ob.active_material = mat
 
         for mat in bpy.data.materials:
-            if (mat.name.startswith(Global.MAT_ID_PREFIX) or mat.name.startswith(Global.MAT_ID_RAND_PREFIX)) and not mat.users:
+            if mat.name.startswith(Global.MAT_ID_PREFIX) \
+            or mat.name.startswith(Global.MAT_ID_RAND_PREFIX) \
+            and not mat.users:
                 bpy.data.materials.remove(mat)
         return {'FINISHED'}
 
@@ -105,11 +114,13 @@ class GRABDOC_OT_quick_remove_selected_mats(OpInfo, UseSelectedOnly, Operator):
 
     def execute(self, context: Context):
         for ob in context.selected_objects:
-            if ob.type in ('MESH', 'CURVE'):
-                for slot in ob.material_slots:
-                    if slot.name.startswith(Global.MAT_ID_PREFIX):
-                        bpy.data.materials.remove(bpy.data.materials[slot.name])
-                        break
+            if ob.type not in ('MESH', 'CURVE'):
+                continue
+            for slot in ob.material_slots:
+                if not slot.name.startswith(Global.MAT_ID_PREFIX):
+                    continue
+                bpy.data.materials.remove(bpy.data.materials[slot.name])
+                break
         return {'FINISHED'}
 
 

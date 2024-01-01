@@ -8,7 +8,6 @@ from bpy.types import Context, Operator
 from ..constants import GlobalVariableConstants as Global
 from ..constants import ErrorCodeConstants as Error
 from ..constants import NAME, VERSION
-from ..utils.render import get_rendered_objects
 
 
 class PanelInfo:
@@ -31,9 +30,9 @@ class UseSelectedOnly():
         )
 
 
-def export_bg_plane(context: Context) -> None:
+def export_plane(context: Context) -> None:
     """Export the grabdoc background plane for external use"""
-    gd = context.scene.grabDoc
+    gd = context.scene.gd
 
     # Save original selection
     savedSelection = context.selected_objects
@@ -48,8 +47,8 @@ def export_bg_plane(context: Context) -> None:
 
     bpy.ops.export_scene.fbx(
         filepath=os.path.join(
-            bpy.path.abspath(gd.exportPath),
-            gd.exportName + '_plane.fbx'
+            bpy.path.abspath(gd.export_path),
+            gd.export_name + '_plane.fbx'
         ),
         use_selection=True
     )
@@ -60,7 +59,7 @@ def export_bg_plane(context: Context) -> None:
     for ob in savedSelection:
         ob.select_set(True)
 
-    if not gd.collSelectable:
+    if not gd.coll_selectable:
         bpy.data.collections[Global.COLL_NAME].hide_select = False
 
 
@@ -78,7 +77,9 @@ def proper_scene_setup() -> bool:
 def is_camera_in_3d_view() -> bool:
     """Check if we are actively viewing
     through the camera in the 3D View"""
-    return [area.spaces.active.region_3d.view_perspective for area in bpy.context.screen.areas if area.type == 'VIEW_3D'] == ['CAMERA']
+    return [
+        area.spaces.active.region_3d.view_perspective for area in bpy.context.screen.areas if area.type == 'VIEW_3D'
+    ] == ['CAMERA']
 
 
 # NOTE: Basic DRM is best DRM
@@ -135,18 +136,18 @@ def poll_message_error(
         Whether the error line will be printed or not, by default True
     """
     cls.poll_message_set(
-        f"{error_message}. ({get_debug_line_no()})'" if print_err_line else f"{error_message}."
+        f"{error_message}. ({get_debug_line_no()})'" \
+            if print_err_line else f"{error_message}."
     )
     return False
 
 
-def get_format_extension() -> str:
-    """Get the correct file extension based on `imageType` attribute"""
-    return f".{Global.FORMAT_MATCHED_EXTENSIONS[bpy.context.scene.grabDoc.imageType]}"
+def get_format() -> str:
+    """Get the correct file extension based on `format` attribute"""
+    return f".{Global.IMAGE_FORMATS[bpy.context.scene.gd.format]}"
 
 
 def bad_setup_check(
-        self,
         context: Context,
         active_export: bool,
         report_value=False,
@@ -155,11 +156,7 @@ def bad_setup_check(
     """Determine if specific parts of the scene
     are set up incorrectly and return a detailed
     explanation of things for the user to fix"""
-    gd = context.scene.grabDoc
-
-    # Run this before other error checks as the
-    # following error checks contain dependencies
-    self.rendered_obs = get_rendered_objects(context)
+    gd = context.scene.gd
 
     # Look for Trim Camera (only thing required to render)
     if not Global.TRIM_CAMERA_NAME in context.view_layer.objects \
@@ -168,41 +165,41 @@ def bad_setup_check(
         report_string = Error.TRIM_CAM_NOT_FOUND
 
     # Check for no objects in manual collection
-    if gd.useBakeCollection and not report_value:
+    if gd.use_bake_collections and not report_value:
         if not len(bpy.data.collections[Global.COLL_OB_NAME].objects):
             report_value = True
             report_string = Error.NO_OBJECTS_BAKE_GROUPS
 
     if active_export:
         # Check for export path
-        if not os.path.exists(bpy.path.abspath(gd.exportPath)) \
+        if not os.path.exists(bpy.path.abspath(gd.export_path)) \
         and not report_value:
             report_value = True
             report_string = Error.NO_VALID_PATH_SET
 
         # Check if all bake maps are disabled
         bake_maps = (
-            gd.exportNormals,
-            gd.exportCurvature,
-            gd.exportOcclusion,
-            gd.exportHeight,
-            gd.exportMatID,
-            gd.exportAlpha,
-            gd.exportAlbedo,
-            gd.exportRoughness,
-            gd.exportMetalness
+            gd.normals[0].enabled,
+            gd.curvature[0].enabled,
+            gd.occlusion[0].enabled,
+            gd.height[0].enabled,
+            gd.id[0].enabled,
+            gd.alpha[0].enabled,
+            gd.color[0].enabled,
+            gd.roughness[0].enabled,
+            gd.metalness[0].enabled
         )
 
         bake_map_vis = (
-            gd.uiVisibilityNormals,
-            gd.uiVisibilityCurvature,
-            gd.uiVisibilityOcclusion,
-            gd.uiVisibilityHeight,
-            gd.uiVisibilityMatID,
-            gd.uiVisibilityAlpha,
-            gd.uiVisibilityAlbedo,
-            gd.uiVisibilityRoughness,
-            gd.uiVisibilityMetalness
+            gd.normals[0].ui_visibility,
+            gd.curvature[0].ui_visibility,
+            gd.occlusion[0].ui_visibility,
+            gd.height[0].ui_visibility,
+            gd.id[0].ui_visibility,
+            gd.alpha[0].ui_visibility,
+            gd.color[0].ui_visibility,
+            gd.roughness[0].ui_visibility,
+            gd.metalness[0].ui_visibility
         )
 
         if True not in bake_maps or True not in bake_map_vis:

@@ -3,7 +3,7 @@ bl_info = {
     "author": "Ethan Simon-Law",
     "location": "3D View > Sidebar > GrabDoc",
     "version": (1, 4, 0),
-    "blender": (4, 0, 1),
+    "blender": (4, 0, 2),
     "tracker_url": "https://discord.com/invite/wHAyVZG",
     "category": "3D View"
 }
