@@ -1,6 +1,6 @@
 import bpy
 import bmesh
-from bpy.types import Context
+from bpy.types import Context, Object
 
 from ..constants import GlobalVariableConstants as Global
 from ..utils.generic import is_camera_in_3d_view
@@ -162,7 +162,6 @@ def scene_setup(_self, context: Context) -> None:
             continue
 
     # COLLECTIONS
-
     # Create a bake group collection if requested
     if gd.use_bake_collections:
         bake_group_coll = bpy.data.collections.new(Global.COLL_OB_NAME)
@@ -176,20 +175,18 @@ def scene_setup(_self, context: Context) -> None:
             for ob in saved_bake_group_obs:
                 bake_group_coll.objects.link(ob)
 
-    # Create main GrabDoc collection
+    # Create core GrabDoc collection
     gd_coll = bpy.data.collections.new(name=Global.COLL_NAME)
     gd_coll.gd_bake_collection = True
-
     context.scene.collection.children.link(gd_coll)
     view_layer.active_layer_collection = \
         view_layer.layer_collection.children[-1]
 
-    # Make the GrabDoc collection the active collection
+    # Set active collection
     view_layer.active_layer_collection = \
         view_layer.layer_collection.children[gd_coll.name]
 
     # BG PLANE
-
     bpy.ops.mesh.primitive_plane_add(
         size=gd.scale,
         calc_uvs=True,
@@ -234,16 +231,16 @@ def scene_setup(_self, context: Context) -> None:
             mat.use_nodes = True
 
             # Get / load nodes
-            output = mat.node_tree.nodes.get('Material Output')
+            output = mat.node_tree.nodes['Material Output']
             output.location = (0,0)
-
-            mat.node_tree.nodes.remove(mat.node_tree.nodes.get('Principled BSDF'))
+            mat.node_tree.nodes.remove(
+                mat.node_tree.nodes['Principled BSDF']
+            )
 
             image = mat.node_tree.nodes.new('ShaderNodeTexImage')
             image.image = gd.reference
             image.location = (-300,0)
 
-            # Link materials
             mat.node_tree.links.new(
                 output.inputs["Surface"],
                 image.outputs["Color"]
@@ -252,182 +249,138 @@ def scene_setup(_self, context: Context) -> None:
         plane_ob.active_material = bpy.data.materials[Global.REFERENCE_NAME]
 
         for area in context.screen.areas:
-            if area.type == 'VIEW_3D':
-                for space in area.spaces:
-                    space.shading.color_type = 'TEXTURE'
+            if area.type != 'VIEW_3D':
+                continue
+            for space in area.spaces:
+                space.shading.color_type = 'TEXTURE'
     else:
-        # Refresh original material and then delete the reference material
+        # Refresh original material and delete the reference material
         if saved_mat is not None:
             plane_ob.active_material = saved_mat
-
-        # TODO: This is the exception to splitting the setup and
-        # remove operations into separate functions, maybe can fix?
+        # TODO: Removal operation inside of a setup function
         if Global.REFERENCE_NAME in bpy.data.materials:
-            bpy.data.materials.remove(bpy.data.materials[Global.REFERENCE_NAME])
+            bpy.data.materials.remove(
+                bpy.data.materials[Global.REFERENCE_NAME]
+            )
 
     # Grid for better snapping and measurements
-    if gd.grid_subdivs and gd.use_grid:
-        # Create & load new bmesh
+    if gd.use_grid and gd.grid_subdivs:
         bm = bmesh.new()
         bm.from_mesh(plane_ob.data)
-
-        # Subdivide
         bmesh.ops.subdivide_edges(
             bm,
             edges=bm.edges,
             cuts=gd.grid_subdivs,
             use_grid_fill=True
         )
-
-        # Write back to the mesh
         bm.to_mesh(plane_ob.data)
 
     # CAMERA
+    camera_data = bpy.data.cameras.new(Global.TRIM_CAMERA_NAME)
+    camera_data.type = 'ORTHO'
+    camera_data.display_size = .01
+    camera_data.passepartout_alpha = 1
+    camera_data.ortho_scale = gd.scale
+    camera_data.clip_start = 0.1
+    camera_data.clip_end = 1000 * (gd.scale / 25)
 
-    # Add Trim Camera & change settings
-    trim_cam_data = bpy.data.cameras.new(Global.TRIM_CAMERA_NAME)
-    trim_cam_ob = bpy.data.objects.new(Global.TRIM_CAMERA_NAME, trim_cam_data)
+    camera_ob = bpy.data.objects.new(Global.TRIM_CAMERA_NAME, camera_data)
+    camera_ob.location = (0, 0, 15 * gd.scale)
+    camera_ob.parent = plane_ob
+    camera_ob.gd_object = True
+    # TODO: This causes visual errors when in camera view?
+    #camera_ob.hide_viewport = camera_ob.hide_select = True
 
-    trim_cam_ob.location = (0, 0, 15 * gd.scale)
-    trim_cam_ob.parent = plane_ob
-    trim_cam_ob.gd_object = True
-    # TODO: This occasionally causes visual errors when in camera view?
-    #trim_cam_ob.hide_viewport = trim_cam_ob.hide_select = True
-
-    trim_cam_data.type = 'ORTHO'
-    trim_cam_data.display_size = .01
-    trim_cam_data.passepartout_alpha = 1
-    trim_cam_data.ortho_scale = gd.scale
-    # NOTE: Match cameras clipping distance to scale
-    trim_cam_data.clip_start = 0.1
-    trim_cam_data.clip_end = 1000 * (gd.scale / 25)
-
-    gd_coll.objects.link(trim_cam_ob)
-    context.scene.camera = trim_cam_ob
-
+    gd_coll.objects.link(camera_ob)
+    context.scene.camera = camera_ob
+    # NOTE: Run if camera existed prior to setup refresh
     if update_camera:
-        # NOTE: Needed to do twice or else Blender decides where
-        # the users viewport camera is located when they exit
         bpy.ops.view3d.view_camera()
 
-    # HEIGHT GUIDE
+    # POINT CLOUD GENERATION
+    # TODO: Switch approach to if any bake map uses manual height
     if gd.height[0].enabled and gd.height[0].method == 'MANUAL':
-        generate_manual_height_guide_mesh(Global.HEIGHT_GUIDE_NAME, plane_ob)
-
-    # ORIENT GUIDE
-
-    generate_plane_orient_guide_mesh(Global.ORIENT_GUIDE_NAME, plane_ob)
+        generate_height_guide(Global.HEIGHT_GUIDE_NAME, plane_ob)
+    generate_orientation_guide(Global.ORIENT_GUIDE_NAME, plane_ob)
 
     # NODE GROUPS
-
     ng_setup()
 
     # CLEANUP
-
-    # Select original object(s)
     for ob_name in saved_selected_obs:
         ob = context.scene.objects.get(ob_name)
         ob.select_set(True)
 
-    # Select original active collection, active object & the context mode
     try:
         view_layer.active_layer_collection = saved_active_collection
-
         view_layer.objects.active = bpy.data.objects[activeCallback]
-
         if activeCallback:
             if bpy.ops.object.mode_set.poll():
                 bpy.ops.object.mode_set(mode = modeCallback)
     except UnboundLocalError:
         pass
 
-    # Hide collections & make unselectable if requested (run this after everything else)
+    # NOTE: Reset collection visibility, run this after everything else
     gd_coll.hide_select = not gd.coll_selectable
     gd_coll.hide_viewport = not gd.coll_visible
     gd_coll.hide_render = not gd.coll_rendered
 
 
-def generate_manual_height_guide_mesh(ob_name: str, plane_ob: bpy.types.Object) -> None:
-    """Generate a mesh that gauges the height map range. This
-    is for the "Manual" height map mode and can better inform
-    a correct 0-1 range"""
-    # Make a tuple for the planes vertex positions
-    camera_corner_vecs = \
-        bpy.data.objects[Global.TRIM_CAMERA_NAME].data.view_frame(scene = bpy.context.scene)
+def generate_height_guide(name: str, plane_ob: Object) -> None:
+    """Generate a mesh object that gauges the height map range.
+    This is for the "Manual" height map mode and can better
+    inform a correct 0-1 range"""
+    scene = bpy.context.scene
+    camera_view_frame = \
+        bpy.data.objects[Global.TRIM_CAMERA_NAME].data.view_frame(
+            scene=scene
+        )
 
     stems_vecs = [
-        (vec[0], vec[1], bpy.context.scene.gd.height[0].distance) for vec in camera_corner_vecs
+        (v[0], v[1], scene.gd.height[0].distance) for v in camera_view_frame
     ]
     ring_vecs = [
-        (vec[0], vec[1], vec[2] + 1) for vec in camera_corner_vecs
+        (v[0], v[1], v[2]+1) for v in camera_view_frame
     ]
-
-    # Combine both tuples
     ring_vecs += stems_vecs
 
-    # Create new mesh & object data blocks
-    new_mesh = bpy.data.meshes.new(ob_name)
-    new_ob = bpy.data.objects.new(ob_name, new_mesh)
+    mesh = bpy.data.meshes.new(name)
+    ob = bpy.data.objects.new(name, mesh)
 
-    # Make a mesh from a list of vertices / edges / faces
-    new_mesh.from_pydata(
+    # Create mesh from list of vertices / edges / faces
+    mesh.from_pydata(
         vertices=ring_vecs,
         edges=[(0,4), (1,5), (2,6), (3,7), (4,5), (5,6), (6,7), (7,4)],
         faces=[]
     )
+    mesh.update()
 
-    # Display name & update the mesh
-    new_mesh.update()
-
-    bpy.context.collection.objects.link(new_ob)
-
-    # Parent the height guide to the BG Plane
-    new_ob.gd_object = True
-    new_ob.parent = plane_ob
-    new_ob.hide_select = True
+    bpy.context.collection.objects.link(ob)
+    ob.gd_object = True
+    ob.parent = plane_ob # NOTE: BG Plane
+    ob.hide_select = True
 
 
-def generate_plane_orient_guide_mesh(ob_name: str, plane_ob: bpy.types.Object) -> None:
-    """Generate a mesh that sits beside the background plane
+def generate_orientation_guide(
+        name: str, plane_ob: Object
+    ) -> None:
+    """Generate a mesh object that sits beside the background plane
     to guide the user to the correct "up" orientation"""
-    # Create new mesh & object data blocks
-    new_mesh = bpy.data.meshes.new(ob_name)
-    new_ob = bpy.data.objects.new(ob_name, new_mesh)
+    mesh = bpy.data.meshes.new(name)
+    ob = bpy.data.objects.new(name, mesh)
 
+    # Create mesh from list of vertices / edges / faces
     plane_y = plane_ob.dimensions.y / 2
-
-    # Make a mesh from a list of vertices / edges / faces
-    new_mesh.from_pydata(
-        vertices=[(-.3, plane_y + .1, 0), (.3, plane_y + .1, 0), (0, plane_y + .35, 0)],
+    mesh.from_pydata(
+        vertices=[
+            (-.3, plane_y+.1, 0), (.3, plane_y+.1, 0), (0, plane_y+.35, 0)
+        ],
         edges=[(0,2), (0,1), (1,2)],
         faces=[]
     )
+    mesh.update()
 
-    # Display name & update the mesh
-    new_mesh.update()
-
-    bpy.context.collection.objects.link(new_ob)
-
-    # Parent the height guide to the BG Plane
-    new_ob.parent = plane_ob
-    new_ob.hide_select = True
-    new_ob.gd_object = True
-
-
-# ##### BEGIN GPL LICENSE BLOCK #####
-#
-#  This program is free software; you can redistribute it and/or
-#  modify it under the terms of the GNU General Public License
-#  as published by the Free Software Foundation; either version 2
-#  of the License, or (at your option) any later version.
-#
-#  This program is distributed in the hope that it will be useful,
-#  but WITHOUT ANY WARRANTY; without even the implied warranty of
-#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-#  GNU General Public License for more details.
-#
-#  You should have received a copy of the GNU General Public License
-#  along with this program; if not, write to the Free Software Foundation,
-#  Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
-#
-# ##### END GPL LICENSE BLOCK #####
+    bpy.context.collection.objects.link(ob)
+    ob.parent = plane_ob # NOTE: BG Plane
+    ob.hide_select = True
+    ob.gd_object = True

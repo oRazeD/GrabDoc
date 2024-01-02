@@ -12,3 +12,5 @@ _temp/
 grabdocgit_updater/
 
 utils/temp/
+
+addon_updater.py

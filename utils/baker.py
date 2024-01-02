@@ -1,4 +1,3 @@
-
 import os
 from typing import Iterable
 
@@ -403,13 +402,16 @@ def curvature_setup(self) -> None:
 
     # Set - Render engine settings
     scene.render.engine = 'BLENDER_WORKBENCH'
-    scene.display.render_aa = scene.display.viewport_aa = gd.curvature[0].samples_workbench
+    scene.display.render_aa = \
+    scene.display.viewport_aa = \
+        gd.curvature[0].samples_workbench
     scene_shading.light = 'FLAT'
     scene_shading.color_type =  'SINGLE'
     set_color_management('sRGB')
 
     try:
-        scene.view_settings.look = gd.curvature[0].contrast.replace('_', ' ')
+        scene.view_settings.look = \
+            gd.curvature[0].contrast.replace('_', ' ')
     except TypeError:
         pass
 
@@ -420,8 +422,7 @@ def curvature_setup(self) -> None:
     self.savedCavityValleyFactor = scene_shading.cavity_valley_factor
     self.savedCurveValleyFactor = scene_shading.curvature_valley_factor
     self.savedRidgeDistance = scene.display.matcap_ssao_distance
-
-    self.savedSingleList = [*scene_shading.single_color] # Unpack RGB values
+    self.savedSingleColor = [*scene_shading.single_color]
 
     scene_shading.show_cavity = True
     scene_shading.cavity_type = 'BOTH'
@@ -442,7 +443,7 @@ def curvature_refresh(self) -> None:
     scene_shading.curvature_ridge_factor = self.savedCurveRidgeFactor
     scene_shading.cavity_valley_factor = self.savedCavityValleyFactor
     scene_shading.curvature_valley_factor = self.savedCurveValleyFactor
-    scene_shading.single_color =  self.savedSingleList
+    scene_shading.single_color =  self.savedSingleColor
     scene_shading.cavity_type = self.savedCavityType
     scene_shading.show_cavity = self.savedCavity
 
@@ -595,22 +596,3 @@ def metalness_setup(self, objects: Iterable[Object]) -> None:
     set_color_management('sRGB')
 
     add_ng_to_mat(self, name=Global.METALNESS_NG_NAME, objects=objects)
-
-
-# ##### BEGIN GPL LICENSE BLOCK #####
-#
-#  This program is free software; you can redistribute it and/or
-#  modify it under the terms of the GNU General Public License
-#  as published by the Free Software Foundation; either version 2
-#  of the License, or (at your option) any later version.
-#
-#  This program is distributed in the hope that it will be useful,
-#  but WITHOUT ANY WARRANTY; without even the implied warranty of
-#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-#  GNU General Public License for more details.
-#
-#  You should have received a copy of the GNU General Public License
-#  along with this program; if not, write to the Free Software Foundation,
-#  Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
-#
-# ##### END GPL LICENSE BLOCK #####
