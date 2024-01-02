@@ -43,14 +43,14 @@ def set_color_management(display_device: str='None') -> None:
     view_settings.gamma = 1
 
 
-def export_and_preview_setup(self, context: Context):
+def setup_baker(self, context: Context):
     scene = context.scene
     gd = scene.gd
     render = scene.render
 
     # TODO: Preserve use_local_camera & original camera
 
-    # Set - Active Camera
+    # Active Camera
     for area in context.screen.areas:
         if area.type == 'VIEW_3D':
             for space in area.spaces:
@@ -61,49 +61,42 @@ def export_and_preview_setup(self, context: Context):
 
         ## VIEW LAYER PROPERTIES ##
 
-    # Save & Set - View layer
+    # View layer
     self.savedViewLayerUse = context.view_layer.use
     self.savedUseSingleLayer = render.use_single_layer
 
     context.view_layer.use = True
     render.use_single_layer = True
 
-        ## WORLD PROPERTIES ##
-
+    # World
     if scene.world:
         scene.world.use_nodes = False
 
-        ## RENDER PROPERTIES ##
-
+    # Render Engine (Set per bake map)
     eevee = scene.eevee
-
-    # Save - Render Engine (Set per bake map)
     self.savedRenderer = render.engine
 
-    # Save - Sampling (Set per bake map)
+    # Sampling (Set per bake map)
     self.savedWorkbenchSampling = scene.display.render_aa
     self.savedWorkbenchVPSampling = scene.display.viewport_aa
     self.savedEeveeRenderSampling = eevee.taa_render_samples
     self.savedEeveeSampling = eevee.taa_samples
-
     self.savedCyclesSampling = context.scene.cycles.preview_samples
     self.savedCyclesRenderSampling = context.scene.cycles.samples
 
-    # Save & Set - Bloom
+    # Bloom
     self.savedUseBloom = eevee.use_bloom
-
     eevee.use_bloom = False
 
-    # Save & Set - Ambient Occlusion
+    # Ambient Occlusion
     self.savedUseAO = eevee.use_gtao
     self.savedAODistance = eevee.gtao_distance
     self.savedAOQuality = eevee.gtao_quality
-
     eevee.use_gtao = False # Disable unless needed for AO bakes
     eevee.gtao_distance = .2
     eevee.gtao_quality = .5
 
-    # Save & Set - Color Management
+    # Color Management
     view_settings = scene.view_settings
 
     self.savedDisplayDevice = scene.display_settings.display_device
@@ -113,14 +106,12 @@ def export_and_preview_setup(self, context: Context):
     self.savedGamma = view_settings.gamma
     self.savedTransparency = render.film_transparent
 
-    set_color_management('sRGB')
-
-    # Save & Set - Performance
+    # Performance
     if bpy.app.version >= (2, 83, 0):
         self.savedHQNormals = render.use_high_quality_normals
         render.use_high_quality_normals = True
 
-    # Save & Set - Film
+    # Film
     self.savedFilterSize = render.filter_size
     render.filter_size = gd.filter_width
 
@@ -133,12 +124,12 @@ def export_and_preview_setup(self, context: Context):
 
     image_settings = render.image_settings
 
-    # Set - Dimensions (Don't bother saving these)
+    # Dimensions (don't bother saving these)
     render.resolution_x = gd.export_res_x
     render.resolution_y = gd.export_res_y
     render.resolution_percentage = 100
 
-    # Save & Set - Output
+    # Output
     self.savedColorMode = image_settings.color_mode
     self.savedFileFormat = image_settings.file_format
 
@@ -162,7 +153,7 @@ def export_and_preview_setup(self, context: Context):
 
     self.savedColorDepth = image_settings.color_depth
 
-    # Save & Set - Post Processing
+    # Post Processing
     self.savedUseSequencer = render.use_sequencer
     self.savedUseCompositor = render.use_compositing
     self.savedDitherIntensity = render.dither_intensity
@@ -174,7 +165,6 @@ def export_and_preview_setup(self, context: Context):
 
     scene_shading = bpy.data.scenes[str(scene.name)].display.shading
 
-    # Save & Set
     self.savedLight = scene_shading.light
     self.savedColorType = scene_shading.color_type
     self.savedBackface = scene_shading.show_backface_culling
@@ -211,7 +201,7 @@ def export_refresh(self, context: Context) -> None:
 
         ## VIEW LAYER PROPERTIES ##
 
-    # Refresh - View layer
+    # View layer
     context.view_layer.use = self.savedViewLayerUse
     scene.render.use_single_layer = self.savedUseSingleLayer
 
@@ -222,10 +212,10 @@ def export_refresh(self, context: Context) -> None:
 
         ## RENDER PROPERTIES ##
 
-    # Refresh - Render Engine
+    # Render Engine
     render.engine = self.savedRenderer
 
-    # Refresh - Sampling
+    # Sampling
     scene.display.render_aa = self.savedWorkbenchSampling
     scene.display.viewport_aa = self.savedWorkbenchVPSampling
     scene.eevee.taa_render_samples = self.savedEeveeRenderSampling
@@ -234,10 +224,10 @@ def export_refresh(self, context: Context) -> None:
     self.savedCyclesSampling = context.scene.cycles.preview_samples
     self.savedCyclesRenderSampling = context.scene.cycles.samples
 
-    # Refresh - Bloom
+    # Bloom
     scene.eevee.use_bloom = self.savedUseBloom
 
-    # Refresh - Color Management
+    # Color Management
     view_settings = scene.view_settings
 
     view_settings.look = self.savedContrastType
@@ -248,11 +238,11 @@ def export_refresh(self, context: Context) -> None:
 
     scene.render.film_transparent = self.savedTransparency
 
-    # Refresh - Performance
+    # Performance
     if bpy.app.version >= (2, 83, 0):
         render.use_high_quality_normals = self.savedHQNormals
 
-    # Refresh - Film
+    # Film
     render.filter_size = self.savedFilterSize
 
     context.scene.cycles.filter_width = self.savedFilterSizeCycles
@@ -260,12 +250,12 @@ def export_refresh(self, context: Context) -> None:
 
         ## OUTPUT PROPERTIES ##
 
-    # Refresh - Output
+    # Output
     render.image_settings.color_depth = self.savedColorDepth
     render.image_settings.color_mode = self.savedColorMode
     render.image_settings.file_format = self.savedFileFormat
 
-    # Refresh - Post Processing
+    # Post Processing
     render.use_sequencer = self.savedUseSequencer
     render.use_compositing = self.savedUseCompositor
 
@@ -290,10 +280,6 @@ def export_refresh(self, context: Context) -> None:
 
     if self.savedRefSelection:
         gd.reference = bpy.data.images[self.savedRefSelection]
-
-
-def get_baked_maps() -> dict:
-    pass
 
 
 # TODO: OK this is a stupid function
@@ -352,9 +338,9 @@ def reimport_as_material(suffix, map_names: list) -> None:
 
 
 # NORMALS
-def normals_setup(self, objects: Iterable[Object]) -> None:
+def normals_setup(objects: Iterable[Object]) -> None:
     scene = bpy.context.scene
-    render = scene.render
+    #render = scene.render
 
     if scene.gd.normals[0].engine  == 'blender_eevee':
         scene.eevee.taa_render_samples = \
@@ -363,7 +349,7 @@ def normals_setup(self, objects: Iterable[Object]) -> None:
         scene.cycles.samples = \
             scene.cycles.preview_samples = scene.gd.normals[0].samples_cycles
 
-    render.engine = str(scene.gd.normals[0].engine).upper()
+    #render.engine = str(scene.gd.normals[0].engine).upper()
 
     set_color_management('None')
 
@@ -391,17 +377,16 @@ def normals_setup(self, objects: Iterable[Object]) -> None:
             ng_normal.nodes.get('Vector Math.001').outputs["Vector"]
         )
 
-    add_ng_to_mat(self, name=Global.NORMAL_NG_NAME, objects=objects)
+    add_ng_to_mat(name=Global.NORMAL_NG_NAME, objects=objects)
 
 
-# CURVATURE
 def curvature_setup(self) -> None:
     scene = bpy.context.scene
     gd = scene.gd
     scene_shading = bpy.data.scenes[str(scene.name)].display.shading
 
-    # Set - Render engine settings
-    scene.render.engine = 'BLENDER_WORKBENCH'
+    # Render engine settings
+    #scene.render.engine = 'BLENDER_WORKBENCH'
     scene.display.render_aa = \
     scene.display.viewport_aa = \
         gd.curvature[0].samples_workbench
@@ -415,7 +400,7 @@ def curvature_setup(self) -> None:
     except TypeError:
         pass
 
-    # Save & Set - Cavity
+    # Cavity
     self.savedCavityType = scene_shading.cavity_type
     self.savedCavityRidgeFactor = scene_shading.cavity_ridge_factor
     self.savedCurveRidgeFactor = scene_shading.curvature_ridge_factor
@@ -436,132 +421,115 @@ def curvature_setup(self) -> None:
 
 
 def curvature_refresh(self) -> None:
-    scene_shading = \
-        bpy.data.scenes[str(bpy.context.scene.name)].display.shading
-
-    scene_shading.cavity_ridge_factor = self.savedCavityRidgeFactor
-    scene_shading.curvature_ridge_factor = self.savedCurveRidgeFactor
-    scene_shading.cavity_valley_factor = self.savedCavityValleyFactor
-    scene_shading.curvature_valley_factor = self.savedCurveValleyFactor
-    scene_shading.single_color =  self.savedSingleColor
-    scene_shading.cavity_type = self.savedCavityType
-    scene_shading.show_cavity = self.savedCavity
-
-    bpy.context.scene.display.matcap_ssao_distance = self.savedRidgeDistance
+    display = \
+        bpy.data.scenes[str(bpy.context.scene.name)].display
+    display.shading.cavity_ridge_factor = self.savedCavityRidgeFactor
+    display.shading.curvature_ridge_factor = self.savedCurveRidgeFactor
+    display.shading.cavity_valley_factor = self.savedCavityValleyFactor
+    display.shading.curvature_valley_factor = self.savedCurveValleyFactor
+    display.shading.single_color =  self.savedSingleColor
+    display.shading.cavity_type = self.savedCavityType
+    display.shading.show_cavity = self.savedCavity
+    display.matcap_ssao_distance = self.savedRidgeDistance
 
     bpy.data.objects[Global.BG_PLANE_NAME].color[3] = 1
 
 
-# AMBIENT OCCLUSION
 def occlusion_setup(self, objects: Iterable[Object]) -> None:
     scene = bpy.context.scene
     gd = scene.gd
+
     eevee = scene.eevee
+    self.savedUseOverscan = eevee.use_overscan
+    self.savedOverscanSize = eevee.overscan_size
+    if scene.render.engine == "BLENDER_EEVEE":
+        eevee.taa_render_samples = \
+        eevee.taa_samples = gd.occlusion[0].samples
+        eevee.use_gtao = True
+        # NOTE: Overscan helps with screenspace effects
+        eevee.use_overscan = True
+        eevee.overscan_size = 10
 
-    scene.render.engine = 'BLENDER_EEVEE'
-    eevee.taa_render_samples = eevee.taa_samples = gd.occlusion[0].samples
     set_color_management('None')
-
     try:
-        scene.view_settings.look = gd.occlusion[0].contrast.replace('_', ' ')
+        scene.view_settings.look = \
+            gd.occlusion[0].contrast.replace('_', ' ')
     except TypeError:
         pass
 
-    # Save & Set - Overscan (Can help with screenspace effects)
-    self.savedUseOverscan = eevee.use_overscan
-    self.savedOverscanSize = eevee.overscan_size
-
-    eevee.use_overscan = True
-    eevee.overscan_size = 10
-
-    # Set - Ambient Occlusion
-    eevee.use_gtao = True
-
-    add_ng_to_mat(self, name=Global.AO_NG_NAME, objects=objects)
+    add_ng_to_mat(name=Global.AO_NG_NAME, objects=objects)
 
 
 def occlusion_refresh(self) -> None:
     eevee = bpy.context.scene.eevee
-
     eevee.use_overscan = self.savedUseOverscan
     eevee.overscan_size = self.savedOverscanSize
-
     eevee.use_gtao = self.savedUseAO
     eevee.gtao_distance = self.savedAODistance
     eevee.gtao_quality = self.savedAOQuality
 
 
-# HEIGHT
-def height_setup(self, objects: Iterable[Object]) -> None:
+def height_setup(objects: Iterable[Object]) -> None:
     scene = bpy.context.scene
     gd = scene.gd
 
-    scene.render.engine = 'BLENDER_EEVEE'
-    scene.eevee.taa_render_samples = scene.eevee.taa_samples = gd.height[0].samples
-    set_color_management('None')
+    if scene.render.engine == 'BLENDER_EEVEE':
+        scene.eevee.taa_render_samples = \
+        scene.eevee.taa_samples = gd.height[0].samples
 
+    set_color_management('None')
     try:
         scene.view_settings.look = gd.height[0].contrast.replace('_', ' ')
     except TypeError:
         pass
 
-    add_ng_to_mat(self, name=Global.HEIGHT_NG_NAME, objects=objects)
+    add_ng_to_mat(name=Global.HEIGHT_NG_NAME, objects=objects)
 
     if gd.height[0].method == 'AUTO':
         rendered_obs = get_rendered_objects()
         set_guide_height(rendered_obs)
 
 
-# MATERIAL ID
 def id_setup() -> None:
     scene = bpy.context.scene
-    gd = scene.gd
-    render = scene.render
-    scene_shading = bpy.data.scenes[str(scene.name)].display.shading
+    if scene.render.engine == 'BLENDER_WORKBENCH':
+        display = scene.display
+        display.render_aa = \
+        display.viewport_aa = scene.gd.id[0].samples_workbench
+        display.shading.light = 'FLAT'
+        display.shading.color_type = scene.gd.id[0].method
 
-    render.engine = 'BLENDER_WORKBENCH'
-    scene.display.render_aa = scene.display.viewport_aa = gd.id[0].samples_workbench
-    scene_shading.light = 'FLAT'
     set_color_management('sRGB')
 
-    # Choose the method of ID creation based on user preference
-    scene_shading.color_type = gd.id[0].method
 
-
-# ALPHA
-def alpha_setup(self, objects: Iterable[Object]) -> None:
+def alpha_setup(objects: Iterable[Object]) -> None:
     scene = bpy.context.scene
-    render = scene.render
 
-    render.engine = 'BLENDER_EEVEE'
-    scene.eevee.taa_render_samples = \
-        scene.eevee.taa_samples = scene.gd.alpha[0].samples
+    if scene.render.engine == 'BLENDER_EEVEE':
+        scene.eevee.taa_render_samples = \
+            scene.eevee.taa_samples = scene.gd.alpha[0].samples
+
     set_color_management('None')
 
-    add_ng_to_mat(self, name=Global.ALPHA_NG_NAME, objects=objects)
+    add_ng_to_mat(name=Global.ALPHA_NG_NAME, objects=objects)
 
 
-# COLOR
-def color_setup(self, objects: Iterable[Object]) -> None:
+def color_setup(objects: Iterable[Object]) -> None:
     scene = bpy.context.scene
-    render = scene.render
-
     if scene.gd.color[0].engine  == 'blender_eevee':
         scene.eevee.taa_render_samples = \
-            scene.eevee.taa_samples = scene.gd.color[0].samples
+        scene.eevee.taa_samples = scene.gd.color[0].samples
     else: # Cycles
         scene.cycles.samples = \
-            scene.cycles.preview_samples = scene.gd.color[0].samples_cycles
-
-    render.engine = str(scene.gd.color[0].engine).upper()
+        scene.cycles.preview_samples = scene.gd.color[0].samples_cycles
 
     set_color_management('sRGB')
 
-    add_ng_to_mat(self, name=Global.COLOR_NG_NAME, objects=objects)
+    add_ng_to_mat(name=Global.COLOR_NG_NAME, objects=objects)
 
 
 # ROUGHNESS
-def roughness_setup(self, objects: Iterable[Object]) -> None:
+def roughness_setup(objects: Iterable[Object]) -> None:
     scene = bpy.context.scene
     render = scene.render
 
@@ -572,17 +540,15 @@ def roughness_setup(self, objects: Iterable[Object]) -> None:
         scene.cycles.samples = \
             scene.cycles.preview_samples = scene.gd.roughness[0].samples_cycles
 
-    render.engine = str(scene.gd.roughness[0].engine).upper()
-
     set_color_management('sRGB')
 
-    add_ng_to_mat(self, name=Global.ROUGHNESS_NG_NAME, objects=objects)
+    add_ng_to_mat(name=Global.ROUGHNESS_NG_NAME, objects=objects)
 
 
 # METALNESS
-def metalness_setup(self, objects: Iterable[Object]) -> None:
+def metalness_setup(objects: Iterable[Object]) -> None:
     scene = bpy.context.scene
-    render = scene.render
+    #render = scene.render
 
     if scene.gd.metalness[0].engine == 'blender_eevee':
         scene.eevee.taa_render_samples = \
@@ -591,8 +557,6 @@ def metalness_setup(self, objects: Iterable[Object]) -> None:
         scene.cycles.samples = \
             scene.cycles.preview_samples = scene.gd.metalness[0].samples
 
-    render.engine = str(scene.gd.metalness[0].engine).upper()
-
     set_color_management('sRGB')
 
-    add_ng_to_mat(self, name=Global.METALNESS_NG_NAME, objects=objects)
+    add_ng_to_mat(name=Global.METALNESS_NG_NAME, objects=objects)

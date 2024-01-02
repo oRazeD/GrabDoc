@@ -440,7 +440,7 @@ def create_bsdf_link(
     return node_found
 
 
-def add_ng_to_mat(self, name: str, objects: Iterable[Object]) -> None:
+def add_ng_to_mat(name: str, objects: Iterable[Object]) -> None:
     """Add node group to given object material slots"""
     for ob in objects:
         # If no material slots found or empty mat
@@ -593,17 +593,14 @@ def add_ng_to_mat(self, name: str, objects: Iterable[Object]) -> None:
                             and name != Global.NORMAL_NG_NAME \
                             and material.name != Global.GD_MATERIAL_NAME
                         ):
-                            self.report(
-                                {'WARNING'},
-                                Error.MAT_SLOTS_WITHOUT_LINKS
-                            )
+                            # TODO: Report on this to user...
+                            print(Error.MAT_SLOTS_WITHOUT_LINKS)
 
                 for link in output.inputs['Volume'].links:
                     material.node_tree.links.remove(link)
                 for link in output.inputs['Displacement'].links:
                     material.node_tree.links.remove(link)
 
-                # Link Node Group to the output
                 material.node_tree.links.new(
                     output.inputs["Surface"],
                     passthrough_ng.outputs["Shader"]

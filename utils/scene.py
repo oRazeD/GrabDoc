@@ -154,10 +154,6 @@ def scene_setup(_self, context: Context) -> None:
                 continue
             item = prop.add()
             item.suffix = map_name[0]
-            item.engine.items = (
-                ('blender_eevee', "Eevee",     ""),
-                ('cycles',        "Cycles",    "")
-            )
         except AttributeError:
             continue
 

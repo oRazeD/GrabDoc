@@ -191,15 +191,15 @@ def bad_setup_check(
         )
 
         bake_map_vis = (
-            gd.normals[0].ui_visibility,
-            gd.curvature[0].ui_visibility,
-            gd.occlusion[0].ui_visibility,
-            gd.height[0].ui_visibility,
-            gd.id[0].ui_visibility,
-            gd.alpha[0].ui_visibility,
-            gd.color[0].ui_visibility,
-            gd.roughness[0].ui_visibility,
-            gd.metalness[0].ui_visibility
+            gd.normals[0].visibility,
+            gd.curvature[0].visibility,
+            gd.occlusion[0].visibility,
+            gd.height[0].visibility,
+            gd.id[0].visibility,
+            gd.alpha[0].visibility,
+            gd.color[0].visibility,
+            gd.roughness[0].visibility,
+            gd.metalness[0].visibility
         )
 
         if True not in bake_maps or True not in bake_map_vis:

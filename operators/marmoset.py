@@ -62,25 +62,25 @@ class GrabDoc_OT_send_to_marmo(OpInfo, Operator):
             'auto_bake': gd.metalness_auto_bake,
             'close_after_bake': gd.marmoset_auto_close,
 
-            'export_normal': gd.normals[0].enabled & gd.normals[0].ui_visibility,
+            'export_normal': gd.normals[0].enabled & gd.normals[0].visibility,
             'flipy_normal': gd.normals[0].flip_y,
             'suffix_normal': gd.normals[0].suffix,
 
-            'export_curvature': gd.curvature[0].enabled & gd.curvature[0].ui_visibility,
+            'export_curvature': gd.curvature[0].enabled & gd.curvature[0].visibility,
             'suffix_curvature': gd.curvature[0].suffix,
 
-            'export_occlusion': gd.occlusion[0].enabled & gd.occlusion[0].ui_visibility,
+            'export_occlusion': gd.occlusion[0].enabled & gd.occlusion[0].visibility,
             'ray_count_occlusion': gd.marmoset_occlusion_ray_count,
             'suffix_occlusion': gd.occlusion[0].suffix,
 
-            'export_height': gd.height[0].enabled & gd.height[0].ui_visibility,
+            'export_height': gd.height[0].enabled & gd.height[0].visibility,
             'cage_height': gd.height[0].distance * 100 * 2,
             'suffix_height': gd.height[0].suffix,
 
-            'export_alpha': gd.alpha[0].enabled & gd.alpha[0].ui_visibility,
+            'export_alpha': gd.alpha[0].enabled & gd.alpha[0].visibility,
             'suffix_alpha': gd.alpha[0].suffix,
 
-            'export_matid': gd.id[0].enabled & gd.id[0].ui_visibility,
+            'export_matid': gd.id[0].enabled & gd.id[0].visibility,
             'suffix_id': gd.id[0].suffix
         }
 

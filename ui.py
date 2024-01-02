@@ -30,7 +30,6 @@ def warn_ui(layout):
     box = layout.box()
     box.scale_y = .6
     box.label(text='\u2022 Requires Shader Manipulation', icon='INFO')
-
     if is_pro_version():
         box.label(text='\u2022 No Marmoset Support', icon='BLANK1')
 
@@ -188,7 +187,7 @@ class GRABDOC_PT_export(PanelInfo, Panel):
         row2 = row.row()
         if gd.format == "OPEN_EXR":
             row2.prop(gd, "exr_depth", expand=True)
-        elif gd.format != "TARGA" or gd.baker_type == 'Marmoset':
+        elif gd.format != "TARGA" or gd.baker_type == 'marmoset':
             row2.prop(gd, "depth", expand=True)
         else:
             row2.enabled = False
@@ -204,12 +203,12 @@ class GRABDOC_PT_export(PanelInfo, Panel):
         col = box.column(align=True)
         col.prop(
             gd, "use_bake_collections",
-            text="Use Bake Group",
+            text="Use Bake Collections",
             icon='CHECKBOX_HLT' if gd.use_bake_collections else 'CHECKBOX_DEHLT'
         )
         col.prop(
             gd, "export_plane",
-            text='Export Plane as FBX',
+            text="Export Plane",
             icon='CHECKBOX_HLT' if gd.export_plane else 'CHECKBOX_DEHLT'
         )
 
@@ -217,7 +216,7 @@ class GRABDOC_PT_export(PanelInfo, Panel):
         col.prop(gd, 'marmoset_auto_bake', text='Bake on Import', icon='CHECKBOX_HLT' if gd.marmoset_auto_bake else 'CHECKBOX_DEHLT')
 
         col = col.column(align=True)
-        col.enabled = True if gd.marmoset_auto_bake else False
+        col.enabled = gd.marmoset_auto_bake
         col.prop(
             gd,
             'marmoset_auto_close',
@@ -234,12 +233,10 @@ class GRABDOC_PT_export(PanelInfo, Panel):
 
         box = col.box()
         col2 = box.column()
-
         if is_pro_version():
             row = col2.row()
             row.enabled = not gd.preview_state
             row.prop(gd, 'baker_type', text="Baker")
-
         col2.separator(factor=.5)
 
         row = col2.row()
@@ -270,9 +267,11 @@ class GRABDOC_PT_export(PanelInfo, Panel):
         row.prop(gd, "format")
         row.separator(factor=.5)
         row2 = row.row()
+
+        # TODO: This is insane lol
         if gd.format == "OPEN_EXR":
             row2.prop(gd, "exr_depth", expand=True)
-        elif gd.format != "TARGA" or gd.baker_type == 'Marmoset':
+        elif gd.format != "TARGA" or gd.baker_type == 'marmoset':
             row2.prop(gd, "depth", expand=True)
         else:
             row2.enabled = False
@@ -294,12 +293,12 @@ class GRABDOC_PT_export(PanelInfo, Panel):
         col = box.column(align=True)
         col.prop(
             gd, "use_bake_collections",
-            text="Use Bake Group",
+            text="Use Bake Collections",
             icon='CHECKBOX_HLT' if gd.use_bake_collections else 'CHECKBOX_DEHLT'
         )
         col.prop(
             gd, "export_plane",
-            text='Export Plane as FBX',
+            text='Export Plane',
             icon='CHECKBOX_HLT' if gd.export_plane else 'CHECKBOX_DEHLT'
         )
 
@@ -313,7 +312,7 @@ class GRABDOC_PT_export(PanelInfo, Panel):
         layout.use_property_split = True
         layout.use_property_decorate = False
 
-        if gd.baker_type == 'Blender':
+        if gd.baker_type == 'blender':
             self.blender_ui(gd, layout)
         elif is_pro_version(): # Marmoset
             self.marmoset_export_header_ui(layout)
@@ -336,33 +335,32 @@ class GRABDOC_OT_config_maps(Operator):
         gd = context.scene.gd
         layout = self.layout
         col = layout.column(align=True)
-        col.prop(
-            gd.normals[0], 'ui_visibility', text="Normals", icon="WORLD"
-        )
-        col.prop(
-            gd.curvature[0], 'ui_visibility', text="Curvature", icon="WORLD"
-        )
-        col.prop(
-            gd.occlusion[0], 'ui_visibility', text="Ambient Occlusion", icon="WORLD"
-        )
-        col.prop(
-            gd.height[0], 'ui_visibility', text="Height", icon="WORLD"
-        )
-        col.prop(
-            gd.id[0], 'ui_visibility', text="Material ID", icon="WORLD"
-        )
-        col.prop(
-            gd.alpha[0], 'ui_visibility', text="Alpha", icon="WORLD"
-        )
-        col.prop(
-            gd.color[0], 'ui_visibility', text="Base Color", icon="BLENDER"
-        )
-        col.prop(
-            gd.roughness[0], 'ui_visibility', text="Roughness", icon="BLENDER"
-        )
-        col.prop(
-            gd.metalness[0], 'ui_visibility', text="Metalness", icon="BLENDER"
-        )
+
+        map_types = []
+        for name in Global.ALL_MAP_IDS:
+            try:
+                map_type = getattr(gd, name)
+                print(f'bake_map {type(map_type)}: {map_type}')
+                map_types.append(map_type)
+            except AttributeError:
+                print(f"Could not find bake map type: `{name}`")
+
+        for bake_maps in map_types:
+            # TODO: Future for iterating
+            # through bake maps
+            #for bake_map in bake_maps:
+            #    col.prop(
+            #        bake_map, 'visibility',
+            #        text=bake_map.ALIAS, icon="WORLD"
+            #    )
+            if not bake_maps[0].MARMOSET_COMPATIBLE:
+                icon = "BLENDER"
+            else:
+                icon = "WORLD"
+            col.prop(
+                bake_maps[0], 'visibility',
+                text=bake_maps[0].ALIAS, icon=icon
+            )
 
 
 class GRABDOC_PT_view_edit_maps(PanelInfo, Panel):
@@ -406,6 +404,12 @@ class GRABDOC_PT_view_edit_maps(PanelInfo, Panel):
         if not gd.preview_state:
             return
 
+        try:
+            self.baker = getattr(gd, gd.preview_type)[0]
+        except AttributeError:
+            print(f"Could not find baker of type `{gd.preview_type}`")
+            return
+
         col.separator()
 
         row = col.row(align=True)
@@ -414,11 +418,9 @@ class GRABDOC_PT_view_edit_maps(PanelInfo, Panel):
 
         row = col.row(align=True)
         row.scale_y = 1.1
-        mat_preview_type = \
-            "Material ID" if gd.preview_type == 'ID' else gd.preview_type.capitalize()
         row.operator(
             "grab_doc.export_preview",
-            text=f"Export {mat_preview_type}",
+            text=f"Export {self.baker.ALIAS}",
             icon="EXPORT"
         )
 
@@ -494,7 +496,7 @@ class GRABDOC_PT_baker_default(PanelInfo, SubPanelInfo, Panel):
             baker = getattr(gd, cls.NAME)[0]
         except AttributeError:
             return False
-        return not gd.preview_state and baker.ui_visibility
+        return not gd.preview_state and baker.visibility
 
     def draw_header(self, context: Context):
         gd = context.scene.gd
@@ -518,79 +520,73 @@ class GRABDOC_PT_baker_default(PanelInfo, SubPanelInfo, Panel):
         ).map_types = self.NAME
         row.separator(factor=1.3)
 
-    def draw_custom_properties(self, context: Context):
+    @staticmethod
+    def draw_baker_warnings(layout: UILayout):
+        pass
+
+    def draw_baker_properties(self, context: Context, layout: UILayout):
         pass
 
     def draw(self, context: Context):
         gd = context.scene.gd
-
-        try:
-            baker = getattr(gd, self.NAME)[0]
-        except AttributeError:
-            return
+        baker = getattr(gd, self.NAME)[0]
 
         layout = self.layout
         layout.use_property_split = True
         layout.use_property_decorate = False
+
+        self.draw_baker_warnings(layout)
 
         # Core
         col = layout.column()
         if len(baker.SUPPORTED_ENGINES) > 1:
             col.prop(baker, 'engine', text="Engine")
 
-        self.draw_custom_properties(context)
+        #self.draw_baker_properties(context, layout)
 
         # Baker
-        if gd.baker_type == 'Blender':
-            col.separator(factor=.5)
+        if gd.baker_type == 'blender':
+            if baker.engine == 'blender_eevee':
+                prop = 'samples'
+            elif baker.engine == 'blender_workbench':
+                prop = 'samples_workbench'
+            else: # Cycles
+                prop = 'samples_cycles'
+            col.prop(
+                baker,
+                prop,
+                text='Samples'
+            )
             col.prop(baker, 'reimport', text="Re-import")
-            if "BLENDER_EEVEE" in baker.SUPPORTED_ENGINES \
-                    or "CYCLES" in baker.SUPPORTED_ENGINES:
-                col.separator(factor=1.5)
-                if baker.engine == 'blender_eevee':
-                    prop = "samples"
-                else:
-                    prop = "samples_cycles"
-                col.prop(
-                    baker,
-                    prop,
-                    text='Samples'
-                )
 
-        # Misc
-        col.separator(factor=.5)
         col.prop(baker, 'suffix', text="Suffix")
 
 
 class GRABDOC_PT_normals(GRABDOC_PT_baker_default):
-    NAME = "normals"
-    ALIAS = NAME.capitalize()
+    NAME = Global.NORMAL_ID
+    ALIAS = Global.NORMAL_NAME
 
-    def draw_custom_properties(self, context: Context):
+    def draw_baker_properties(self, context: Context, layout: UILayout):
         gd = context.scene.gd
         baker = getattr(gd, self.NAME)[0]
-
-        layout = self.layout
-        layout.use_property_split = True
-        layout.use_property_decorate = False
 
         col = layout.column()
         col.prop(baker, 'flip_y', text="Flip Y (-Y)")
 
-        if gd.baker_type == 'Blender':
+        if gd.baker_type == 'blender':
             col.separator(factor=.5)
             col.prop(baker, 'use_texture', text="Texture Normals")
 
 
 class GRABDOC_PT_curvature(GRABDOC_PT_baker_default):
-    NAME = "curvature"
-    ALIAS = NAME.capitalize()
+    NAME = Global.CURVATURE_ID
+    ALIAS = Global.CURVATURE_NAME
 
-    def draw_custom_properties(self, context: Context):
+    def draw_baker_properties(self, context: Context, layout: UILayout):
         gd = context.scene.gd
         baker = getattr(gd, self.NAME)[0]
 
-        if gd.baker_type != 'Blender':
+        if gd.baker_type != 'blender':
             return
 
         layout = self.layout
@@ -604,10 +600,10 @@ class GRABDOC_PT_curvature(GRABDOC_PT_baker_default):
 
 
 class GRABDOC_PT_occlusion(GRABDOC_PT_baker_default):
-    NAME = "occlusion"
-    ALIAS = NAME.capitalize()
+    NAME = Global.AO_ID
+    ALIAS = Global.AO_NAME
 
-    def draw_custom_properties(self, context: Context):
+    def draw_baker_properties(self, context: Context, layout: UILayout):
         gd = context.scene.gd
         baker = getattr(gd, self.NAME)[0]
 
@@ -617,7 +613,7 @@ class GRABDOC_PT_occlusion(GRABDOC_PT_baker_default):
 
         col = layout.column()
 
-        if gd.baker_type == 'Marmoset':
+        if gd.baker_type == 'marmoset':
             col.prop(gd, "marmoset_occlusion_ray_count", text="Ray Count")
             return
 
@@ -627,10 +623,10 @@ class GRABDOC_PT_occlusion(GRABDOC_PT_baker_default):
 
 
 class GRABDOC_PT_height(GRABDOC_PT_baker_default):
-    NAME = "height"
-    ALIAS = NAME.capitalize()
+    NAME = Global.HEIGHT_ID
+    ALIAS = Global.HEIGHT_NAME
 
-    def draw_custom_properties(self, context: Context):
+    def draw_baker_properties(self, context: Context, layout: UILayout):
         gd = context.scene.gd
         baker = getattr(gd, self.NAME)[0]
 
@@ -639,7 +635,7 @@ class GRABDOC_PT_height(GRABDOC_PT_baker_default):
         layout.use_property_decorate = False
 
         col = layout.column()
-        if gd.baker_type == 'Blender':
+        if gd.baker_type == 'blender':
             col.prop(baker, 'invert', text="Invert Mask")
             col.separator(factor=.5)
 
@@ -651,10 +647,10 @@ class GRABDOC_PT_height(GRABDOC_PT_baker_default):
 
 
 class GRABDOC_PT_id(GRABDOC_PT_baker_default):
-    NAME = "id"
-    ALIAS = NAME.capitalize()
+    NAME = Global.MATERIAL_ID
+    ALIAS = Global.MATERIAL_NAME
 
-    def draw_custom_properties(self, context: Context):
+    def draw_baker_properties(self, context: Context, layout: UILayout):
         gd = context.scene.gd
         baker = getattr(gd, self.NAME)[0]
 
@@ -664,13 +660,13 @@ class GRABDOC_PT_id(GRABDOC_PT_baker_default):
 
         col = layout.column()
         row = col.row()
-        if gd.baker_type == 'Marmoset':
+        if gd.baker_type == 'marmoset':
             row.enabled = False
             row.prop(baker, 'ui_method', text="ID Method")
         else:
             row.prop(baker, 'method', text="ID Method")
 
-        if baker.method == "MATERIAL" or gd.baker_type == 'Marmoset':
+        if baker.method == "MATERIAL" or gd.baker_type == 'marmoset':
             col = layout.column(align=True)
             col.separator(factor=.5)
             col.scale_y = 1.1
@@ -700,74 +696,49 @@ class GRABDOC_PT_id(GRABDOC_PT_baker_default):
 
 
 class GRABDOC_PT_alpha(GRABDOC_PT_baker_default):
-    NAME = "alpha"
-    ALIAS = NAME.capitalize()
+    NAME = Global.ALPHA_ID
+    ALIAS = Global.ALPHA_NAME
 
-    def draw_custom_properties(self, context: Context):
+    def draw_baker_properties(self, context: Context, layout: UILayout):
         gd = context.scene.gd
         baker = getattr(gd, self.NAME)[0]
 
-        layout = self.layout
-        layout.use_property_split = True
-        layout.use_property_decorate = False
-
         col = layout.column()
-        if gd.baker_type == 'Blender':
+        if gd.baker_type == 'blender':
             col.prop(baker, 'invert', text="Invert Mask")
 
 
 class GRABDOC_PT_color(GRABDOC_PT_baker_default):
-    NAME = "color"
-    ALIAS = NAME.capitalize()
+    NAME = Global.COLOR_ID
+    ALIAS = Global.COLOR_NAME
 
-    def draw_custom_properties(self, context: Context):
-        gd = context.scene.gd
-        _baker = getattr(gd, self.NAME)[0]
-
-        layout = self.layout
-
+    def draw_baker_properties(self, context: Context, layout: UILayout):
         warn_ui(layout)
-
-        layout.use_property_split = True
-        layout.use_property_decorate = False
 
 
 class GRABDOC_PT_roughness(GRABDOC_PT_baker_default):
-    NAME = "roughness"
-    ALIAS = NAME.capitalize()
+    NAME = Global.ROUGHNESS_ID
+    ALIAS = Global.ROUGHNESS_NAME
 
-    def draw_custom_properties(self, context: Context):
+    def draw_baker_properties(self, context: Context, layout: UILayout):
         gd = context.scene.gd
         baker = getattr(gd, self.NAME)[0]
 
-        layout = self.layout
-
         warn_ui(layout)
-
-        layout.use_property_split = True
-        layout.use_property_decorate = False
 
         col = layout.column()
         col.separator(factor=.5)
-        if gd.baker_type == 'Blender':
+        if gd.baker_type == 'blender':
             col.prop(baker, 'invert', text="Invert")
-            col.separator(factor=.5)
+            #col.separator(factor=.5)
 
 
 class GRABDOC_PT_metalness(GRABDOC_PT_baker_default):
-    NAME = "metalness"
-    ALIAS = NAME.capitalize()
+    NAME = Global.METALNESS_ID
+    ALIAS = Global.METALNESS_NAME
 
-    def draw_custom_properties(self, context: Context):
-        gd = context.scene.gd
-        _baker = getattr(gd, self.NAME)[0]
-
-        layout = self.layout
-
+    def draw_baker_properties(self, context: Context, layout: UILayout):
         warn_ui(layout)
-
-        layout.use_property_split = True
-        layout.use_property_decorate = False
 
 
 ################################################

@@ -28,6 +28,7 @@ from bpy.props import (
 from .constants import GlobalVariableConstants as Global
 from .utils.scene import scene_setup
 from .utils.render import get_rendered_objects, set_guide_height
+from .utils.baker import normals_setup
 
 from .addon_updater import Updater as updater
 from .constants import VERSION
@@ -117,7 +118,8 @@ class GRABDOC_OT_add_preset(AddPresetBase, Operator):
 
 
 class GRABDOC_OT_check_for_update(Operator):
-    bl_idname = "updater_gd.check_for_update"
+    """Check GitHub releases page for newer version"""
+    bl_idname = "grab_doc.check_for_update"
     bl_label = ""
     bl_options = {'REGISTER', 'UNDO', 'INTERNAL'}
 
@@ -126,12 +128,11 @@ class GRABDOC_OT_check_for_update(Operator):
         return {'FINISHED'}
 
 
-class GRABDOC_MT_addon_preferences(AddonPreferences):
+class GRABDOC_AP_preferences(AddonPreferences):
     bl_idname = __package__
 
     # NOTE: Special properties stored
     # here are saved in User Preferences
-    # AKA across project files
 
     marmoset_executable: StringProperty(
         name="",
@@ -152,34 +153,39 @@ class GRABDOC_MT_addon_preferences(AddonPreferences):
         elif not updater.update_ready:
             row.label(text="You have the latest version of GrabDoc!")
             row.operator(
-                "updater_gd.check_for_update",
+                "grab_doc.check_for_update",
                 text="",
                 icon="FILE_REFRESH"
             )
 
 
 ############################################################
-# PROPERTY GROUP
+# BAKERS
 ############################################################
 
 
 class GRABDOC_baker_defaults():
-    NAME = ""
-    ALIAS = NAME.capitalize()
-    MARMOSET_COMPATIBLE = True
-    SUPPORTED_ENGINES = (
-        ('blender_eevee', "Eevee",     ""),
-        ('cycles',        "Cycles",    ""),
-        ('workbench',     "Workbench", "")
+    # NOTE: Variables and
+    # their option types
+    # for sub-classes
+    NAME = ""                                   # Baker name
+    ALIAS = NAME.capitalize()                   # Fancy name
+    MARMOSET_COMPATIBLE = True                  # Compatibility
+    SETUP = None                                # Setup function
+    DRAW = None                                 # Draw function
+    SUPPORTED_ENGINES = (                       # Supported engines
+        ('blender_eevee',     "Eevee",     ""),
+        ('cycles',            "Cycles",    ""),
+        ('blender_workbench', "Workbench", "")
     )
 
     def update_engine(self, context: Context):
         if not context.scene.gd.preview_state:
             return
-        context.scene.render.engine = str(self.engine).upper()
+        context.scene.render.engine = \
+            str(self.engine).upper()
 
     enabled: BoolProperty(name="Export Enabled", default=True)
-    ui_visibility: BoolProperty(default=True)
     reimport: BoolProperty(
         name="Reimport Texture",
         description="Reimport bake map texture into a Blender material"
@@ -187,22 +193,16 @@ class GRABDOC_baker_defaults():
     suffix: StringProperty(
         name="Suffix",
         description="The suffix of the exported bake map",
-        default=NAME # NOTE: Set on item creation
+        # NOTE: `default` not captured in sub-classes
+        # so you must set after item creation for now
+        default=NAME
     )
-    contrast: EnumProperty(
-        items=(
-            ('None', "None (Medium)", ""),
-            ('Very_High_Contrast', "Very High", ""),
-            ('High_Contrast', "High", ""),
-            ('Medium_High_Contrast', "Medium High", ""),
-            ('Medium_Low_Contrast', "Medium Low", ""),
-            ('Low_Contrast', "Low", ""),
-            ('Very_Low_Contrast', "Very Low", "")
-        ),
-        name="Contrast"
-    )
+    visibility: BoolProperty(default=True)
     samples: IntProperty(
         name="Eevee Samples", default=128, min=1, soft_max=512
+    )
+    samples_cycles: IntProperty(
+        name="Cycles Samples", default=32, min=1, soft_max=1024
     )
     samples_workbench: EnumProperty(
         items=(
@@ -217,10 +217,21 @@ class GRABDOC_baker_defaults():
         default="16",
         name="Workbench Samples"
     )
-    samples_cycles: IntProperty(
-        name="Cycles Samples", default=32, min=1, soft_max=1024
+    contrast: EnumProperty(
+        items=(
+            ('None', "None (Medium)", ""),
+            ('Very_High_Contrast', "Very High", ""),
+            ('High_Contrast', "High", ""),
+            ('Medium_High_Contrast', "Medium High", ""),
+            ('Medium_Low_Contrast', "Medium Low", ""),
+            ('Low_Contrast', "Low", ""),
+            ('Very_Low_Contrast', "Very Low", "")
+        ),
+        name="Contrast"
     )
-    engine: EnumProperty( # NOTE: Add property to all subclasses
+    # NOTE: You must add the following redundant
+    # properties to all sub-classes for now
+    engine: EnumProperty(
         items=SUPPORTED_ENGINES,
         name='Render Engine',
         update=update_engine
@@ -230,9 +241,11 @@ class GRABDOC_baker_defaults():
 class GRABDOC_normals(GRABDOC_baker_defaults, PropertyGroup):
     NAME = "normals"
     ALIAS = NAME.capitalize()
+    SETUP = normals_setup
+    COLOR_SPACE = "None"
     SUPPORTED_ENGINES = (
-        ('blender_eevee', "Eevee",     ""),
-        ('cycles',        "Cycles",    "")
+        ('blender_eevee', "Eevee",  ""),
+        ('cycles',        "Cycles", "")
     )
 
     def update_flip_y(self, _context: Context):
@@ -290,8 +303,9 @@ class GRABDOC_normals(GRABDOC_baker_defaults, PropertyGroup):
 class GRABDOC_curvature(GRABDOC_baker_defaults, PropertyGroup):
     NAME = "curvature"
     ALIAS = NAME.capitalize()
+    COLOR_SPACE = "sRGB"
     SUPPORTED_ENGINES = (
-        ('workbench',     "Workbench", ""),
+        ('blender_workbench', "Workbench", ""),
     )
 
     def update_curvature(self, context: Context):
@@ -333,6 +347,7 @@ class GRABDOC_curvature(GRABDOC_baker_defaults, PropertyGroup):
 class GRABDOC_occlusion(GRABDOC_baker_defaults, PropertyGroup):
     NAME = "occlusion"
     ALIAS = "Ambient Occlusion"
+    COLOR_SPACE = "None"
     SUPPORTED_ENGINES = (
         ('blender_eevee', "Eevee",     ""),
         ('cycles',        "Cycles",    "")
@@ -376,6 +391,7 @@ class GRABDOC_occlusion(GRABDOC_baker_defaults, PropertyGroup):
 class GRABDOC_height(GRABDOC_baker_defaults, PropertyGroup):
     NAME = "height"
     ALIAS = NAME.capitalize()
+    COLOR_SPACE = "None"
     SUPPORTED_ENGINES = (
         ('blender_eevee', "Eevee",     ""),
         ('cycles',        "Cycles",    "")
@@ -451,6 +467,7 @@ class GRABDOC_height(GRABDOC_baker_defaults, PropertyGroup):
 class GRABDOC_alpha(GRABDOC_baker_defaults, PropertyGroup):
     NAME = "alpha"
     ALIAS = NAME.capitalize()
+    COLOR_SPACE = "None"
     SUPPORTED_ENGINES = (
         ('blender_eevee', "Eevee",     ""),
         ('cycles',        "Cycles",    "")
@@ -487,8 +504,9 @@ class GRABDOC_alpha(GRABDOC_baker_defaults, PropertyGroup):
 class GRABDOC_id(GRABDOC_baker_defaults, PropertyGroup):
     NAME = "id"
     ALIAS = "Material ID"
+    COLOR_SPACE = "sRGB"
     SUPPORTED_ENGINES = (
-        ('workbench',     "Workbench", ""),
+        ('blender_workbench', "Workbench", ""),
     )
 
     method_list = (
@@ -515,6 +533,7 @@ class GRABDOC_color(GRABDOC_baker_defaults, PropertyGroup):
     NAME = "color"
     ALIAS = "Base Color"
     MARMOSET_COMPATIBLE = False
+    COLOR_SPACE = "sRGB"
     SUPPORTED_ENGINES = (
         ('blender_eevee', "Eevee",     ""),
         ('cycles',        "Cycles",    "")
@@ -531,9 +550,10 @@ class GRABDOC_roughness(GRABDOC_baker_defaults, PropertyGroup):
     NAME = "roughness"
     ALIAS = NAME.capitalize()
     MARMOSET_COMPATIBLE = False
+    COLOR_SPACE = "sRGB"
     SUPPORTED_ENGINES = (
-        ('blender_eevee', "Eevee",     ""),
-        ('cycles',        "Cycles",    "")
+        ('blender_eevee', "Eevee",  ""),
+        ('cycles',        "Cycles", "")
     )
 
     def update_roughness(self, _context: Context):
@@ -557,14 +577,14 @@ class GRABDOC_roughness(GRABDOC_baker_defaults, PropertyGroup):
     )
 
 
-
 class GRABDOC_metalness(GRABDOC_baker_defaults, PropertyGroup):
     NAME = "metalness"
     ALIAS = NAME.capitalize()
     MARMOSET_COMPATIBLE = False
+    COLOR_SPACE = "sRGB"
     SUPPORTED_ENGINES = (
-        ('blender_eevee', "Eevee",     ""),
-        ('cycles',        "Cycles",    "")
+        ('blender_eevee', "Eevee",  ""),
+        ('cycles',        "Cycles", "")
     )
 
     engine: EnumProperty(
@@ -572,6 +592,12 @@ class GRABDOC_metalness(GRABDOC_baker_defaults, PropertyGroup):
         name='Render Engine',
         update=GRABDOC_baker_defaults.update_engine
     )
+
+
+############################################################
+# PROPERTY GROUP
+############################################################
+
 
 class GRABDOC_property_group(PropertyGroup):
     MAP_TYPES = (
@@ -692,8 +718,8 @@ class GRABDOC_property_group(PropertyGroup):
     # Baker
     baker_type: EnumProperty(
         items=(
-            ('Blender', "Blender", "Set Baker: Blender"),
-            ('Marmoset', "Toolbag", "Set Baker: Marmoset Toolbag")
+            ('blender', "Blender", "Set Baker: Blender"),
+            ('marmoset', "Toolbag", "Set Baker: Marmoset Toolbag")
         ),
         name="Baker"
     )
@@ -872,7 +898,7 @@ classes = (
     GRABDOC_roughness,
     GRABDOC_metalness,
     GRABDOC_property_group,
-    GRABDOC_MT_addon_preferences,
+    GRABDOC_AP_preferences,
     GRABDOC_OT_check_for_update
 )
 

@@ -35,13 +35,25 @@ class GlobalVariableConstants:
 
     REIMPORT_MAT_NAME = GD_FLAG_PREFIX + "Render Result"
 
-    NORMAL_NAME    = "Normal"
+    NORMAL_ID    = "normals"
+    CURVATURE_ID = "curvature"
+    AO_ID        = "occlusion"
+    HEIGHT_ID    = "height"
+    MATERIAL_ID  = "id"
+    ALPHA_ID     = "alpha"
+    COLOR_ID     = "color"
+    ROUGHNESS_ID = "roughness"
+    METALNESS_ID = "metalness"
+
+    NORMAL_NAME    = NORMAL_ID.capitalize()
+    CURVATURE_NAME = CURVATURE_ID.capitalize()
     AO_NAME        = "Ambient Occlusion"
-    HEIGHT_NAME    = "Height"
-    ALPHA_NAME     = "Alpha"
+    HEIGHT_NAME    = HEIGHT_ID.capitalize()
+    MATERIAL_NAME  = "Material ID"
+    ALPHA_NAME     = ALPHA_ID.capitalize()
     COLOR_NAME     = "Base Color"
-    ROUGHNESS_NAME = "Roughness"
-    METALNESS_NAME = "Metalness"
+    ROUGHNESS_NAME = ROUGHNESS_ID.capitalize()
+    METALNESS_NAME = METALNESS_ID.capitalize()
 
     NORMAL_NG_NAME    = GD_PREFIX + NORMAL_NAME
     AO_NG_NAME        = GD_PREFIX + AO_NAME
@@ -51,10 +63,24 @@ class GlobalVariableConstants:
     ROUGHNESS_NG_NAME = GD_PREFIX + ROUGHNESS_NAME
     METALNESS_NG_NAME = GD_PREFIX + METALNESS_NAME
 
+    ALL_MAP_IDS = (
+        NORMAL_ID,
+        CURVATURE_ID,
+        AO_ID,
+        HEIGHT_ID,
+        MATERIAL_ID,
+        ALPHA_ID,
+        COLOR_ID,
+        ROUGHNESS_ID,
+        METALNESS_ID
+    )
+
     ALL_MAP_NAMES = (
         NORMAL_NAME,
+        CURVATURE_NAME,
         AO_NAME,
         HEIGHT_NAME,
+        MATERIAL_NAME,
         ALPHA_NAME,
         COLOR_NAME,
         ROUGHNESS_NAME,
