@@ -8,6 +8,12 @@ def ng_setup() -> None:
     '''Initial setup of all node groups when setting up a file'''
     grabDoc = bpy.context.scene.grabDoc
 
+    # For debugging, node groups can be viewed in the Outliner, in File View.
+    # To preview a Node Group, drag one from the outliner into any shader. Then, double click the Node Group.
+
+    # TODO: The node groups should perhaps be included in a scene file that is then imported, rather than created
+    # in addon code. That way, if the script API changes again, the file serialization would stay the same.
+
     # NORMALS
     if not NG_NORMAL_NAME in bpy.data.node_groups:
         ng_normal = bpy.data.node_groups.new(NG_NORMAL_NAME, 'ShaderNodeTree')
@@ -19,13 +25,16 @@ def ng_setup() -> None:
         group_inputs = ng_normal.nodes.new('NodeGroupInput')
         group_inputs.name = "Group Input"
         group_inputs.location = (-1400,100)
-        ng_normal.outputs.new('NodeSocketShader','Output')
-        ng_normal.inputs.new('NodeSocketShader','Saved Surface')
-        ng_normal.inputs.new('NodeSocketShader','Saved Volume')
-        ng_normal.inputs.new('NodeSocketShader','Saved Displacement')
-        alpha_input = ng_normal.inputs.new('NodeSocketInt','Alpha')
+        ng_normal.interface.new_socket(socket_type = 'NodeSocketShader', name = 'Output', in_out = 'OUTPUT')
+        ng_normal.interface.new_socket(socket_type = 'NodeSocketShader', name = 'Saved Surface', in_out='INPUT')
+        ng_normal.interface.new_socket(socket_type = 'NodeSocketShader', name = 'Saved Volume', in_out='INPUT')
+        ng_normal.interface.new_socket(socket_type = 'NodeSocketShader', name = 'Saved Displacement', in_out='INPUT')
+        
+        # This was once a NodeSocketInt, but those are not properly supported anymore!
+        # So just pretend this is an int.
+        alpha_input = ng_normal.interface.new_socket(socket_type = 'NodeSocketFloat', name = 'Alpha', in_out='INPUT')
         alpha_input.default_value = 1
-        ng_normal.inputs.new('NodeSocketVector','Normal')
+        ng_normal.interface.new_socket(socket_type = 'NodeSocketVector', name = 'Normal', in_out='INPUT')
 
         # Create group nodes
         bevel_node = ng_normal.nodes.new('ShaderNodeBevel')
@@ -101,10 +110,10 @@ def ng_setup() -> None:
         # Create group inputs/outputs
         group_outputs = ng_ao.nodes.new('NodeGroupOutput')
         group_outputs.name = "Group Output"
-        ng_ao.outputs.new('NodeSocketShader','Output')
-        ng_ao.inputs.new('NodeSocketShader','Saved Surface')
-        ng_ao.inputs.new('NodeSocketShader','Saved Volume')
-        ng_ao.inputs.new('NodeSocketShader','Saved Displacement')
+        ng_ao.interface.new_socket(socket_type = 'NodeSocketShader', name = 'Output', in_out = 'OUTPUT')
+        ng_ao.interface.new_socket(socket_type = 'NodeSocketShader', name = 'Saved Surface', in_out = 'INPUT')
+        ng_ao.interface.new_socket(socket_type = 'NodeSocketShader', name = 'Saved Volume', in_out = 'INPUT')
+        ng_ao.interface.new_socket(socket_type = 'NodeSocketShader', name = 'Saved Displacement', in_out = 'INPUT')
 
         # Create group nodes
         ao_node = ng_ao.nodes.new('ShaderNodeAmbientOcclusion')
@@ -135,10 +144,10 @@ def ng_setup() -> None:
         # Create group inputs/outputs
         group_outputs = ng_height.nodes.new('NodeGroupOutput')
         group_outputs.name = "Group Output"
-        ng_height.outputs.new('NodeSocketShader','Output')
-        ng_height.inputs.new('NodeSocketShader','Saved Surface')
-        ng_height.inputs.new('NodeSocketShader','Saved Volume')
-        ng_height.inputs.new('NodeSocketShader','Saved Displacement')
+        ng_height.interface.new_socket(socket_type = 'NodeSocketShader', name = 'Output', in_out = 'OUTPUT')
+        ng_height.interface.new_socket(socket_type = 'NodeSocketShader', name = 'Saved Surface', in_out = 'INPUT')
+        ng_height.interface.new_socket(socket_type = 'NodeSocketShader', name = 'Saved Volume', in_out = 'INPUT')
+        ng_height.interface.new_socket(socket_type = 'NodeSocketShader', name = 'Saved Displacement', in_out = 'INPUT')
 
         # Create group nodes
         camera_data_node = ng_height.nodes.new('ShaderNodeCameraData')
@@ -169,10 +178,10 @@ def ng_setup() -> None:
         # Create group input/outputs
         group_outputs = ng_alpha.nodes.new('NodeGroupOutput')
         group_outputs.name = "Group Output"
-        ng_alpha.outputs.new('NodeSocketShader','Output')
-        ng_alpha.inputs.new('NodeSocketShader','Saved Surface')
-        ng_alpha.inputs.new('NodeSocketShader','Saved Volume')
-        ng_alpha.inputs.new('NodeSocketShader','Saved Displacement')
+        ng_alpha.interface.new_socket(socket_type = 'NodeSocketShader', name = 'Output', in_out = 'OUTPUT')
+        ng_alpha.interface.new_socket(socket_type = 'NodeSocketShader', name = 'Saved Surface', in_out = 'INPUT')
+        ng_alpha.interface.new_socket(socket_type = 'NodeSocketShader', name = 'Saved Volume', in_out = 'INPUT')
+        ng_alpha.interface.new_socket(socket_type = 'NodeSocketShader', name = 'Saved Displacement', in_out = 'INPUT')
 
         # Create group nodes
         camera_data_node = ng_alpha.nodes.new('ShaderNodeCameraData')
@@ -213,11 +222,11 @@ def ng_setup() -> None:
         group_inputs = ng_albedo.nodes.new('NodeGroupInput')
         group_inputs.name = "Group Input"
         group_inputs.location = (-400,0)
-        ng_albedo.outputs.new('NodeSocketShader','Output')
-        ng_albedo.inputs.new('NodeSocketColor', 'Color Input')
-        ng_albedo.inputs.new('NodeSocketShader','Saved Surface')
-        ng_albedo.inputs.new('NodeSocketShader','Saved Volume')
-        ng_albedo.inputs.new('NodeSocketShader','Saved Displacement')
+        ng_albedo.interface.new_socket(socket_type = 'NodeSocketShader', name = 'Output', in_out = 'OUTPUT')
+        ng_albedo.interface.new_socket(socket_type = 'NodeSocketColor', name = 'Color Input', in_out = 'INPUT')
+        ng_albedo.interface.new_socket(socket_type = 'NodeSocketShader', name = 'Saved Surface', in_out = 'INPUT')
+        ng_albedo.interface.new_socket(socket_type = 'NodeSocketShader', name = 'Saved Volume', in_out = 'INPUT')
+        ng_albedo.interface.new_socket(socket_type = 'NodeSocketShader', name = 'Saved Displacement', in_out = 'INPUT')
         
         emission_node = ng_albedo.nodes.new('ShaderNodeEmission')
         emission_node.name = "Emission"
@@ -239,11 +248,11 @@ def ng_setup() -> None:
         group_inputs = ng_roughness.nodes.new('NodeGroupInput')
         group_inputs.name = "Group Input"
         group_inputs.location = (-600,0)
-        ng_roughness.outputs.new('NodeSocketShader','Output')
-        ng_roughness.inputs.new('NodeSocketFloat', 'Roughness Input')
-        ng_roughness.inputs.new('NodeSocketShader','Saved Surface')
-        ng_roughness.inputs.new('NodeSocketShader','Saved Volume')
-        ng_roughness.inputs.new('NodeSocketShader','Saved Displacement')
+        ng_roughness.interface.new_socket(socket_type = 'NodeSocketShader', name = 'Output', in_out = 'OUTPUT')
+        ng_roughness.interface.new_socket(socket_type = 'NodeSocketFloat', name = 'Roughness Input', in_out = 'INPUT')
+        ng_roughness.interface.new_socket(socket_type = 'NodeSocketShader', name = 'Saved Surface', in_out = 'INPUT')
+        ng_roughness.interface.new_socket(socket_type = 'NodeSocketShader', name = 'Saved Volume', in_out = 'INPUT')
+        ng_roughness.interface.new_socket(socket_type = 'NodeSocketShader', name = 'Saved Displacement', in_out = 'INPUT')
 
         invert_node = ng_roughness.nodes.new('ShaderNodeInvert')
         invert_node.location = (-400,0)
@@ -270,11 +279,11 @@ def ng_setup() -> None:
         group_inputs = ng_roughness.nodes.new('NodeGroupInput')
         group_inputs.name = "Group Input"
         group_inputs.location = (-400,0)
-        ng_roughness.outputs.new('NodeSocketShader','Output')
-        ng_roughness.inputs.new('NodeSocketFloat', 'Metalness Input')
-        ng_roughness.inputs.new('NodeSocketShader','Saved Surface')
-        ng_roughness.inputs.new('NodeSocketShader','Saved Volume')
-        ng_roughness.inputs.new('NodeSocketShader','Saved Displacement')
+        ng_roughness.interface.new_socket(socket_type = 'NodeSocketShader', name = 'Output', in_out = 'OUTPUT')
+        ng_roughness.interface.new_socket(socket_type = 'NodeSocketFloat', name = 'Metalness Input', in_out = 'INPUT')
+        ng_roughness.interface.new_socket(socket_type = 'NodeSocketShader', name = 'Saved Surface', in_out = 'INPUT')
+        ng_roughness.interface.new_socket(socket_type = 'NodeSocketShader', name = 'Saved Volume', in_out = 'INPUT')
+        ng_roughness.interface.new_socket(socket_type = 'NodeSocketShader', name = 'Saved Displacement', in_out = 'INPUT')
         
         emission_node = ng_roughness.nodes.new('ShaderNodeEmission')
         emission_node.name = "Emission"
