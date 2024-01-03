@@ -2,8 +2,8 @@ bl_info = {
     "name":"GrabDoc Pro",
     "author":"Ethan Simon-Law",
     "location": "3D View > Sidebar > GrabDoc Tab",
-    "version":(1, 3, 4),
-    "blender":(3, 4, 1),
+    "version":(1, 3, 5),
+    "blender":(4, 0, 2),
     "tracker_url": "https://discord.com/invite/wHAyVZG",
     "category": "3D View"
 }
