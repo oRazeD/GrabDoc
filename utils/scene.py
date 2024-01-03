@@ -2,9 +2,9 @@ import bpy
 import bmesh
 from bpy.types import Context, Object
 
-from ..constants import GlobalVariableConstants as Global
+from ..constants import Global
 from ..utils.generic import is_camera_in_3d_view
-from ..utils.node import ng_setup
+from ..utils.node import node_init
 
 
 def remove_setup(context: Context, hard_reset: bool=True) -> None | list:
@@ -300,7 +300,7 @@ def scene_setup(_self, context: Context) -> None:
     generate_orientation_guide(Global.ORIENT_GUIDE_NAME, plane_ob)
 
     # NODE GROUPS
-    ng_setup()
+    node_init()
 
     # CLEANUP
     for ob_name in saved_selected_obs:

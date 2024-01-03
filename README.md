@@ -24,22 +24,3 @@ This list is oversimplified... I will eventually do a pass to be more verbose ab
 2. Follow this video for the rest of the simple instructions
 
 https://user-images.githubusercontent.com/31065180/137642217-d51470d3-a243-438f-8c49-1e367a8972ab.mp4
-
-
-# TODO / Future Update Paths
-
-- [ ] Painter Bridge Support (Baking and or just setting up a project file)
-- [ ] Extending Albedo/Roughness/Metallic/Mixed Normals bake functionality to the bridge exporter
-- [ ] Rewrite of "Re-import as Material" feature as a whole with bridge exporter support
-- [ ] A general feature parity pass between the different baking engines
-- [ ] Improved multiple viewport support
-- [ ] A more dynamic method of generating a bake setup, for things like exporting multiple bake maps of the same type (very cool, but very unlikely)
-- [ ] Improved offline render (internal rendering) support:
-    - [ ] Allow compositing from this render type (for overlaying things like Ambient Occlusion)
-    - [ ] Support "Re-import as Material" feature
-    - [ ] Support correct default color spaces
-
-# Known Issues / Limitations
-
-- If you create a new object or unhide objects not originally visible while in a Map Preview mode, the object will be black.
-  - SOLUTION: GrabDoc is material based and does not update materials constantly, so just leaving Map Preview mode and re entering it will refresh the scene materials.

@@ -9,11 +9,10 @@ from bpy.types import (
     Material
 )
 
-from ..constants import GlobalVariableConstants as Global
-from ..constants import ErrorCodeConstants as Error
+from ..constants import Global, Error
 
 
-def generate_ng_interface(tree: NodeTree, inputs: dict) -> None:
+def generate_shader_interface(tree: NodeTree, inputs: dict) -> None:
     tree.interface.new_socket(
         name="Shader",
         socket_type="NodeSocketShader",
@@ -33,8 +32,9 @@ def generate_ng_interface(tree: NodeTree, inputs: dict) -> None:
         )
 
 
-def get_shader_outputs() -> dict:
-    material_output_inputs = {}
+def get_material_output_inputs() -> dict:
+    """Create a dummy node group and capture
+    the default material output inputs."""
     tree = bpy.data.node_groups.new(
         'Material Output',
         'ShaderNodeTree'
@@ -47,20 +47,18 @@ def get_shader_outputs() -> dict:
         # NOTE: No clue what this input is for
         if node_input.name == 'Thickness':
             continue
-
         material_output_inputs[node_input.name] = \
             f'NodeSocket{node_input.type.capitalize()}'
+    bpy.data.node_groups.remove(tree)
     return material_output_inputs
 
 
-def ng_setup() -> None:
-    """Initial setup of all node groups when setting up a file"""
+def node_init() -> None:
+    """Initialize all node groups used within GrabDoc"""
     gd = bpy.context.scene.gd
 
-    # Get material output inputs
-    inputs = get_shader_outputs()
+    inputs = get_material_output_inputs()
 
-    # Normals
     if not Global.NORMAL_NODE in bpy.data.node_groups:
         tree = bpy.data.node_groups.new(
             Global.NORMAL_NODE, 'ShaderNodeTree'
@@ -68,7 +66,7 @@ def ng_setup() -> None:
         tree.use_fake_user = True
 
         # Create interface
-        generate_ng_interface(tree, inputs)
+        generate_shader_interface(tree, inputs)
         alpha = tree.interface.new_socket(
             name='Alpha',
             socket_type='NodeSocketFloat'
@@ -142,7 +140,9 @@ def ng_setup() -> None:
         links = tree.links
         # NOTE: Branch 1
         links.new(bevel.inputs["Normal"], group_input.outputs["Normal"])
-        links.new(vec_transform.inputs["Vector"], bevel_node_2.outputs["Normal"])
+        links.new(
+            vec_transform.inputs["Vector"], bevel_node_2.outputs["Normal"]
+        )
         links.new(vec_mult.inputs["Vector"], vec_transform.outputs["Vector"])
         links.new(vec_add.inputs["Vector"], vec_mult.outputs["Vector"])
         links.new(group_output.inputs["Shader"], vec_add.outputs["Vector"])
@@ -153,13 +153,14 @@ def ng_setup() -> None:
         links.new(mix_shader.inputs[1], transp_shader.outputs['BSDF'])
         links.new(mix_shader.inputs[2], vec_add.outputs['Vector'])
 
-    # Ambient Occlusion
-    if not Global.AO_NODE in bpy.data.node_groups:
-        tree = bpy.data.node_groups.new(Global.AO_NODE, 'ShaderNodeTree')
+    if not Global.OCCLUSION_NODE in bpy.data.node_groups:
+        tree = bpy.data.node_groups.new(
+            Global.OCCLUSION_NODE, 'ShaderNodeTree'
+        )
         tree.use_fake_user = True
 
         # Create sockets
-        generate_ng_interface(tree, inputs)
+        generate_shader_interface(tree, inputs)
 
         # Create nodes
         group_output = tree.nodes.new('NodeGroupOutput')
@@ -185,16 +186,14 @@ def ng_setup() -> None:
         links.new(emission.inputs["Color"], gamma.outputs["Color"])
         links.new(group_output.inputs["Shader"], emission.outputs["Emission"])
 
-    # Height
     if not Global.HEIGHT_NODE in bpy.data.node_groups:
         tree = bpy.data.node_groups.new(
-            Global.HEIGHT_NODE,
-            'ShaderNodeTree'
+            Global.HEIGHT_NODE, 'ShaderNodeTree'
         )
         tree.use_fake_user = True
 
         # Create sockets
-        generate_ng_interface(tree, inputs)
+        generate_shader_interface(tree, inputs)
 
         # Create nodes
         group_output = tree.nodes.new('NodeGroupOutput')
@@ -221,16 +220,14 @@ def ng_setup() -> None:
         links.new(ramp.inputs["Fac"], map_range.outputs["Result"])
         links.new(group_output.inputs["Shader"], ramp.outputs["Color"])
 
-    # Alpha
     if not Global.ALPHA_NODE in bpy.data.node_groups:
         tree = bpy.data.node_groups.new(
-            Global.ALPHA_NODE,
-            'ShaderNodeTree'
+            Global.ALPHA_NODE, 'ShaderNodeTree'
         )
         tree.use_fake_user = True
 
         # Create sockets
-        generate_ng_interface(tree, inputs)
+        generate_shader_interface(tree, inputs)
 
         # Create nodes
         group_output = tree.nodes.new('NodeGroupOutput')
@@ -264,17 +261,14 @@ def ng_setup() -> None:
         links.new(emission.inputs["Color"], invert.outputs["Color"])
         links.new(group_output.inputs["Shader"], emission.outputs["Emission"])
 
-    # Base Color
     if not Global.COLOR_NODE in bpy.data.node_groups:
-        tree = \
-            bpy.data.node_groups.new(
-                Global.COLOR_NODE,
-                'ShaderNodeTree'
-            )
+        tree = bpy.data.node_groups.new(
+            Global.COLOR_NODE, 'ShaderNodeTree'
+        )
         tree.use_fake_user = True
 
         # Create sockets
-        generate_ng_interface(tree, inputs)
+        generate_shader_interface(tree, inputs)
         tree.interface.new_socket(
             name=Global.COLOR_NAME,
             socket_type='NodeSocketColor'
@@ -296,16 +290,14 @@ def ng_setup() -> None:
         links.new(emission.inputs["Color"], group_input.outputs["Base Color"])
         links.new(group_output.inputs["Shader"], emission.outputs["Emission"])
 
-    # Roughness
     if not Global.ROUGHNESS_NODE in bpy.data.node_groups:
         tree = bpy.data.node_groups.new(
-                Global.ROUGHNESS_NODE,
-                'ShaderNodeTree'
-            )
+            Global.ROUGHNESS_NODE, 'ShaderNodeTree'
+        )
         tree.use_fake_user = True
 
         # Create sockets
-        generate_ng_interface(tree, inputs)
+        generate_shader_interface(tree, inputs)
         tree.interface.new_socket(
             name='Roughness',
             socket_type='NodeSocketFloat',
@@ -342,17 +334,14 @@ def ng_setup() -> None:
             emission.outputs["Emission"]
         )
 
-    # Metalness
     if not Global.METALNESS_NODE in bpy.data.node_groups:
-        tree = \
-            bpy.data.node_groups.new(
-                Global.METALNESS_NODE,
-                'ShaderNodeTree'
-            )
+        tree = bpy.data.node_groups.new(
+            Global.METALNESS_NODE, 'ShaderNodeTree'
+        )
         tree.use_fake_user = True
 
         # Create sockets
-        generate_ng_interface(tree, inputs)
+        generate_shader_interface(tree, inputs)
         tree.interface.new_socket(
             name='Metalness',
             socket_type='NodeSocketFloat',
@@ -382,36 +371,7 @@ def ng_setup() -> None:
         )
 
 
-def create_apply_ng_mat(ob: Object) -> None:
-    """Create & apply a material to objects without active materials"""
-    mat_name = Global.GD_MATERIAL_NAME
-
-    # Reuse GrabDoc created material if it already exists
-    if mat_name in bpy.data.materials:
-        mat = bpy.data.materials[mat_name]
-    else:
-        mat = bpy.data.materials.new(name = mat_name)
-        mat.use_nodes = True
-
-    # Apply the material to the appropriate slot
-    #
-    # Search through all material slots, if any
-    # slots have no name that means they have no
-    # material & therefore should have one added.
-    # While this does run every time this is called
-    # it should only really need to be used once per
-    # in add-on use.
-    #
-    # We do not want to remove empty material slots
-    # as they can be used for masking off materials.
-    for slot in ob.material_slots:
-        if slot.name == '':
-            ob.material_slots[slot.name].material = mat
-    if not ob.active_material or ob.active_material.name == '':
-        ob.active_material = mat
-
-
-def create_bsdf_link(
+def create_node_links(
         input_name: str,
         node_group: ShaderNodeGroup,
         original_input: NodeSocket,
@@ -440,15 +400,27 @@ def create_bsdf_link(
     return node_found
 
 
-def add_ng_to_mat(name: str, objects: Iterable[Object]) -> None:
+def apply_node_to_objects(name: str, objects: Iterable[Object]) -> None:
     """Add node group to given object material slots"""
     for ob in objects:
         # If no material slots found or empty mat
         # slots found, assign a material to it
         if not ob.material_slots or '' in ob.material_slots:
-            create_apply_ng_mat(ob)
+            mat_name = Global.GD_MATERIAL_NAME
+            if mat_name in bpy.data.materials:
+                mat = bpy.data.materials[mat_name]
+            else:
+                mat = bpy.data.materials.new(name = mat_name)
+                mat.use_nodes = True
 
-        # Cycle through all material slots
+            # NOTE: We want to avoid removing empty material slots
+            # as they can be used for geometry masking
+            for slot in ob.material_slots:
+                if slot.name == '':
+                    ob.material_slots[slot.name].material = mat
+            if not ob.active_material or ob.active_material.name == '':
+                ob.active_material = mat
+
         for slot in ob.material_slots:
             material = bpy.data.materials.get(slot.name)
             material.use_nodes = True
@@ -466,17 +438,20 @@ def add_ng_to_mat(name: str, objects: Iterable[Object]) -> None:
                     nodes.new('ShaderNodeOutputMaterial')
                 )
 
+            # TODO: Use for code below
+            #inputs = get_material_output_inputs()
+            #for name in inputs.keys():
+
             node_group = bpy.data.node_groups.get(name)
             for output in output_nodes:
-                # Add node group to material
-                passthrough_ng = nodes.new('ShaderNodeGroup')
-                passthrough_ng.node_tree = node_group
-                passthrough_ng.location = (
+                passthrough = nodes.new('ShaderNodeGroup')
+                passthrough.node_tree = node_group
+                passthrough.location = (
                     output.location[0],
                     output.location[1] - 160
                 )
-                passthrough_ng.name = node_group.name
-                passthrough_ng.hide = True
+                passthrough.name = node_group.name
+                passthrough.hide = True
 
                 # Add note next to node group explaining basic functionality
                 GD_text = bpy.data.texts.get('_grabdoc_ng_warning')
@@ -495,6 +470,7 @@ def add_ng_to_mat(name: str, objects: Iterable[Object]) -> None:
                 GD_frame.text = GD_text
                 GD_frame.width = 1000
                 GD_frame.height = 150
+
 
                 # Link nodes
                 for output_material_input in output.inputs:
@@ -516,7 +492,7 @@ def add_ng_to_mat(name: str, objects: Iterable[Object]) -> None:
                         # Store original output material connections
                         try:
                             material.node_tree.links.new(
-                                passthrough_ng.inputs[
+                                passthrough.inputs[
                                     output_material_input.name
                                 ],
                                 source_node.outputs[link.from_socket.name]
@@ -536,9 +512,9 @@ def add_ng_to_mat(name: str, objects: Iterable[Object]) -> None:
                                 name == Global.COLOR_NODE \
                                 and original_input.name == Global.COLOR_NAME
                             ):
-                                node_found = create_bsdf_link(
+                                node_found = create_node_links(
                                     input_name=original_input.name,
-                                    node_group=passthrough_ng,
+                                    node_group=passthrough,
                                     original_input=original_input,
                                     material=material
                                 )
@@ -546,9 +522,9 @@ def add_ng_to_mat(name: str, objects: Iterable[Object]) -> None:
                                 name == Global.ROUGHNESS_NODE \
                                 and original_input.name == Global.ROUGHNESS_NAME
                             ):
-                                node_found = create_bsdf_link(
+                                node_found = create_node_links(
                                     input_name=original_input.name,
-                                    node_group=passthrough_ng,
+                                    node_group=passthrough,
                                     original_input=original_input,
                                     material=material
                                 )
@@ -556,9 +532,9 @@ def add_ng_to_mat(name: str, objects: Iterable[Object]) -> None:
                                 name == Global.METALNESS_NODE \
                                 and original_input.name == Global.METALNESS_NAME
                             ):
-                                node_found = create_bsdf_link(
+                                node_found = create_node_links(
                                     input_name=original_input.name,
-                                    node_group=passthrough_ng,
+                                    node_group=passthrough,
                                     original_input=original_input,
                                     material=material
                                 )
@@ -568,9 +544,9 @@ def add_ng_to_mat(name: str, objects: Iterable[Object]) -> None:
                                 and original_input.name in (Global.ALPHA_NAME,
                                                             Global.NORMAL_NAME)
                             ):
-                                node_found = create_bsdf_link(
+                                node_found = create_node_links(
                                     input_name=original_input.name,
-                                    node_group=passthrough_ng,
+                                    node_group=passthrough,
                                     original_input=original_input,
                                     material=material
                                 )
@@ -603,20 +579,19 @@ def add_ng_to_mat(name: str, objects: Iterable[Object]) -> None:
 
                 material.node_tree.links.new(
                     output.inputs["Surface"],
-                    passthrough_ng.outputs["Shader"]
+                    passthrough.outputs["Shader"]
                 )
 
 
-def cleanup_ng_from_mat(setup_type: str) -> None:
+def node_cleanup(setup_type: str) -> None:
     """Remove node group & return original links if they exist"""
     for mat in bpy.data.materials:
         mat.use_nodes = True
 
-        # If there is a GrabDoc created material, remove it
         if mat.name == Global.GD_MATERIAL_NAME:
             bpy.data.materials.remove(mat)
             continue
-        elif setup_type not in mat.node_tree.nodes:
+        if setup_type not in mat.node_tree.nodes:
             continue
 
         # If a material has a GrabDoc created Node Group, remove it

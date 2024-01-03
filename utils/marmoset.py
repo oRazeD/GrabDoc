@@ -3,17 +3,17 @@ import json
 
 import mset
 
-from ..constants import GlobalVariableConstants as Global
+from ..constants import Global
 
 
-temps_path = os.path.join(os.path.dirname(mset.getPluginPath()), "_temp")
+temp_path = os.path.join(os.path.dirname(mset.getPluginPath()), "_temp")
 
 def refresh_scene() -> None:
-    if os.path.exists(os.path.join(temps_path, "marmo_vars.json")):
+    if os.path.exists(os.path.join(temp_path, "marmo_vars.json")):
         mset.newScene()
 
         with open(
-            os.path.join(temps_path, "marmo_vars.json"), 'r', encoding='utf-8'
+            os.path.join(temp_path, "marmo_vars.json"), 'r', encoding='utf-8'
         ) as openfile:
             marmo_json = json.load(openfile)
 
@@ -41,7 +41,7 @@ def refresh_scene() -> None:
 
         # Import the models
         baker.importModel(
-            os.path.normpath(os.path.join(temps_path, "GD_temp_model.fbx"))
+            os.path.normpath(os.path.join(temp_path, "GD_temp_model.fbx"))
         )
 
         # Set cage offset
@@ -144,7 +144,7 @@ def refresh_scene() -> None:
 
         # Remove the json file to signal the no rebakes
         # need to take place until a new one is made
-        os.remove(os.path.join(temps_path, "marmo_vars.json"))
+        os.remove(os.path.join(temp_path, "marmo_vars.json"))
 
 
 mset.callbacks.onRegainFocus = refresh_scene

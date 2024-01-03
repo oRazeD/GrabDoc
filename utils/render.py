@@ -4,7 +4,7 @@ from mathutils import Vector
 import bpy
 from bpy.types import Object
 
-from ..constants import GlobalVariableConstants as Global
+from ..constants import Global
 
 
 def is_valid_gd_object(

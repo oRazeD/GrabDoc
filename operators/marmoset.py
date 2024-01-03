@@ -7,8 +7,7 @@ import bpy
 from bpy.types import Context, Operator
 
 from .operators import OpInfo
-from ..constants import GlobalVariableConstants as Global
-from ..constants import ErrorCodeConstants as Error
+from ..constants import Global, Error
 from ..utils.generic import (
     bad_setup_check,
     export_plane,
@@ -41,28 +40,28 @@ class GrabDoc_OT_send_to_marmo(OpInfo, Operator):
     def poll(cls, context: Context) -> bool:
         package = __package__.split('.', maxsplit=1)[0]
         return os.path.exists(
-            context.preferences.addons[package].preferences.marmoset_executable
+            context.preferences.addons[package].preferences.marmo_executable
         )
 
-    def open_marmoset(self, context: Context, temps_path, addon_path):
+    def open_marmoset(self, context: Context, temp_path, addon_path):
         gd = context.scene.gd
         package = __package__.split('.', maxsplit=1)[0]
-        executable = context.preferences.addons[package].preferences.marmoset_executable
+        executable = context.preferences.addons[package].preferences.marmo_executable
 
         # Create a dictionary of variables to transfer into Marmoset
         marmo_vars = {
-            'file_path': f'{bpy.path.abspath(gd.export_path)}{gd.export_name}.{gd.marmoset_format.lower()}',
-            'file_ext': gd.marmoset_format.lower(),
+            'file_path': f'{bpy.path.abspath(gd.export_path)}{gd.export_name}.{gd.marmo_format.lower()}',
+            'file_ext': gd.marmo_format.lower(),
             'file_path_no_ext': bpy.path.abspath(gd.export_path),
             'marmo_sky_path': f'{os.path.dirname(executable)}\\data\\sky\\Evening Clouds.tbsky',
 
             'resolution_x': gd.resolution_x,
             'resolution_y': gd.resolution_y,
             'bits_per_channel': int(gd.depth),
-            'samples': int(gd.marmoset_samples),
+            'samples': int(gd.marmo_samples),
 
             'auto_bake': gd.metalness_auto_bake,
-            'close_after_bake': gd.marmoset_auto_close,
+            'close_after_bake': gd.marmo_auto_close,
 
             'export_normal': gd.normals[0].enabled & gd.normals[0].visibility,
             'flipy_normal': gd.normals[0].flip_y,
@@ -72,7 +71,7 @@ class GrabDoc_OT_send_to_marmo(OpInfo, Operator):
             'suffix_curvature': gd.curvature[0].suffix,
 
             'export_occlusion': gd.occlusion[0].enabled & gd.occlusion[0].visibility,
-            'ray_count_occlusion': gd.marmoset_occlusion_ray_count,
+            'ray_count_occlusion': gd.marmo_occlusion_ray_count,
             'suffix_occlusion': gd.occlusion[0].suffix,
 
             'export_height': gd.height[0].enabled & gd.height[0].visibility,
@@ -98,7 +97,7 @@ class GrabDoc_OT_send_to_marmo(OpInfo, Operator):
 
         # Writing
         with open(
-            os.path.join(temps_path, "marmo_vars.json"), "w", encoding="utf-8"
+            os.path.join(temp_path, "marmo_vars.json"), "w", encoding="utf-8"
         ) as outfile:
             outfile.write(marmo_json)
 
@@ -109,7 +108,7 @@ class GrabDoc_OT_send_to_marmo(OpInfo, Operator):
 
         subproc_args = [
             executable,
-            os.path.join(addon_path, "marmoset_utils.py")
+            os.path.join(addon_path, "marmo_utils.py")
         ]
 
         if self.send_type == 'refresh':
@@ -137,7 +136,7 @@ class GrabDoc_OT_send_to_marmo(OpInfo, Operator):
             self.report({'ERROR'}, report_string)
             return {'CANCELLED'}
 
-        addon_path, temps_path = get_create_addon_temp_dir()
+        addon_path, temp_path = get_create_addon_temp_dir()
 
         saved_selected = context.view_layer.objects.selected.keys()
 
@@ -178,7 +177,7 @@ class GrabDoc_OT_send_to_marmo(OpInfo, Operator):
 
         # Export models
         bpy.ops.export_scene.fbx(
-            filepath=f"{temps_path}\\GD_temp_model.fbx",
+            filepath=f"{temp_path}\\GD_temp_model.fbx",
             use_selection=True,
             path_mode='ABSOLUTE'
         )
@@ -203,7 +202,7 @@ class GrabDoc_OT_send_to_marmo(OpInfo, Operator):
             if ob.visible_get():
                 ob.select_set(True)
 
-        self.open_marmoset(context, temps_path, addon_path)
+        self.open_marmoset(context, temp_path, addon_path)
         return {'FINISHED'}
 
 

@@ -25,7 +25,8 @@ from bpy.props import (
     FloatProperty
 )
 
-from .constants import GlobalVariableConstants as Global
+from .__init__ import bl_info
+from .constants import Global
 from .utils.scene import scene_setup
 #from .utils.render import get_rendered_objects, set_guide_height
 from .utils.baker import (
@@ -41,7 +42,6 @@ from .utils.baker import (
 )
 
 from .addon_updater import Updater as updater
-from .constants import VERSION
 
 
 ################################################
@@ -100,11 +100,11 @@ class GRABDOC_OT_add_preset(AddPresetBase, Operator):
         "gd.use_bake_collections",
         "gd.export_plane",
 
-        "gd.marmoset_auto_bake",
-        "gd.marmoset_auto_close",
-        "gd.marmoset_samples",
-        "gd.marmoset_occlusion_ray_count",
-        "gd.marmoset_format",
+        "gd.marmo_auto_bake",
+        "gd.marmo_auto_close",
+        "gd.marmo_samples",
+        "gd.marmo_occlusion_ray_count",
+        "gd.marmo_format",
 
         "gd.normals",
         "gd.curvature",
@@ -143,7 +143,7 @@ class GRABDOC_AP_preferences(AddonPreferences):
     # NOTE: Special properties stored
     # here are saved in User Preferences
 
-    marmoset_executable: StringProperty(
+    marmo_executable: StringProperty(
         name="",
         description="",
         default="Path to Marmoset Toolbag 3 or 4 executable",
@@ -377,6 +377,8 @@ class GRABDOC_property_group(PropertyGroup):
 
     # Map preview
     preview_first_time: BoolProperty(default=True)
+    # NOTE: The modal system relies on this
+    # particular switch to control UI States
     preview_state: BoolProperty()
     preview_type: EnumProperty(items=MAP_TYPES)
 
@@ -392,9 +394,9 @@ class GRABDOC_property_group(PropertyGroup):
     metalness: CollectionProperty(type=Metalness)
 
     # Marmoset baking
-    marmoset_auto_bake: BoolProperty(name="Auto bake", default=True)
-    marmoset_auto_close: BoolProperty(name="Close after baking")
-    marmoset_samples: EnumProperty(
+    marmo_auto_bake: BoolProperty(name="Auto bake", default=True)
+    marmo_auto_close: BoolProperty(name="Close after baking")
+    marmo_samples: EnumProperty(
         items=(
             ('1', "1x", ""),
             ('4', "4x", ""),
@@ -406,12 +408,12 @@ class GRABDOC_property_group(PropertyGroup):
         description=\
             "Samples rendered per pixel. 64 samples is not supported in Marmoset 3 (defaults to 16 samples)"
     )
-    marmoset_occlusion_ray_count: IntProperty(
+    marmo_occlusion_ray_count: IntProperty(
         default=512,
         min=32,
         soft_max=4096
     )
-    marmoset_format: EnumProperty(
+    marmo_format: EnumProperty(
         items=(
             ('PNG', "PNG", ""),
             ('PSD', "PSD", "")
@@ -480,10 +482,10 @@ def register():
     Collection.gd_bake_collection = BoolProperty(default=False)
     Object.gd_object = BoolProperty(default=False)
 
-    # Git release tracking
+    # NOTE: Git release tracking
     updater.user = "oRazeD"
     updater.repo = "grabdoc"
-    updater.current_version = VERSION
+    updater.current_version = bl_info["version"]
     updater.check_for_update_now()
     if updater.update_ready:
         print("GrabDoc update available!")

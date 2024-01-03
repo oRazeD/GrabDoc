@@ -10,8 +10,7 @@ from bpy.props import (
     FloatProperty
 )
 
-from ..constants import GlobalVariableConstants as Global
-from ..ui import GRABDOC_PT_normals
+from ..constants import Global
 from .generic import get_format
 from .render import set_guide_height, get_rendered_objects
 from .scene import scene_setup
@@ -63,7 +62,7 @@ class Baker():
 
         set_color_management(self.COLOR_SPACE)
 
-    def refresh(self):
+    def cleanup(self):
         """Operations to run after bake map export conclusion."""
 
     def draw(self, context: Context, layout: UILayout):
@@ -193,10 +192,6 @@ class Normals(Baker, PropertyGroup):
                 ng_normal.nodes.get('Vector Math.001').outputs["Vector"]
             )
 
-    def draw(self, context: Context, layout: UILayout):
-        """Draw layout for contextual bake map properties and operators."""
-        GRABDOC_PT_normals.draw(self, context)
-
     def update_flip_y(self, _context: Context):
         vec_multiply = \
             bpy.data.node_groups[self.NODE].nodes.get(
@@ -289,7 +284,7 @@ class Curvature(Baker, PropertyGroup):
 
         scene.display.matcap_ssao_distance = .075
 
-    def refresh(self) -> None:
+    def cleanup(self) -> None:
         display = \
             bpy.data.scenes[str(bpy.context.scene.name)].display
         display.shading.cavity_ridge_factor = self.savedCavityRidgeFactor
@@ -339,9 +334,9 @@ class Curvature(Baker, PropertyGroup):
 
 
 class Occlusion(Baker, PropertyGroup):
-    ID = Global.AO_ID
-    NAME = Global.AO_NAME
-    NODE = Global.AO_NODE
+    ID = Global.OCCLUSION_ID
+    NAME = Global.OCCLUSION_NAME
+    NODE = Global.OCCLUSION_NODE
     COLOR_SPACE = "None"
     MARMOSET_COMPATIBLE = True
     SUPPORTED_ENGINES = (
@@ -362,7 +357,7 @@ class Occlusion(Baker, PropertyGroup):
             eevee.use_overscan = True
             eevee.overscan_size = 10
 
-    def refresh(self) -> None:
+    def cleanup(self) -> None:
         eevee = bpy.context.scene.eevee
         eevee.use_overscan = self.savedUseOverscan
         eevee.overscan_size = self.savedOverscanSize
@@ -727,10 +722,10 @@ def reimport_as_material(suffix, map_names: list) -> None:
             continue
         image.image = bpy.data.images.load(export_path)
 
-        if name not in ("color"):
+        if name not in (Global.COLOR_ID):
             image.image.colorspace_settings.name = 'Non-Color'
 
-        # Link image to matching bsdf socket
+        # NOTE: Attempt socket match and link
         try:
             links.new(bsdf.inputs[name], image.outputs[name])
         except KeyError:
@@ -876,7 +871,7 @@ def baker_init(self, context: Context):
     bg_plane.hide_set(False)
 
 
-def baker_refresh(self, context: Context) -> None:
+def baker_cleanup(self, context: Context) -> None:
     scene = context.scene
     gd = scene.gd
     render = scene.render

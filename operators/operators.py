@@ -1,33 +1,28 @@
-from functools import partial
 import os
 import time
 
 import bpy
 import blf
 from bpy.types import SpaceView3D, Event, Context, Operator, UILayout
-from bpy.props import EnumProperty
+from bpy.props import StringProperty
 
+from ..constants import Global, Error
 from ..utils.render import get_rendered_objects
-from ..utils.node import add_ng_to_mat, cleanup_ng_from_mat
+from ..utils.node import apply_node_to_objects, node_cleanup
 from ..utils.scene import scene_setup, remove_setup
 from ..utils.generic import (
     proper_scene_setup,
     bad_setup_check,
     export_plane,
-    get_format,
     is_camera_in_3d_view,
-    get_create_addon_temp_dir,
     poll_message_error
 )
 from ..utils.baker import (
     baker_init,
     get_bake_maps,
-    baker_refresh,
+    baker_cleanup,
     get_bakers
 )
-
-from ..constants import GlobalVariableConstants as Global
-from ..constants import ErrorCodeConstants as Error
 
 
 class OpInfo:
@@ -45,7 +40,7 @@ class GRABDOC_OT_load_reference(OpInfo, Operator):
     bl_idname = "grab_doc.load_reference"
     bl_label = "Load Reference"
 
-    filepath: bpy.props.StringProperty(subtype="FILE_PATH")
+    filepath: StringProperty(subtype="FILE_PATH")
 
     def execute(self, context: Context):
         bpy.data.images.load(self.filepath, check_existing=True)
@@ -138,18 +133,24 @@ class GRABDOC_OT_export_maps(OpInfo, Operator, UILayout):
     def poll(cls, context: Context) -> bool:
         return not context.scene.gd.preview_state
 
-    def export(self, context: Context, suffix: str) -> None:
+    @staticmethod
+    def export(context: Context, suffix: str) -> str:
         gd = context.scene.gd
 
         render = context.scene.render
         saved_path = render.filepath
-        render.filepath = \
+
+        path = \
             bpy.path.abspath(gd.export_path) + f"{gd.export_name}_{suffix}"
+        #if name in bpy.data.images:
+        #    bpy.data.images.remove(bpy.data.images[name])
+        render.filepath = path
 
         context.scene.camera = bpy.data.objects[Global.TRIM_CAMERA_NAME]
 
         bpy.ops.render.render(write_still=True)
         render.filepath = saved_path
+        return
 
     def execute(self, context: Context):
         report_value, report_string = \
@@ -159,7 +160,7 @@ class GRABDOC_OT_export_maps(OpInfo, Operator, UILayout):
             return {'CANCELLED'}
 
         gd = context.scene.gd
-        self.map_types = 'export'
+        self.map_name = 'export'
 
         bake_maps = get_bake_maps()
 
@@ -186,11 +187,11 @@ class GRABDOC_OT_export_maps(OpInfo, Operator, UILayout):
         for bake_map in bake_maps:
             bake_map.setup()
             if bake_map.NODE:
-                add_ng_to_mat(bake_map.NODE, rendered_objects)
+                apply_node_to_objects(bake_map.NODE, rendered_objects)
             self.export(context, bake_map.suffix)
-            bake_map.refresh()
+            bake_map.cleanup()
             if bake_map.NODE:
-                cleanup_ng_from_mat(bake_map.NODE)
+                node_cleanup(bake_map.NODE)
 
             completion_percent += completion_step
             context.window_manager.progress_update(completion_percent)
@@ -198,7 +199,7 @@ class GRABDOC_OT_export_maps(OpInfo, Operator, UILayout):
         # TODO: New material reimport implementation
 
         # Refresh all original settings
-        baker_refresh(self, context)
+        baker_cleanup(self, context)
 
         plane_ob = bpy.data.objects[Global.BG_PLANE_NAME]
         plane_ob.scale[0] = plane_ob.scale[1] = 1
@@ -226,32 +227,12 @@ class GRABDOC_OT_export_maps(OpInfo, Operator, UILayout):
         return {'FINISHED'}
 
 
-################################################
-# OFFLINE RENDERER
-################################################
-
-
-class MapEnum():
-    map_types: EnumProperty(
-        items=(
-            ('normals', "Normals", ""),
-            ('curvature', "Curvature", ""),
-            ('occlusion', "Ambient Occlusion", ""),
-            ('height', "Height", ""),
-            ('id', "Material ID", ""),
-            ('alpha', "Alpha", ""),
-            ('color', "Color", ""),
-            ('roughness', "Roughness", ""),
-            ('metalness', "Metalness", "")
-        ),
-        options={'HIDDEN'}
-    )
-
-
-class GRABDOC_OT_offline_render(OpInfo, MapEnum, Operator):
+class GRABDOC_OT_single_render(OpInfo, Operator):
     """Renders the selected material and previews it inside Blender"""
-    bl_idname = "grab_doc.offline_render"
+    bl_idname = "grab_doc.single_render"
     bl_options = {'INTERNAL'}
+
+    map_name: StringProperty()
 
     # TODO:
     # - Might be able to have this uniquely
@@ -265,32 +246,11 @@ class GRABDOC_OT_offline_render(OpInfo, MapEnum, Operator):
             cls, "Cannot render, in a Modal State"
         )
 
-    def render(self):
-        render = bpy.context.scene.render
+    def open_render_image(self, filepath: str):
+        new_image = bpy.data.images.load(filepath, check_existing=True)
+        #new_image.name = filepath
 
-        _addon_path, temps_path = get_create_addon_temp_dir()
-
-        saved_path = render.filepath
-        image_name = 'GD_Render Result'
-        render.filepath = os.path.join(temps_path, image_name + get_format())
-
-        # Delete original image
-        if image_name in bpy.data.images:
-            bpy.data.images.remove(bpy.data.images[image_name])
-
-        bpy.ops.render.render(write_still=True)
-
-        # Load in the newly rendered image
-        new_image = bpy.data.images.load(render.filepath)
-        new_image.name = image_name
-
-        # file output path
-        render.filepath = saved_path
-
-        # Call user prefs window
         bpy.ops.screen.userpref_show("INVOKE_DEFAULT")
-
-        # Change area & image type
         area = bpy.context.window_manager.windows[-1].screen.areas[0]
         area.type = "IMAGE_EDITOR"
         area.spaces.active.image = new_image
@@ -304,85 +264,47 @@ class GRABDOC_OT_offline_render(OpInfo, MapEnum, Operator):
 
         start = time.time()
 
-        baker_init(self, context)
-
         active_selected = False
         if context.object:
             activeCallback = context.object.name
             modeCallback = context.object.mode
-
             if bpy.ops.object.mode_set.poll():
                 bpy.ops.object.mode_set(mode='OBJECT')
-
             active_selected = True
 
-        # Scale up BG Plane (helps overscan & border pixels)
         plane_ob = bpy.data.objects[Global.BG_PLANE_NAME]
         plane_ob.scale[0] = plane_ob.scale[1] = 3
 
-        #rendered_objects = get_rendered_objects()
+        baker_init(self, context)
 
-        # NOTE: Match case exists, looks slightly
-        # better vs conditional in this case
-        #match self.map_types:
-        #    case "normals":
-        #        normals_setup(rendered_objects)
-        #        self.render()
-        #        cleanup_ng_from_mat(Global.NORMAL_NG_NAME)
-        #    case "curvature":
-        #        curvature_setup(self)
-        #        self.render()
-        #        curvature_refresh(self)
-        #    case "occlusion":
-        #        occlusion_setup(self, rendered_objects)
-        #        self.render()
-        #        cleanup_ng_from_mat(Global.AO_NG_NAME)
-        #        occlusion_refresh(self)
-        #    case "height":
-        #        height_setup(rendered_objects)
-        #        self.render()
-        #        cleanup_ng_from_mat(Global.HEIGHT_NG_NAME)
-        #    case "ID":
-        #        id_setup()
-        #        self.render()
-        #    case "alpha":
-        #        alpha_setup(rendered_objects)
-        #        self.render()
-        #        cleanup_ng_from_mat(Global.ALPHA_NG_NAME)
-        #    case "color":
-        #        color_setup(rendered_objects)
-        #        self.render()
-        #        cleanup_ng_from_mat(Global.COLOR_NG_NAME)
-        #    case "roughness":
-        #        roughness_setup(rendered_objects)
-        #        self.render()
-        #        cleanup_ng_from_mat(Global.ROUGHNESS_NG_NAME)
-        #    case "metalness":
-        #        metalness_setup(rendered_objects)
-        #        self.render()
-        #        cleanup_ng_from_mat(Global.METALNESS_NG_NAME)
+        gd = context.scene.gd
+        self.baker = getattr(gd, self.map_name)[0]
+        self.baker.setup()
+        if self.baker.NODE:
+            apply_node_to_objects(self.baker.NODE, get_rendered_objects())
+        path = GRABDOC_OT_export_maps.export(context, self.baker.suffix)
+        self.open_render_image(path)
+        self.baker.cleanup()
+        if self.baker.NODE:
+            node_cleanup(self.baker.NODE)
 
-        # Refresh all original settings
-        baker_refresh(self, context)
+        baker_cleanup(self, context)
 
-        # Scale down BG Plane (helps overscan & border pixels)
         plane_ob = bpy.data.objects[Global.BG_PLANE_NAME]
         plane_ob.scale[0] = plane_ob.scale[1] = 1
 
-        # Call for Original Context Mode, use bpy.ops so
-        # that Blenders viewport refreshes
         if active_selected:
             context.view_layer.objects.active = bpy.data.objects[activeCallback]
-
+            # NOTE: Also helps refresh viewport
             if bpy.ops.object.mode_set.poll():
                 bpy.ops.object.mode_set(mode=modeCallback)
 
-        # End the timer
         end = time.time()
         exc_time = round(end - start, 2)
 
         self.report(
-            {'INFO'}, f"{Error.OFFLINE_RENDER_COMPLETE} (execution time: {exc_time}s)"
+            {'INFO'},
+            f"{Error.OFFLINE_RENDER_COMPLETE} (execution time: {exc_time}s)"
         )
         return {'FINISHED'}
 
@@ -399,19 +321,17 @@ class GRABDOC_OT_leave_map_preview(Operator):
     bl_options = {'INTERNAL', 'REGISTER'}
 
     def execute(self, context: Context):
-        # NOTE: A lot of the modal system relies on this particular
-        # switch, if it notices this has been disabled it will begin
-        # the exiting sequence in the properties update function and
-        # also in the modal method itself
         context.scene.gd.preview_state = False
         return {'FINISHED'}
 
 
-class GRABDOC_OT_map_preview_warning(OpInfo, MapEnum, Operator):
+class GRABDOC_OT_map_preview_warning(OpInfo, Operator):
     """Preview the selected material"""
     bl_idname = "grab_doc.preview_warning"
     bl_label = "MATERIAL PREVIEW WARNING"
     bl_options = {'INTERNAL'}
+
+    map_name: StringProperty()
 
     def invoke(self, context: Context, _event: Event):
         return context.window_manager.invoke_props_dialog(self, width=525)
@@ -425,15 +345,13 @@ class GRABDOC_OT_map_preview_warning(OpInfo, MapEnum, Operator):
 
     def execute(self, context: Context):
         context.scene.gd.preview_first_time = False
-        bpy.ops.grab_doc.preview_map(map_types=self.map_types)
+        bpy.ops.grab_doc.preview_map(map_name=self.map_name)
         return {'FINISHED'}
 
 
 def draw_callback_px(self, context: Context) -> None:
     """This needs to be outside of the class
     because of how draw_handler_add handles args"""
-    render_text = self.map_types.capitalize()
-
     font_id = 0
     font_size = 25
     font_opacity = .8
@@ -458,6 +376,7 @@ def draw_callback_px(self, context: Context) -> None:
     blf.position(font_id, font_x_pos, (font_y_pos + font_pos_offset), 0)
     blf.size(font_id, font_size)
     blf.color(font_id, *(1, 1, 1, font_opacity))
+    render_text = self.map_name.capitalize()
     blf.draw(font_id, f"{render_text} Preview  |  [ESC] to exit")
     blf.position(font_id, font_x_pos, font_y_pos, 0)
     blf.size(font_id, font_size+1)
@@ -465,10 +384,12 @@ def draw_callback_px(self, context: Context) -> None:
     blf.draw(font_id, "You are in Map Preview mode!")
 
 
-class GRABDOC_OT_map_preview(OpInfo, MapEnum, Operator):
+class GRABDOC_OT_map_preview(OpInfo, Operator):
     """Preview the selected material"""
     bl_idname = "grab_doc.preview_map"
     bl_options = {'INTERNAL'}
+
+    map_name: StringProperty()
 
     def modal(self, context: Context, event: Event):
         scene = context.scene
@@ -496,18 +417,18 @@ class GRABDOC_OT_map_preview(OpInfo, MapEnum, Operator):
         # Bake map specific settings that are forcibly kept in check
         # TODO: update the node group input values for Mixed Normal
         view_settings = scene.view_settings
-        if self.map_types == "curvature":
-            view_settings.look = gd.curvature[0].contrast.replace('_', ' ')
+        if self.baker.ID == Global.CURVATURE_ID:
+            view_settings.look = self.baker.contrast.replace('_', ' ')
             bpy.data.objects[Global.BG_PLANE_NAME].color[3] = .9999
-        elif self.map_types == "occlusion":
-            view_settings.look = gd.occlusion[0].contrast.replace('_', ' ')
+        elif self.map_name == Global.OCCLUSION_ID:
+            view_settings.look = self.baker.contrast.replace('_', ' ')
             #ao = \
             #    bpy.data.node_groups[NG_AO_NAME].nodes.get('Ambient Occlusion')
-            #ao.inputs[1].default_value = gd.occlusion[0].distance
-        elif self.map_types == "height":
-            view_settings.look = gd.height[0].contrast.replace('_', ' ')
-        elif self.map_types == "ID":
-            scene.display.shading.color_type = gd.id[0].method
+            #ao.inputs[1].default_value = self.baker.distance
+        elif self.map_name == Global.HEIGHT_ID:
+            view_settings.look = self.baker.contrast.replace('_', ' ')
+        elif self.map_name == Global.MATERIAL_ID:
+            scene.display.shading.color_type = self.baker.method
 
         # Exit check
         if not gd.preview_state \
@@ -523,41 +444,28 @@ class GRABDOC_OT_map_preview(OpInfo, MapEnum, Operator):
 
         SpaceView3D.draw_handler_remove(self._handle, 'WINDOW')
 
-        #if self.map_types == "normals":
-        #    cleanup_ng_from_mat(Global.NORMAL_NG_NAME)
-        #elif self.map_types == "curvature":
-        #    curvature_refresh(self)
-        #elif self.map_types == "occlusion":
-        #    occlusion_refresh(self)
-        #    cleanup_ng_from_mat(Global.AO_NG_NAME)
-        #elif self.map_types == "height":
-        #    cleanup_ng_from_mat(Global.HEIGHT_NG_NAME)
-        #elif self.map_types == "alpha":
-        #    cleanup_ng_from_mat(Global.ALPHA_NG_NAME)
-        #elif self.map_types == "color":
-        #    cleanup_ng_from_mat(Global.COLOR_NG_NAME)
-        #elif self.map_types == "roughness":
-        #    cleanup_ng_from_mat(Global.ROUGHNESS_NG_NAME)
-        #elif self.map_types == "metalness":
-        #    cleanup_ng_from_mat(Global.METALNESS_NG_NAME)
-
-        baker_refresh(self, context)
+        self.baker.cleanup()
+        node_cleanup(self.baker.NODE)
+        baker_cleanup(self, context)
 
         # Current workspace shading type
-        for area in context.screen.areas:
-            if area.type == 'VIEW_3D':
-                for space in area.spaces:
-                    space.shading.type = self.saved_render_view
-                    break
+        #for area in context.screen.areas:
+        #    if area.type == 'VIEW_3D':
+        #        for space in area.spaces:
+        #            space.shading.type = self.saved_render_view
+        #            break
 
-        # Original workspace shading type
-        for screen in bpy.data.workspaces[self.savedWorkspace].screens:
-            for area in screen.areas:
-                if area.type != 'VIEW_3D':
-                    continue
-                for space in area.spaces:
-                    space.shading.type = self.saved_render_view
-                    break
+        # NOTE: Return workspace shading
+        areas = (
+            context.screen.areas,
+            *bpy.data.workspaces[self.savedWorkspace].screens.areas
+        )
+        for area in areas:
+            if area.type != 'VIEW_3D':
+                continue
+            for space in area.spaces:
+                space.shading.type = self.saved_render_view
+                break
 
         gd.baker_type = self.savedBakerType
         context.scene.render.engine = self.savedEngine
@@ -575,18 +483,12 @@ class GRABDOC_OT_map_preview(OpInfo, MapEnum, Operator):
             return {'CANCELLED'}
 
         gd = context.scene.gd
-        gd.preview_state = True
-        gd.preview_type = self.map_types
         self.savedBakerType = gd.baker_type
-        gd.baker_type = 'blender'
-
-        self.baker = getattr(gd, self.map_types)[0]
-        print(self.baker)
-
         self.savedWorkspace = context.workspace.name
         self.savedEngine = context.scene.render.engine
-        engine = self.baker.engine.upper()
-        context.scene.render.engine = engine
+        gd.preview_state = True
+        gd.preview_type = self.map_name
+        gd.baker_type = 'blender'
 
         if bpy.ops.object.mode_set.poll():
             bpy.ops.object.mode_set(mode='OBJECT')
@@ -599,17 +501,17 @@ class GRABDOC_OT_map_preview(OpInfo, MapEnum, Operator):
         if not is_camera_in_3d_view():
             bpy.ops.view3d.view_camera()
 
-        baker_setup(self, context)
-        rendered_objects = get_rendered_objects()
-        baker_setup = partial(self.baker.SETUP)
-        baker_setup(rendered_objects)
+        baker_init(self, context)
 
-        # Draw text handler
+        self.baker = getattr(gd, self.map_name)[0]
+        self.baker.setup()
+        if self.baker.NODE:
+            rendered_objects = get_rendered_objects()
+            apply_node_to_objects(self.baker.NODE, rendered_objects)
+
         self._handle = SpaceView3D.draw_handler_add(
             draw_callback_px, (self, context), 'WINDOW', 'POST_PIXEL'
         )
-
-        # Modal handler
         context.window_manager.modal_handler_add(self)
         return {'RUNNING_MODAL'}
 
@@ -641,43 +543,12 @@ class GRABDOC_OT_export_current_preview(OpInfo, Operator):
             scale_plane = True
             plane_ob.scale[0] = plane_ob.scale[1] = 3
 
-        if gd.preview_type == 'normals':
-            suffix = gd.normals[0].suffix
-        elif gd.preview_type == 'curvature':
-            suffix = gd.curvature[0].suffix
-        elif gd.preview_type == 'occlusion':
-            suffix = gd.occlusion[0].suffix
-        elif gd.preview_type == 'height':
-            suffix = gd.height[0].suffix
-        elif gd.preview_type == 'ID':
-            suffix = gd.id[0].suffix
-        elif gd.preview_type == 'alpha':
-            suffix = gd.alpha[0].suffix
-        elif gd.preview_type == 'color':
-            suffix = gd.color[0].suffix
-        elif gd.preview_type == 'roughness':
-            suffix = gd.roughness[0].suffix
-        elif gd.preview_type == 'metalness':
-            suffix = gd.metalness[0].suffix
+        baker = getattr(gd, gd.preview_type)[0]
 
-        render = context.scene.render
-        saved_path = render.filepath
-        render.filepath = \
-            os.path.join(
-                bpy.path.abspath(gd.export_path),
-                gd.export_name + "_" + suffix
-            )
-        bpy.ops.render.render(write_still=True)
-        render.filepath = saved_path
+        GRABDOC_OT_export_maps.export(context, baker.suffix)
+
         if scale_plane:
             plane_ob.scale[0] = plane_ob.scale[1] = 1
-
-        # Reimport the Normal/Occlusion map as a material if requested
-        #if gd.preview_type == 'normals' and gd.normals[0].reimport:
-        #    reimport_as_material(gd.normals[0].suffix)
-        #elif gd.preview_type == 'occlusion' and gd.occlusion[0].reimport:
-        #    reimport_as_material(gd.occlusion[0].suffix)
-        #reimport_as_material()
 
         if gd.export_plane:
             export_plane(context)
@@ -717,6 +588,11 @@ class GRABDOC_OT_config_maps(Operator):
             )
 
 
+################################################
+# CHANNEL PACKING
+################################################
+
+
 #class GRABDOC_OT_map_pack_info(OpInfo, Operator):
 #    """Information about Map Packing and current limitations"""
 #    bl_idname = "grab_doc.map_pack_info"
@@ -746,7 +622,7 @@ classes = (
     GRABDOC_OT_view_cam,
     GRABDOC_OT_setup_scene,
     GRABDOC_OT_remove_setup,
-    GRABDOC_OT_offline_render,
+    GRABDOC_OT_single_render,
     GRABDOC_OT_export_maps,
     GRABDOC_OT_map_preview_warning,
     GRABDOC_OT_map_preview,
@@ -756,15 +632,10 @@ classes = (
     #GRABDOC_OT_map_pack_info
 )
 
-
 def register():
     for cls in classes:
         bpy.utils.register_class(cls)
 
-
 def unregister():
     for cls in classes:
         bpy.utils.unregister_class(cls)
-
-
-

@@ -4,7 +4,7 @@ import bpy
 from bpy.types import Context, Operator
 
 from .operators import OpInfo
-from ..constants import GlobalVariableConstants as Global
+from ..constants import Global
 from ..utils.generic import UseSelectedOnly
 from ..utils.render import get_rendered_objects
 

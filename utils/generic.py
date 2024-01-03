@@ -5,9 +5,8 @@ from inspect import getframeinfo, stack
 import bpy
 from bpy.types import Context, Operator
 
-from ..constants import GlobalVariableConstants as Global
-from ..constants import ErrorCodeConstants as Error
-from ..constants import NAME, VERSION
+from ..__init__ import bl_info
+from ..constants import Global, Error
 
 
 class PanelInfo:
@@ -17,9 +16,9 @@ class PanelInfo:
     bl_label = ""
 
 
-class SubPanelInfo:
-    bl_parent_id = "GRABDOC_PT_view_edit_maps"
-    bl_options = {'HEADER_LAYOUT_EXPAND', 'DEFAULT_CLOSED'}
+#class SubPanelInfo:
+#    bl_parent_id = "GRABDOC_PT_view_edit_maps"
+#    bl_options = {'HEADER_LAYOUT_EXPAND', 'DEFAULT_CLOSED'}
 
 
 class UseSelectedOnly():
@@ -84,12 +83,12 @@ def is_camera_in_3d_view() -> bool:
 
 # NOTE: Basic DRM is best DRM
 def is_pro_version() -> bool:
-    return "Pro" in NAME
+    return "Pro" in bl_info["name"]
 
 
 def format_bl_label(
-        name: str=NAME,
-        bl_version: str=VERSION
+        name: str = bl_info["name"],
+        bl_version: str = bl_info["name"]
     ) -> str:
     tuples_version_pattern = r'\((\d+), (\d+), (\d+)\)'
     match = re.match(tuples_version_pattern, str(bl_version))
@@ -105,10 +104,10 @@ def get_create_addon_temp_dir(
     """Creates a temporary files directory
     for automatically handled I/O"""
     addon_path = os.path.dirname(__file__)
-    temps_path = os.path.join(addon_path, dir_name)
-    if create_dir and not os.path.exists(temps_path):
-        os.mkdir(temps_path)
-    return (addon_path, temps_path)
+    temp_path = os.path.join(addon_path, dir_name)
+    if create_dir and not os.path.exists(temp_path):
+        os.mkdir(temp_path)
+    return (addon_path, temp_path)
 
 
 def get_debug_line_no() -> str:
