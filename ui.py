@@ -3,10 +3,8 @@ import os
 import bpy
 from bpy.types import (
     Context,
-    Operator,
     Panel,
-    UILayout,
-    Event
+    UILayout
 )
 
 from .preferences import GRABDOC_PT_presets
@@ -84,6 +82,15 @@ class GRABDOC_PT_grabdoc(Panel, PanelInfo):
             icon='RESTRICT_RENDER_OFF' if gd.coll_rendered else 'RESTRICT_RENDER_ON'
         )
 
+        row = col.row(align=True)
+        row.scale_y = 1.25
+        in_trim_cam = is_camera_in_3d_view()
+        row.operator(
+            "grab_doc.view_cam",
+            text="Leave Camera View" if in_trim_cam else "View GrabDoc Camera",
+            icon="OUTLINER_OB_CAMERA"
+        )
+
         box = col.box()
         box.use_property_split = True
         box.use_property_decorate = False
@@ -101,7 +108,7 @@ class GRABDOC_PT_grabdoc(Panel, PanelInfo):
         row = col.row()
         row.enabled = not gd.preview_state
         row.prop(gd, "reference", text='Reference')
-        row.operator("grab_doc.load_ref", text="", icon='FILE_FOLDER')
+        row.operator("grab_doc.load_reference", text="", icon='FILE_FOLDER')
         col.separator(factor=.5)
         row = col.row()
         row.prop(gd, "grid_subdivs", text="Grid")
@@ -173,8 +180,8 @@ class GRABDOC_PT_export(PanelInfo, Panel):
         col2.separator(factor=.5)
 
         row = col2.row()
-        row.prop(gd, "export_res_x", text='Resolution')
-        row.prop(gd, "export_res_y", text='')
+        row.prop(gd, "resolution_x", text='Resolution')
+        row.prop(gd, "resolution_y", text='')
         row.prop(gd, 'lock_res', icon_only=True, icon="LOCKED" if gd.lock_res else "UNLOCKED")
 
         col2.separator(factor=.5)
@@ -252,8 +259,8 @@ class GRABDOC_PT_export(PanelInfo, Panel):
         col2.separator(factor=.5)
 
         row = col2.row()
-        row.prop(gd, "export_res_x", text='Resolution')
-        row.prop(gd, "export_res_y", text='')
+        row.prop(gd, "resolution_x", text='Resolution')
+        row.prop(gd, "resolution_y", text='')
         row.prop(
             gd,
             'lock_res',
@@ -319,50 +326,6 @@ class GRABDOC_PT_export(PanelInfo, Panel):
             self.marmoset_ui(gd, layout)
 
 
-class GRABDOC_OT_config_maps(Operator):
-    """Configure bake map UI visibility, will also disable baking"""
-    bl_idname = "grab_doc.config_maps"
-    bl_label = "Configure Map Visibility"
-    bl_options = {'REGISTER'}
-
-    def execute(self, _context):
-        return {'FINISHED'}
-
-    def invoke(self, context: Context, _event: Event):
-        return context.window_manager.invoke_props_dialog(self, width = 200)
-
-    def draw(self, context: Context):
-        gd = context.scene.gd
-        layout = self.layout
-        col = layout.column(align=True)
-
-        map_types = []
-        for name in Global.ALL_MAP_IDS:
-            try:
-                map_type = getattr(gd, name)
-                print(f'bake_map {type(map_type)}: {map_type}')
-                map_types.append(map_type)
-            except AttributeError:
-                print(f"Could not find bake map type: `{name}`")
-
-        for bake_maps in map_types:
-            # TODO: Future for iterating
-            # through bake maps
-            #for bake_map in bake_maps:
-            #    col.prop(
-            #        bake_map, 'visibility',
-            #        text=bake_map.ALIAS, icon="WORLD"
-            #    )
-            if not bake_maps[0].MARMOSET_COMPATIBLE:
-                icon = "BLENDER"
-            else:
-                icon = "WORLD"
-            col.prop(
-                bake_maps[0], 'visibility',
-                text=bake_maps[0].ALIAS, icon=icon
-            )
-
-
 class GRABDOC_PT_view_edit_maps(PanelInfo, Panel):
     bl_label = 'Edit Maps'
     bl_parent_id = "GRABDOC_PT_grabdoc"
@@ -385,29 +348,13 @@ class GRABDOC_PT_view_edit_maps(PanelInfo, Panel):
         layout = self.layout
         col = layout.column(align=True)
 
-        row = col.row(align=True)
-        row.scale_y = 1.25
-        in_trim_cam = is_camera_in_3d_view()
-        row.operator(
-            "grab_doc.view_cam",
-            text="Leave Camera View" if in_trim_cam else "View GrabDoc Camera",
-            icon="OUTLINER_OB_CAMERA"
-        )
-
-        col.prop(
-            gd,
-            'preview_auto_exit_camera',
-            text="Leave Cam on Preview Exit",
-            icon='CHECKBOX_HLT' if gd.preview_auto_exit_camera else 'CHECKBOX_DEHLT'
-        )
-
         if not gd.preview_state:
             return
 
         try:
             self.baker = getattr(gd, gd.preview_type)[0]
         except AttributeError:
-            print(f"Could not find baker of type `{gd.preview_type}`")
+            print(f"Could not find baker `{gd.preview_type}`")
             return
 
         col.separator()
@@ -420,33 +367,30 @@ class GRABDOC_PT_view_edit_maps(PanelInfo, Panel):
         row.scale_y = 1.1
         row.operator(
             "grab_doc.export_preview",
-            text=f"Export {self.baker.ALIAS}",
+            text=f"Export {self.baker.NAME}",
             icon="EXPORT"
         )
 
-        # TODO: May be able to circumvent if elif chain by
-        # just grabbing the CollectionProperty directly
-        # and running draw
-        #print(gd.get())
+        self.baker.draw()
 
-        if gd.preview_type == 'normals':
-            GRABDOC_PT_normals.draw(self, context)
-        elif gd.preview_type == 'curvature':
-            GRABDOC_PT_curvature.draw(self, context)
-        elif gd.preview_type == 'occlusion':
-            GRABDOC_PT_occlusion.draw(self, context)
-        elif gd.preview_type == 'height':
-            GRABDOC_PT_height.draw(self, context)
-        elif gd.preview_type == 'ID':
-            GRABDOC_PT_id.draw(self, context)
-        elif gd.preview_type == 'alpha':
-            GRABDOC_PT_alpha.draw(self, context)
-        elif gd.preview_type == 'color':
-            GRABDOC_PT_color.draw(self, context)
-        elif gd.preview_type == 'roughness':
-            GRABDOC_PT_roughness.draw(self, context)
-        elif gd.preview_type == 'metalness':
-            GRABDOC_PT_metalness.draw(self, context)
+        #if gd.preview_type == 'normals':
+        #    GRABDOC_PT_normals.draw(self, context)
+        #elif gd.preview_type == 'curvature':
+        #    GRABDOC_PT_curvature.draw(self, context)
+        #elif gd.preview_type == 'occlusion':
+        #    GRABDOC_PT_occlusion.draw(self, context)
+        #elif gd.preview_type == 'height':
+        #    GRABDOC_PT_height.draw(self, context)
+        #elif gd.preview_type == 'ID':
+        #    GRABDOC_PT_id.draw(self, context)
+        #elif gd.preview_type == 'alpha':
+        #    GRABDOC_PT_alpha.draw(self, context)
+        #elif gd.preview_type == 'color':
+        #    GRABDOC_PT_color.draw(self, context)
+        #elif gd.preview_type == 'roughness':
+        #    GRABDOC_PT_roughness.draw(self, context)
+        #elif gd.preview_type == 'metalness':
+        #    GRABDOC_PT_metalness.draw(self, context)
 
 
 #class GRABDOC_PT_pack_maps(PanelInfo, Panel):
@@ -486,8 +430,8 @@ class GRABDOC_PT_view_edit_maps(PanelInfo, Panel):
 #        col.prop(gd, 'channel_A')
 
 
-class GRABDOC_PT_baker_default(PanelInfo, SubPanelInfo, Panel):
-    NAME = None
+class BakerPanel(PanelInfo, SubPanelInfo):
+    ID = None
 
     @classmethod
     def poll(cls, context: Context) -> bool:
@@ -511,7 +455,7 @@ class GRABDOC_PT_baker_default(PanelInfo, SubPanelInfo, Panel):
         row.prop(baker, 'enabled', text="")
         row.operator(
             "grab_doc.preview_map",
-            text=f"{self.ALIAS} Preview"
+            text=f"{self.NAME} Preview"
         ).map_types = self.NAME
         row.operator(
             "grab_doc.offline_render",
@@ -537,14 +481,14 @@ class GRABDOC_PT_baker_default(PanelInfo, SubPanelInfo, Panel):
 
         self.draw_baker_warnings(layout)
 
-        # Core
         col = layout.column()
         if len(baker.SUPPORTED_ENGINES) > 1:
             col.prop(baker, 'engine', text="Engine")
 
-        #self.draw_baker_properties(context, layout)
+        baker.draw()
 
-        # Baker
+        self.draw_baker_properties(context, layout)
+
         if gd.baker_type == 'blender':
             if baker.engine == 'blender_eevee':
                 prop = 'samples'
@@ -558,13 +502,13 @@ class GRABDOC_PT_baker_default(PanelInfo, SubPanelInfo, Panel):
                 text='Samples'
             )
             col.prop(baker, 'reimport', text="Re-import")
-
+            col.prop(baker, 'contrast', text="Contrast")
         col.prop(baker, 'suffix', text="Suffix")
 
 
-class GRABDOC_PT_normals(GRABDOC_PT_baker_default):
-    NAME = Global.NORMAL_ID
-    ALIAS = Global.NORMAL_NAME
+class GRABDOC_PT_normals(BakerPanel, Panel):
+    ID = Global.NORMAL_ID
+    NAME = Global.NORMAL_NAME
 
     def draw_baker_properties(self, context: Context, layout: UILayout):
         gd = context.scene.gd
@@ -578,9 +522,9 @@ class GRABDOC_PT_normals(GRABDOC_PT_baker_default):
             col.prop(baker, 'use_texture', text="Texture Normals")
 
 
-class GRABDOC_PT_curvature(GRABDOC_PT_baker_default):
-    NAME = Global.CURVATURE_ID
-    ALIAS = Global.CURVATURE_NAME
+class GRABDOC_PT_curvature(BakerPanel, Panel):
+    ID = Global.CURVATURE_ID
+    NAME = Global.CURVATURE_NAME
 
     def draw_baker_properties(self, context: Context, layout: UILayout):
         gd = context.scene.gd
@@ -599,9 +543,9 @@ class GRABDOC_PT_curvature(GRABDOC_PT_baker_default):
         col.prop(baker, 'valley', text="Valley")
 
 
-class GRABDOC_PT_occlusion(GRABDOC_PT_baker_default):
-    NAME = Global.AO_ID
-    ALIAS = Global.AO_NAME
+class GRABDOC_PT_occlusion(BakerPanel, Panel):
+    ID = Global.AO_ID
+    NAME = Global.AO_NAME
 
     def draw_baker_properties(self, context: Context, layout: UILayout):
         gd = context.scene.gd
@@ -622,9 +566,9 @@ class GRABDOC_PT_occlusion(GRABDOC_PT_baker_default):
         col.prop(baker, 'distance', text="Distance")
 
 
-class GRABDOC_PT_height(GRABDOC_PT_baker_default):
-    NAME = Global.HEIGHT_ID
-    ALIAS = Global.HEIGHT_NAME
+class GRABDOC_PT_height(BakerPanel, Panel):
+    ID = Global.HEIGHT_ID
+    NAME = Global.HEIGHT_NAME
 
     def draw_baker_properties(self, context: Context, layout: UILayout):
         gd = context.scene.gd
@@ -646,9 +590,9 @@ class GRABDOC_PT_height(GRABDOC_PT_baker_default):
             col.prop(baker, 'distance', text="0-1 Range")
 
 
-class GRABDOC_PT_id(GRABDOC_PT_baker_default):
-    NAME = Global.MATERIAL_ID
-    ALIAS = Global.MATERIAL_NAME
+class GRABDOC_PT_id(BakerPanel, Panel):
+    ID = Global.MATERIAL_ID
+    NAME = Global.MATERIAL_NAME
 
     def draw_baker_properties(self, context: Context, layout: UILayout):
         gd = context.scene.gd
@@ -695,9 +639,9 @@ class GRABDOC_PT_id(GRABDOC_PT_baker_default):
             row.operator("grab_doc.quick_remove_selected_mats", text='Selected')
 
 
-class GRABDOC_PT_alpha(GRABDOC_PT_baker_default):
-    NAME = Global.ALPHA_ID
-    ALIAS = Global.ALPHA_NAME
+class GRABDOC_PT_alpha(BakerPanel, Panel):
+    ID = Global.ALPHA_ID
+    NAME = Global.ALPHA_NAME
 
     def draw_baker_properties(self, context: Context, layout: UILayout):
         gd = context.scene.gd
@@ -708,17 +652,17 @@ class GRABDOC_PT_alpha(GRABDOC_PT_baker_default):
             col.prop(baker, 'invert', text="Invert Mask")
 
 
-class GRABDOC_PT_color(GRABDOC_PT_baker_default):
-    NAME = Global.COLOR_ID
-    ALIAS = Global.COLOR_NAME
+class GRABDOC_PT_color(BakerPanel):
+    ID = Global.COLOR_ID
+    NAME = Global.COLOR_NAME
 
     def draw_baker_properties(self, context: Context, layout: UILayout):
         warn_ui(layout)
 
 
-class GRABDOC_PT_roughness(GRABDOC_PT_baker_default):
-    NAME = Global.ROUGHNESS_ID
-    ALIAS = Global.ROUGHNESS_NAME
+class GRABDOC_PT_roughness(BakerPanel, Panel):
+    ID = Global.ROUGHNESS_ID
+    NAME = Global.ROUGHNESS_NAME
 
     def draw_baker_properties(self, context: Context, layout: UILayout):
         gd = context.scene.gd
@@ -733,9 +677,9 @@ class GRABDOC_PT_roughness(GRABDOC_PT_baker_default):
             #col.separator(factor=.5)
 
 
-class GRABDOC_PT_metalness(GRABDOC_PT_baker_default):
-    NAME = Global.METALNESS_ID
-    ALIAS = Global.METALNESS_NAME
+class GRABDOC_PT_metalness(BakerPanel, Panel):
+    ID = Global.METALNESS_ID
+    NAME = Global.METALNESS_NAME
 
     def draw_baker_properties(self, context: Context, layout: UILayout):
         warn_ui(layout)
@@ -748,7 +692,6 @@ class GRABDOC_PT_metalness(GRABDOC_PT_baker_default):
 
 classes = (
     GRABDOC_PT_grabdoc,
-    GRABDOC_OT_config_maps,
     GRABDOC_PT_export,
     GRABDOC_PT_view_edit_maps,
     GRABDOC_PT_normals,

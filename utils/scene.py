@@ -143,8 +143,8 @@ def scene_setup(_self, context: Context) -> None:
         remove_setup(context, hard_reset=False)
 
     # Set scene resolution
-    context.scene.render.resolution_x = gd.export_res_x
-    context.scene.render.resolution_y = gd.export_res_y
+    context.scene.render.resolution_x = gd.resolution_x
+    context.scene.render.resolution_y = gd.resolution_y
 
     # PROPERTIES
     for map_name in gd.MAP_TYPES:
@@ -195,13 +195,13 @@ def scene_setup(_self, context: Context) -> None:
     context.object.name = context.object.data.name = Global.BG_PLANE_NAME
     plane_ob = bpy.data.objects[Global.BG_PLANE_NAME]
 
-    # Prepare proper plane scaling
-    if gd.export_res_x != gd.export_res_y:
-        if gd.export_res_x > gd.export_res_y:
-            div_factor = gd.export_res_x / gd.export_res_y
+    # Plane scaling
+    if gd.resolution_x != gd.resolution_y:
+        if gd.resolution_x > gd.resolution_y:
+            div_factor = gd.resolution_x / gd.resolution_y
             plane_ob.scale[1] /= div_factor
         else:
-            div_factor = gd.export_res_y / gd.export_res_x
+            div_factor = gd.resolution_y / gd.resolution_x
             plane_ob.scale[0] /= div_factor
         bpy.ops.object.transform_apply(location=False, rotation=False)
 

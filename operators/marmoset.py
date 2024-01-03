@@ -39,23 +39,25 @@ class GrabDoc_OT_send_to_marmo(OpInfo, Operator):
 
     @classmethod
     def poll(cls, context: Context) -> bool:
+        package = __package__.split('.', maxsplit=1)[0]
         return os.path.exists(
-            context.preferences.addons[__package__].preferences.marmoset_executable
+            context.preferences.addons[package].preferences.marmoset_executable
         )
 
     def open_marmoset(self, context: Context, temps_path, addon_path):
         gd = context.scene.gd
-        marmo_exe = context.preferences.addons[__package__].preferences.marmoset_executable
+        package = __package__.split('.', maxsplit=1)[0]
+        executable = context.preferences.addons[package].preferences.marmoset_executable
 
         # Create a dictionary of variables to transfer into Marmoset
         marmo_vars = {
             'file_path': f'{bpy.path.abspath(gd.export_path)}{gd.export_name}.{gd.marmoset_format.lower()}',
             'file_ext': gd.marmoset_format.lower(),
             'file_path_no_ext': bpy.path.abspath(gd.export_path),
-            'marmo_sky_path': f'{os.path.dirname(marmo_exe)}\\data\\sky\\Evening Clouds.tbsky',
+            'marmo_sky_path': f'{os.path.dirname(executable)}\\data\\sky\\Evening Clouds.tbsky',
 
-            'resolution_x': gd.export_res_x,
-            'resolution_y': gd.export_res_y,
+            'resolution_x': gd.resolution_x,
+            'resolution_y': gd.resolution_y,
             'bits_per_channel': int(gd.depth),
             'samples': int(gd.marmoset_samples),
 
@@ -100,13 +102,13 @@ class GrabDoc_OT_send_to_marmo(OpInfo, Operator):
         ) as outfile:
             outfile.write(marmo_json)
 
-        path_ext_only = os.path.basename(os.path.normpath(marmo_exe)).encode()
+        path_ext_only = os.path.basename(os.path.normpath(executable)).encode()
 
         if gd.export_plane:
             export_plane(context)
 
         subproc_args = [
-            marmo_exe,
+            executable,
             os.path.join(addon_path, "marmoset_utils.py")
         ]
 

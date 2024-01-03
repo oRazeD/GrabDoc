@@ -61,9 +61,9 @@ def ng_setup() -> None:
     inputs = get_shader_outputs()
 
     # Normals
-    if not Global.NORMAL_NG_NAME in bpy.data.node_groups:
+    if not Global.NORMAL_NODE in bpy.data.node_groups:
         tree = bpy.data.node_groups.new(
-            Global.NORMAL_NG_NAME, 'ShaderNodeTree'
+            Global.NORMAL_NODE, 'ShaderNodeTree'
         )
         tree.use_fake_user = True
 
@@ -154,8 +154,8 @@ def ng_setup() -> None:
         links.new(mix_shader.inputs[2], vec_add.outputs['Vector'])
 
     # Ambient Occlusion
-    if not Global.AO_NG_NAME in bpy.data.node_groups:
-        tree = bpy.data.node_groups.new(Global.AO_NG_NAME, 'ShaderNodeTree')
+    if not Global.AO_NODE in bpy.data.node_groups:
+        tree = bpy.data.node_groups.new(Global.AO_NODE, 'ShaderNodeTree')
         tree.use_fake_user = True
 
         # Create sockets
@@ -186,9 +186,9 @@ def ng_setup() -> None:
         links.new(group_output.inputs["Shader"], emission.outputs["Emission"])
 
     # Height
-    if not Global.HEIGHT_NG_NAME in bpy.data.node_groups:
+    if not Global.HEIGHT_NODE in bpy.data.node_groups:
         tree = bpy.data.node_groups.new(
-            Global.HEIGHT_NG_NAME,
+            Global.HEIGHT_NODE,
             'ShaderNodeTree'
         )
         tree.use_fake_user = True
@@ -222,9 +222,9 @@ def ng_setup() -> None:
         links.new(group_output.inputs["Shader"], ramp.outputs["Color"])
 
     # Alpha
-    if not Global.ALPHA_NG_NAME in bpy.data.node_groups:
+    if not Global.ALPHA_NODE in bpy.data.node_groups:
         tree = bpy.data.node_groups.new(
-            Global.ALPHA_NG_NAME,
+            Global.ALPHA_NODE,
             'ShaderNodeTree'
         )
         tree.use_fake_user = True
@@ -265,10 +265,10 @@ def ng_setup() -> None:
         links.new(group_output.inputs["Shader"], emission.outputs["Emission"])
 
     # Base Color
-    if not Global.COLOR_NG_NAME in bpy.data.node_groups:
+    if not Global.COLOR_NODE in bpy.data.node_groups:
         tree = \
             bpy.data.node_groups.new(
-                Global.COLOR_NG_NAME,
+                Global.COLOR_NODE,
                 'ShaderNodeTree'
             )
         tree.use_fake_user = True
@@ -297,9 +297,9 @@ def ng_setup() -> None:
         links.new(group_output.inputs["Shader"], emission.outputs["Emission"])
 
     # Roughness
-    if not Global.ROUGHNESS_NG_NAME in bpy.data.node_groups:
+    if not Global.ROUGHNESS_NODE in bpy.data.node_groups:
         tree = bpy.data.node_groups.new(
-                Global.ROUGHNESS_NG_NAME,
+                Global.ROUGHNESS_NODE,
                 'ShaderNodeTree'
             )
         tree.use_fake_user = True
@@ -343,10 +343,10 @@ def ng_setup() -> None:
         )
 
     # Metalness
-    if not Global.METALNESS_NG_NAME in bpy.data.node_groups:
+    if not Global.METALNESS_NODE in bpy.data.node_groups:
         tree = \
             bpy.data.node_groups.new(
-                Global.METALNESS_NG_NAME,
+                Global.METALNESS_NODE,
                 'ShaderNodeTree'
             )
         tree.use_fake_user = True
@@ -533,7 +533,7 @@ def add_ng_to_mat(name: str, objects: Iterable[Object]) -> None:
                             if original_input.name not in Global.ALL_MAP_NAMES:
                                 continue
                             if (
-                                name == Global.COLOR_NG_NAME \
+                                name == Global.COLOR_NODE \
                                 and original_input.name == Global.COLOR_NAME
                             ):
                                 node_found = create_bsdf_link(
@@ -543,7 +543,7 @@ def add_ng_to_mat(name: str, objects: Iterable[Object]) -> None:
                                     material=material
                                 )
                             elif (
-                                name == Global.ROUGHNESS_NG_NAME \
+                                name == Global.ROUGHNESS_NODE \
                                 and original_input.name == Global.ROUGHNESS_NAME
                             ):
                                 node_found = create_bsdf_link(
@@ -553,7 +553,7 @@ def add_ng_to_mat(name: str, objects: Iterable[Object]) -> None:
                                     material=material
                                 )
                             elif (
-                                name == Global.METALNESS_NG_NAME \
+                                name == Global.METALNESS_NODE \
                                 and original_input.name == Global.METALNESS_NAME
                             ):
                                 node_found = create_bsdf_link(
@@ -563,8 +563,8 @@ def add_ng_to_mat(name: str, objects: Iterable[Object]) -> None:
                                     material=material
                                 )
                             if (
-                                name in (Global.ALPHA_NG_NAME,
-                                         Global.NORMAL_NG_NAME) \
+                                name in (Global.ALPHA_NODE,
+                                         Global.NORMAL_NODE) \
                                 and original_input.name in (Global.ALPHA_NAME,
                                                             Global.NORMAL_NAME)
                             ):
@@ -590,7 +590,7 @@ def add_ng_to_mat(name: str, objects: Iterable[Object]) -> None:
 
                         if (
                             not node_found \
-                            and name != Global.NORMAL_NG_NAME \
+                            and name != Global.NORMAL_NODE \
                             and material.name != Global.GD_MATERIAL_NAME
                         ):
                             # TODO: Report on this to user...
@@ -659,6 +659,3 @@ def cleanup_ng_from_mat(setup_type: str) -> None:
                                 )
 
             mat.node_tree.nodes.remove(GD_node_group)
-
-
-

@@ -8,7 +8,7 @@ from bpy.types import SpaceView3D, Event, Context, Operator, UILayout
 from bpy.props import EnumProperty
 
 from ..utils.render import get_rendered_objects
-from ..utils.node import cleanup_ng_from_mat
+from ..utils.node import add_ng_to_mat, cleanup_ng_from_mat
 from ..utils.scene import scene_setup, remove_setup
 from ..utils.generic import (
     proper_scene_setup,
@@ -20,20 +20,10 @@ from ..utils.generic import (
     poll_message_error
 )
 from ..utils.baker import (
-    setup_baker,
-    normals_setup,
-    curvature_setup,
-    curvature_refresh,
-    occlusion_setup,
-    occlusion_refresh,
-    height_setup,
-    alpha_setup,
-    id_setup,
-    color_setup,
-    roughness_setup,
-    metalness_setup,
-    #reimport_as_material,
-    export_refresh
+    baker_init,
+    get_bake_maps,
+    baker_refresh,
+    get_bakers
 )
 
 from ..constants import GlobalVariableConstants as Global
@@ -50,19 +40,19 @@ class OpInfo:
 ################################################
 
 
-class GRABDOC_OT_load_ref(OpInfo, Operator):
+class GRABDOC_OT_load_reference(OpInfo, Operator):
     """Import a reference onto the background plane"""
-    bl_idname = "grab_doc.load_ref"
+    bl_idname = "grab_doc.load_reference"
     bl_label = "Load Reference"
 
     filepath: bpy.props.StringProperty(subtype="FILE_PATH")
 
     def execute(self, context: Context):
-        # Load a new image into the main database
         bpy.data.images.load(self.filepath, check_existing=True)
-
         context.scene.gd.reference = \
-            bpy.data.images[os.path.basename(os.path.normpath(self.filepath))]
+            bpy.data.images[
+                os.path.basename(os.path.normpath(self.filepath))
+            ]
         return {'FINISHED'}
 
     def invoke(self, context: Context, _event: Event):
@@ -94,13 +84,11 @@ class GRABDOC_OT_view_cam(OpInfo, Operator):
 
     def execute(self, context: Context):
         context.scene.camera = bpy.data.objects[Global.TRIM_CAMERA_NAME]
-
         # TODO: I don't know what the intention was here
         if self.from_modal and is_camera_in_3d_view():
             bpy.ops.view3d.view_camera()
         else:
             bpy.ops.view3d.view_camera()
-
         self.from_modal = False
         return {'FINISHED'}
 
@@ -134,7 +122,7 @@ scene, not including images reimported after bakes"""
 
 
 ################################################
-# MAP EXPORTER
+# MAP EXPORT
 ################################################
 
 
@@ -163,144 +151,54 @@ class GRABDOC_OT_export_maps(OpInfo, Operator, UILayout):
         bpy.ops.render.render(write_still=True)
         render.filepath = saved_path
 
-    def draw(self, context: Context):
-        layout = self.layout
-        print("Layout:", layout)
-
     def execute(self, context: Context):
-        gd = context.scene.gd
-
-        self.map_types = 'export'
-
         report_value, report_string = \
             bad_setup_check(context, active_export=True)
         if report_value:
             self.report({'ERROR'}, report_string)
             return {'CANCELLED'}
 
-        rendered_objects = get_rendered_objects()
+        gd = context.scene.gd
+        self.map_types = 'export'
 
-        # Start execution timer & UI progress bar
+        bake_maps = get_bake_maps()
+
         start = time.time()
         context.window_manager.progress_begin(0, 9999)
+        completion_step = 100 / (1 + len(bake_maps))
+        completion_percent = 0
 
-        # System for dynamically deciding the progress percentage
-        operation_counter = (
-            (gd.normals[0].visibility   and gd.normals[0].enabled),
-            (gd.curvature[0].visibility and gd.curvature[0].enabled),
-            (gd.occlusion[0].visibility and gd.occlusion[0].enabled),
-            (gd.height[0].visibility    and gd.height[0].enabled),
-            (gd.alpha[0].visibility     and gd.alpha[0].enabled),
-            (gd.id[0].visibility        and gd.id[0].enabled),
-            (gd.color[0].visibility     and gd.color[0].enabled),
-            (gd.roughness[0].visibility and gd.roughness[0].enabled),
-            (gd.metalness[0].visibility and gd.metalness[0].enabled)
-        )
-
-        percentage_division = 100 / (1 + sum(operation_counter))
-        percent_till_completed = 0
-
-        setup_baker(self, context)
+        rendered_objects = get_rendered_objects()
+        baker_init(self, context)
 
         active_selected = False
         if context.object:
             activeCallback = context.object.name
             modeCallback = context.object.mode
-
             if bpy.ops.object.mode_set.poll():
                 bpy.ops.object.mode_set(mode='OBJECT')
-
             active_selected = True
 
         # Scale up BG Plane (helps overscan & border pixels)
         plane_ob = bpy.data.objects[Global.BG_PLANE_NAME]
         plane_ob.scale[0] = plane_ob.scale[1] = 3
 
-        percent_till_completed += percentage_division
-        context.window_manager.progress_update(percent_till_completed)
+        for bake_map in bake_maps:
+            bake_map.setup()
+            if bake_map.NODE:
+                add_ng_to_mat(bake_map.NODE, rendered_objects)
+            self.export(context, bake_map.suffix)
+            bake_map.refresh()
+            if bake_map.NODE:
+                cleanup_ng_from_mat(bake_map.NODE)
 
-        if gd.normals[0].visibility and gd.normals[0].enabled:
-            normals_setup(rendered_objects)
-            self.export(context, suffix=gd.normals[0].suffix)
+            completion_percent += completion_step
+            context.window_manager.progress_update(completion_percent)
 
-            #if gd.normals[0].reimport:
-            #    reimport_as_material(gd.normals[0].suffix)
-
-            cleanup_ng_from_mat(Global.NORMAL_NG_NAME)
-
-            percent_till_completed += percentage_division
-            context.window_manager.progress_update(percent_till_completed)
-
-        if gd.curvature[0].visibility and gd.curvature[0].enabled:
-            curvature_setup(self)
-            self.export(context, suffix=gd.curvature[0].suffix)
-            curvature_refresh(self)
-
-            percent_till_completed += percentage_division
-            context.window_manager.progress_update(percent_till_completed)
-
-        if gd.occlusion[0].visibility and gd.occlusion[0].enabled:
-            occlusion_setup(self, rendered_objects)
-            self.export(context, suffix=gd.occlusion[0].suffix)
-
-            #if gd.occlusion[0].reimport:
-            #    reimport_as_material(gd.occlusion[0].suffix)
-
-            cleanup_ng_from_mat(Global.AO_NG_NAME)
-            occlusion_refresh(self)
-
-            percent_till_completed += percentage_division
-            context.window_manager.progress_update(percent_till_completed)
-
-        if gd.height[0].visibility and gd.height[0].enabled:
-            height_setup(rendered_objects)
-            self.export(context, suffix=gd.height[0].suffix)
-            cleanup_ng_from_mat(Global.HEIGHT_NG_NAME)
-
-            percent_till_completed += percentage_division
-            context.window_manager.progress_update(percent_till_completed)
-
-        if gd.alpha[0].visibility and gd.alpha[0].enabled:
-            alpha_setup(rendered_objects)
-            self.export(context, suffix=gd.alpha[0].suffix)
-            cleanup_ng_from_mat(Global.ALPHA_NG_NAME)
-
-            percent_till_completed += percentage_division
-            context.window_manager.progress_update(percent_till_completed)
-
-        if gd.id[0].visibility and gd.id[0].enabled:
-            id_setup()
-            self.export(context, suffix=gd.id[0].suffix)
-
-            percent_till_completed += percentage_division
-            context.window_manager.progress_update(percent_till_completed)
-
-        if gd.color[0].visibility and gd.color[0].enabled:
-            color_setup(rendered_objects)
-            self.export(context, suffix=gd.color[0].suffix)
-            cleanup_ng_from_mat(Global.COLOR_NG_NAME)
-
-            percent_till_completed += percentage_division
-            context.window_manager.progress_update(percent_till_completed)
-
-        if gd.roughness[0].visibility and gd.roughness[0].enabled:
-            roughness_setup(rendered_objects)
-            self.export(context, suffix=gd.roughness[0].suffix)
-            cleanup_ng_from_mat(Global.ROUGHNESS_NG_NAME)
-
-            percent_till_completed += percentage_division
-            context.window_manager.progress_update(percent_till_completed)
-
-        if gd.metalness[0].visibility and gd.metalness[0].enabled:
-            metalness_setup(rendered_objects)
-            self.export(context, suffix=gd.metalness[0].suffix)
-            cleanup_ng_from_mat(Global.METALNESS_NG_NAME)
-
-            percent_till_completed += percentage_division
-            context.window_manager.progress_update(percent_till_completed)
+        # TODO: New material reimport implementation
 
         # Refresh all original settings
-        export_refresh(self, context)
+        baker_refresh(self, context)
 
         plane_ob = bpy.data.objects[Global.BG_PLANE_NAME]
         plane_ob.scale[0] = plane_ob.scale[1] = 1
@@ -367,16 +265,13 @@ class GRABDOC_OT_offline_render(OpInfo, MapEnum, Operator):
             cls, "Cannot render, in a Modal State"
         )
 
-    def offline_render(self):
+    def render(self):
         render = bpy.context.scene.render
 
         _addon_path, temps_path = get_create_addon_temp_dir()
 
-        # file output path
         saved_path = render.filepath
-
         image_name = 'GD_Render Result'
-
         render.filepath = os.path.join(temps_path, image_name + get_format())
 
         # Delete original image
@@ -407,10 +302,9 @@ class GRABDOC_OT_offline_render(OpInfo, MapEnum, Operator):
             self.report({'ERROR'}, report_string)
             return {'CANCELLED'}
 
-        # Start execution timer after basic error checking
         start = time.time()
 
-        setup_baker(self, context)
+        baker_init(self, context)
 
         active_selected = False
         if context.object:
@@ -426,50 +320,50 @@ class GRABDOC_OT_offline_render(OpInfo, MapEnum, Operator):
         plane_ob = bpy.data.objects[Global.BG_PLANE_NAME]
         plane_ob.scale[0] = plane_ob.scale[1] = 3
 
-        rendered_objects = get_rendered_objects()
+        #rendered_objects = get_rendered_objects()
 
         # NOTE: Match case exists, looks slightly
         # better vs conditional in this case
-        match self.map_types:
-            case "normals":
-                normals_setup(rendered_objects)
-                self.offline_render()
-                cleanup_ng_from_mat(Global.NORMAL_NG_NAME)
-            case "curvature":
-                curvature_setup(self)
-                self.offline_render()
-                curvature_refresh(self)
-            case "occlusion":
-                occlusion_setup(self, rendered_objects)
-                self.offline_render()
-                cleanup_ng_from_mat(Global.AO_NG_NAME)
-                occlusion_refresh(self)
-            case "height":
-                height_setup(rendered_objects)
-                self.offline_render()
-                cleanup_ng_from_mat(Global.HEIGHT_NG_NAME)
-            case "ID":
-                id_setup()
-                self.offline_render()
-            case "alpha":
-                alpha_setup(rendered_objects)
-                self.offline_render()
-                cleanup_ng_from_mat(Global.ALPHA_NG_NAME)
-            case "color":
-                color_setup(rendered_objects)
-                self.offline_render()
-                cleanup_ng_from_mat(Global.COLOR_NG_NAME)
-            case "roughness":
-                roughness_setup(rendered_objects)
-                self.offline_render()
-                cleanup_ng_from_mat(Global.ROUGHNESS_NG_NAME)
-            case "metalness":
-                metalness_setup(rendered_objects)
-                self.offline_render()
-                cleanup_ng_from_mat(Global.METALNESS_NG_NAME)
+        #match self.map_types:
+        #    case "normals":
+        #        normals_setup(rendered_objects)
+        #        self.render()
+        #        cleanup_ng_from_mat(Global.NORMAL_NG_NAME)
+        #    case "curvature":
+        #        curvature_setup(self)
+        #        self.render()
+        #        curvature_refresh(self)
+        #    case "occlusion":
+        #        occlusion_setup(self, rendered_objects)
+        #        self.render()
+        #        cleanup_ng_from_mat(Global.AO_NG_NAME)
+        #        occlusion_refresh(self)
+        #    case "height":
+        #        height_setup(rendered_objects)
+        #        self.render()
+        #        cleanup_ng_from_mat(Global.HEIGHT_NG_NAME)
+        #    case "ID":
+        #        id_setup()
+        #        self.render()
+        #    case "alpha":
+        #        alpha_setup(rendered_objects)
+        #        self.render()
+        #        cleanup_ng_from_mat(Global.ALPHA_NG_NAME)
+        #    case "color":
+        #        color_setup(rendered_objects)
+        #        self.render()
+        #        cleanup_ng_from_mat(Global.COLOR_NG_NAME)
+        #    case "roughness":
+        #        roughness_setup(rendered_objects)
+        #        self.render()
+        #        cleanup_ng_from_mat(Global.ROUGHNESS_NG_NAME)
+        #    case "metalness":
+        #        metalness_setup(rendered_objects)
+        #        self.render()
+        #        cleanup_ng_from_mat(Global.METALNESS_NG_NAME)
 
         # Refresh all original settings
-        export_refresh(self, context)
+        baker_refresh(self, context)
 
         # Scale down BG Plane (helps overscan & border pixels)
         plane_ob = bpy.data.objects[Global.BG_PLANE_NAME]
@@ -494,7 +388,7 @@ class GRABDOC_OT_offline_render(OpInfo, MapEnum, Operator):
 
 
 ################################################
-# MAP PREVIEWER
+# MAP PREVIEW
 ################################################
 
 
@@ -629,25 +523,25 @@ class GRABDOC_OT_map_preview(OpInfo, MapEnum, Operator):
 
         SpaceView3D.draw_handler_remove(self._handle, 'WINDOW')
 
-        if self.map_types == "normals":
-            cleanup_ng_from_mat(Global.NORMAL_NG_NAME)
-        elif self.map_types == "curvature":
-            curvature_refresh(self)
-        elif self.map_types == "occlusion":
-            occlusion_refresh(self)
-            cleanup_ng_from_mat(Global.AO_NG_NAME)
-        elif self.map_types == "height":
-            cleanup_ng_from_mat(Global.HEIGHT_NG_NAME)
-        elif self.map_types == "alpha":
-            cleanup_ng_from_mat(Global.ALPHA_NG_NAME)
-        elif self.map_types == "color":
-            cleanup_ng_from_mat(Global.COLOR_NG_NAME)
-        elif self.map_types == "roughness":
-            cleanup_ng_from_mat(Global.ROUGHNESS_NG_NAME)
-        elif self.map_types == "metalness":
-            cleanup_ng_from_mat(Global.METALNESS_NG_NAME)
+        #if self.map_types == "normals":
+        #    cleanup_ng_from_mat(Global.NORMAL_NG_NAME)
+        #elif self.map_types == "curvature":
+        #    curvature_refresh(self)
+        #elif self.map_types == "occlusion":
+        #    occlusion_refresh(self)
+        #    cleanup_ng_from_mat(Global.AO_NG_NAME)
+        #elif self.map_types == "height":
+        #    cleanup_ng_from_mat(Global.HEIGHT_NG_NAME)
+        #elif self.map_types == "alpha":
+        #    cleanup_ng_from_mat(Global.ALPHA_NG_NAME)
+        #elif self.map_types == "color":
+        #    cleanup_ng_from_mat(Global.COLOR_NG_NAME)
+        #elif self.map_types == "roughness":
+        #    cleanup_ng_from_mat(Global.ROUGHNESS_NG_NAME)
+        #elif self.map_types == "metalness":
+        #    cleanup_ng_from_mat(Global.METALNESS_NG_NAME)
 
-        export_refresh(self, context)
+        baker_refresh(self, context)
 
         # Current workspace shading type
         for area in context.screen.areas:
@@ -670,7 +564,7 @@ class GRABDOC_OT_map_preview(OpInfo, MapEnum, Operator):
 
         # Check for auto exit camera option, keep this
         # at the end of the stack to avoid pop in
-        if gd.preview_auto_exit_camera or not proper_scene_setup():
+        if not proper_scene_setup():
             bpy.ops.grab_doc.view_cam(from_modal=True)
 
     def execute(self, context: Context):
@@ -705,7 +599,7 @@ class GRABDOC_OT_map_preview(OpInfo, MapEnum, Operator):
         if not is_camera_in_3d_view():
             bpy.ops.view3d.view_camera()
 
-        setup_baker(self, context)
+        baker_setup(self, context)
         rendered_objects = get_rendered_objects()
         baker_setup = partial(self.baker.SETUP)
         baker_setup(rendered_objects)
@@ -740,9 +634,12 @@ class GRABDOC_OT_export_current_preview(OpInfo, Operator):
 
         start = time.time()
 
-        # NOTE: Scale plane to account for overscan
+        # NOTE: Manual plane scale to account for overscan
         plane_ob = bpy.data.objects[Global.BG_PLANE_NAME]
-        plane_ob.scale[0] = plane_ob.scale[1] = 3
+        scale_plane = False
+        if plane_ob.scale[0] == 1:
+            scale_plane = True
+            plane_ob.scale[0] = plane_ob.scale[1] = 3
 
         if gd.preview_type == 'normals':
             suffix = gd.normals[0].suffix
@@ -772,7 +669,8 @@ class GRABDOC_OT_export_current_preview(OpInfo, Operator):
             )
         bpy.ops.render.render(write_still=True)
         render.filepath = saved_path
-        plane_ob.scale[0] = plane_ob.scale[1] = 1
+        if scale_plane:
+            plane_ob.scale[0] = plane_ob.scale[1] = 1
 
         # Reimport the Normal/Occlusion map as a material if requested
         #if gd.preview_type == 'normals' and gd.normals[0].reimport:
@@ -791,6 +689,32 @@ class GRABDOC_OT_export_current_preview(OpInfo, Operator):
             {'INFO'}, f"{Error.EXPORT_COMPLETE} (execution time: {exc_time}s)"
         )
         return {'FINISHED'}
+
+
+class GRABDOC_OT_config_maps(Operator):
+    """Configure bake map UI visibility, will also disable baking"""
+    bl_idname = "grab_doc.config_maps"
+    bl_label = "Configure Map Visibility"
+    bl_options = {'REGISTER'}
+
+    def execute(self, _context):
+        return {'FINISHED'}
+
+    def invoke(self, context: Context, _event: Event):
+        return context.window_manager.invoke_props_dialog(self, width=200)
+
+    def draw(self, _context: Context):
+        layout = self.layout
+        col = layout.column(align=True)
+
+        bakers = get_bakers()
+        for baker in bakers:
+            icon = \
+                "BLENDER" if not baker[0].MARMOSET_COMPATIBLE else "WORLD"
+            col.prop(
+                baker[0], 'visibility',
+                text=baker[0].NAME, icon=icon
+            )
 
 
 #class GRABDOC_OT_map_pack_info(OpInfo, Operator):
@@ -817,7 +741,7 @@ class GRABDOC_OT_export_current_preview(OpInfo, Operator):
 
 
 classes = (
-    GRABDOC_OT_load_ref,
+    GRABDOC_OT_load_reference,
     GRABDOC_OT_open_folder,
     GRABDOC_OT_view_cam,
     GRABDOC_OT_setup_scene,
@@ -828,6 +752,7 @@ classes = (
     GRABDOC_OT_map_preview,
     GRABDOC_OT_leave_map_preview,
     GRABDOC_OT_export_current_preview,
+    GRABDOC_OT_config_maps
     #GRABDOC_OT_map_pack_info
 )
 

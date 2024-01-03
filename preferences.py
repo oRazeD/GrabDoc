@@ -27,8 +27,18 @@ from bpy.props import (
 
 from .constants import GlobalVariableConstants as Global
 from .utils.scene import scene_setup
-from .utils.render import get_rendered_objects, set_guide_height
-from .utils.baker import normals_setup
+#from .utils.render import get_rendered_objects, set_guide_height
+from .utils.baker import (
+    Alpha,
+    Color,
+    Curvature,
+    Height,
+    Id,
+    Metalness,
+    Normals,
+    Occlusion,
+    Roughness
+)
 
 from .addon_updater import Updater as updater
 from .constants import VERSION
@@ -79,8 +89,8 @@ class GRABDOC_OT_add_preset(AddPresetBase, Operator):
         "gd.baker_type",
         "gd.export_path",
         "gd.export_name",
-        "gd.export_res_x",
-        "gd.export_res_y",
+        "gd.resolution_x",
+        "gd.resolution_y",
         "gd.lock_res",
         "gd.format",
         "gd.depth",
@@ -89,7 +99,6 @@ class GRABDOC_OT_add_preset(AddPresetBase, Operator):
 
         "gd.use_bake_collections",
         "gd.export_plane",
-        "gd.preview_auto_exit_camera",
 
         "gd.marmoset_auto_bake",
         "gd.marmoset_auto_close",
@@ -160,441 +169,6 @@ class GRABDOC_AP_preferences(AddonPreferences):
 
 
 ############################################################
-# BAKERS
-############################################################
-
-
-class GRABDOC_baker_defaults():
-    # NOTE: Variables and
-    # their option types
-    # for sub-classes
-    NAME = ""                                   # Baker name
-    ALIAS = NAME.capitalize()                   # Fancy name
-    MARMOSET_COMPATIBLE = True                  # Compatibility
-    SETUP = None                                # Setup function
-    DRAW = None                                 # Draw function
-    SUPPORTED_ENGINES = (                       # Supported engines
-        ('blender_eevee',     "Eevee",     ""),
-        ('cycles',            "Cycles",    ""),
-        ('blender_workbench', "Workbench", "")
-    )
-
-    def update_engine(self, context: Context):
-        if not context.scene.gd.preview_state:
-            return
-        context.scene.render.engine = \
-            str(self.engine).upper()
-
-    enabled: BoolProperty(name="Export Enabled", default=True)
-    reimport: BoolProperty(
-        name="Reimport Texture",
-        description="Reimport bake map texture into a Blender material"
-    )
-    suffix: StringProperty(
-        name="Suffix",
-        description="The suffix of the exported bake map",
-        # NOTE: `default` not captured in sub-classes
-        # so you must set after item creation for now
-        default=NAME
-    )
-    visibility: BoolProperty(default=True)
-    samples: IntProperty(
-        name="Eevee Samples", default=128, min=1, soft_max=512
-    )
-    samples_cycles: IntProperty(
-        name="Cycles Samples", default=32, min=1, soft_max=1024
-    )
-    samples_workbench: EnumProperty(
-        items=(
-            ('OFF', "No Anti-Aliasing", ""),
-            ('FXAA', "1 Sample", ""),
-            ('5', "5 Samples", ""),
-            ('8', "8 Samples", ""),
-            ('11', "11 Samples", ""),
-            ('16', "16 Samples", ""),
-            ('32', "32 Samples", "")
-        ),
-        default="16",
-        name="Workbench Samples"
-    )
-    contrast: EnumProperty(
-        items=(
-            ('None', "None (Medium)", ""),
-            ('Very_High_Contrast', "Very High", ""),
-            ('High_Contrast', "High", ""),
-            ('Medium_High_Contrast', "Medium High", ""),
-            ('Medium_Low_Contrast', "Medium Low", ""),
-            ('Low_Contrast', "Low", ""),
-            ('Very_Low_Contrast', "Very Low", "")
-        ),
-        name="Contrast"
-    )
-    # NOTE: You must add the following redundant
-    # properties to all sub-classes for now
-    engine: EnumProperty(
-        items=SUPPORTED_ENGINES,
-        name='Render Engine',
-        update=update_engine
-    )
-
-
-class GRABDOC_normals(GRABDOC_baker_defaults, PropertyGroup):
-    NAME = "normals"
-    ALIAS = NAME.capitalize()
-    SETUP = normals_setup
-    COLOR_SPACE = "None"
-    SUPPORTED_ENGINES = (
-        ('blender_eevee', "Eevee",  ""),
-        ('cycles',        "Cycles", "")
-    )
-
-    def update_flip_y(self, _context: Context):
-        vec_multiply = \
-            bpy.data.node_groups[Global.NORMAL_NG_NAME].nodes.get('Vector Math')
-        vec_multiply.inputs[1].default_value[1] = -.5 if self.flip_y else .5
-
-    def update_use_texture_normals(self, _context: Context) -> None:
-        if not self.preview_state:
-            return
-        tree = bpy.data.node_groups[Global.NORMAL_NG_NAME]
-        vec_transform = tree.nodes.get('Vector Transform')
-        group_output = tree.nodes.get('Group Output')
-
-        links = tree.links
-        if self.use_texture:
-            links.new(
-                vec_transform.inputs["Vector"],
-                tree.nodes.get('Bevel').outputs["Normal"]
-            )
-            links.new(
-                group_output.inputs["Shader"],
-                tree.nodes.get('Mix Shader').outputs["Shader"]
-            )
-        else:
-            links.new(
-                vec_transform.inputs["Vector"],
-                tree.nodes.get('Bevel.001').outputs["Normal"]
-            )
-            links.new(
-                group_output.inputs["Shader"],
-                tree.nodes.get('Vector Math.001').outputs["Vector"]
-            )
-
-    flip_y: BoolProperty(
-        name="Flip Y (-Y)",
-        description="Flip the normal map Y direction",
-        options={'SKIP_SAVE'},
-        update=update_flip_y
-    )
-    use_texture: BoolProperty(
-        name="Use Texture Normals",
-        description="Use texture normals linked to the Principled BSDF",
-        options={'SKIP_SAVE'},
-        default=True,
-        update=update_use_texture_normals
-    )
-    engine: EnumProperty(
-        items=SUPPORTED_ENGINES,
-        name='Render Engine',
-        update=GRABDOC_baker_defaults.update_engine
-    )
-
-
-class GRABDOC_curvature(GRABDOC_baker_defaults, PropertyGroup):
-    NAME = "curvature"
-    ALIAS = NAME.capitalize()
-    COLOR_SPACE = "sRGB"
-    SUPPORTED_ENGINES = (
-        ('blender_workbench', "Workbench", ""),
-    )
-
-    def update_curvature(self, context: Context):
-        if not self.preview_state:
-            return
-        scene_shading = \
-            bpy.data.scenes[str(context.scene.name)].display.shading
-        scene_shading.cavity_ridge_factor = \
-        scene_shading.curvature_ridge_factor = self.ridge
-        scene_shading.curvature_valley_factor = self.valley
-
-    ridge: FloatProperty(
-        name="",
-        default=2,
-        min=0,
-        max=2,
-        precision=3,
-        step=.1,
-        update=update_curvature,
-        subtype='FACTOR'
-    )
-    valley: FloatProperty(
-        name="",
-        default=1.5,
-        min=0,
-        max=2,
-        precision=3,
-        step=.1,
-        update=update_curvature,
-        subtype='FACTOR'
-    )
-    engine: EnumProperty(
-        items=SUPPORTED_ENGINES,
-        name='Render Engine',
-        update=GRABDOC_baker_defaults.update_engine
-    )
-
-
-class GRABDOC_occlusion(GRABDOC_baker_defaults, PropertyGroup):
-    NAME = "occlusion"
-    ALIAS = "Ambient Occlusion"
-    COLOR_SPACE = "None"
-    SUPPORTED_ENGINES = (
-        ('blender_eevee', "Eevee",     ""),
-        ('cycles',        "Cycles",    "")
-    )
-
-    def update_gamma(self, _context: Context):
-        gamma = bpy.data.node_groups[Global.AO_NG_NAME].nodes.get('Gamma')
-        gamma.inputs[1].default_value = self.gamma
-
-    def update_distance(self, _context: Context):
-        ao = bpy.data.node_groups[Global.AO_NG_NAME].nodes.get(
-            'Ambient Occlusion')
-        ao.inputs[1].default_value = self.distance
-
-    gamma: FloatProperty(
-        default=1,
-        min=.001,
-        soft_max=10,
-        step=.17,
-        name="",
-        description="Intensity of AO (calculated with gamma)",
-        update=update_gamma
-    )
-    distance: FloatProperty(
-        default=1,
-        min=0,
-        soft_max=100,
-        step=.03,
-        subtype='DISTANCE',
-        name="",
-        description="The distance AO rays travel",
-        update=update_distance
-    )
-    engine: EnumProperty(
-        items=SUPPORTED_ENGINES,
-        name='Render Engine',
-        update=GRABDOC_baker_defaults.update_engine
-    )
-
-
-class GRABDOC_height(GRABDOC_baker_defaults, PropertyGroup):
-    NAME = "height"
-    ALIAS = NAME.capitalize()
-    COLOR_SPACE = "None"
-    SUPPORTED_ENGINES = (
-        ('blender_eevee', "Eevee",     ""),
-        ('cycles',        "Cycles",    "")
-    )
-
-    def update_method(self, context: Context):
-        scene_setup(self, context)
-        if not self.preview_state:
-            return
-        bpy.data.objects[Global.BG_PLANE_NAME].active_material = \
-            bpy.data.materials[Global.GD_MATERIAL_NAME]
-        if self.method == 'AUTO':
-            rendered_obs = get_rendered_objects()
-            set_guide_height(rendered_obs)
-
-    def update_guide(self, context: Context):
-        gd_camera_ob_z = \
-            bpy.data.objects.get(Global.TRIM_CAMERA_NAME).location[2]
-
-        map_range = \
-            bpy.data.node_groups[Global.HEIGHT_NG_NAME].nodes.get('Map Range')
-        map_range.inputs[1].default_value = \
-            gd_camera_ob_z + -self.distance
-        map_range.inputs[2].default_value = \
-            gd_camera_ob_z
-
-        ramp = bpy.data.node_groups[Global.HEIGHT_NG_NAME].nodes.get(
-            'ColorRamp')
-        ramp.color_ramp.elements[0].color = \
-            (0, 0, 0, 1) if self.invert else (1, 1, 1, 1)
-        ramp.color_ramp.elements[1].color = \
-            (1, 1, 1, 1) if self.invert else (0, 0, 0, 1)
-        ramp.location = \
-            (-400, 0)
-
-        if self.method == 'MANUAL':
-            scene_setup(self, context)
-
-        # Update here so that it refreshes live in the VP
-        if not self.preview_state:
-            return
-        bpy.data.objects[Global.BG_PLANE_NAME].active_material = \
-            bpy.data.materials[Global.GD_MATERIAL_NAME]
-
-    invert: BoolProperty(
-        description="Invert height mask, useful for sculpting negatively",
-        update=update_guide
-    )
-    distance: FloatProperty(
-        name="",
-        default=1,
-        min=.01,
-        soft_max=100,
-        step=.03,
-        subtype='DISTANCE',
-        update=update_guide
-    )
-    method: EnumProperty(
-        items=(
-            ('AUTO', "Auto", ""),
-            ('MANUAL', "Manual", "")
-        ),
-        update=update_method,
-        description="Height method, use manual if auto produces range errors"
-    )
-    engine: EnumProperty(
-        items=SUPPORTED_ENGINES,
-        name='Render Engine',
-        update=GRABDOC_baker_defaults.update_engine
-    )
-
-
-class GRABDOC_alpha(GRABDOC_baker_defaults, PropertyGroup):
-    NAME = "alpha"
-    ALIAS = NAME.capitalize()
-    COLOR_SPACE = "None"
-    SUPPORTED_ENGINES = (
-        ('blender_eevee', "Eevee",     ""),
-        ('cycles',        "Cycles",    "")
-    )
-
-    def update_alpha(self, _context: Context):
-        gd_camera_ob_z = bpy.data.objects.get(
-            Global.TRIM_CAMERA_NAME
-        ).location[2]
-        map_range = \
-            bpy.data.node_groups[Global.ALPHA_NG_NAME].nodes.get('Map Range')
-        map_range.inputs[1].default_value = gd_camera_ob_z - .00001
-        map_range.inputs[2].default_value = gd_camera_ob_z
-        invert = \
-            bpy.data.node_groups[Global.ALPHA_NG_NAME].nodes.get('Invert')
-        invert.inputs[0].default_value = 0 if self.invert else 1
-
-        # NOTE: Update here so that it refreshes live in the VP
-        if self.preview_state:
-            bpy.data.objects[Global.BG_PLANE_NAME].active_material = \
-                bpy.data.materials[Global.GD_MATERIAL_NAME]
-
-    invert: BoolProperty(
-        description="Invert the Alpha mask",
-        update=update_alpha
-    )
-    engine: EnumProperty(
-        items=SUPPORTED_ENGINES,
-        name='Render Engine',
-        update=GRABDOC_baker_defaults.update_engine
-    )
-
-
-class GRABDOC_id(GRABDOC_baker_defaults, PropertyGroup):
-    NAME = "id"
-    ALIAS = "Material ID"
-    COLOR_SPACE = "sRGB"
-    SUPPORTED_ENGINES = (
-        ('blender_workbench', "Workbench", ""),
-    )
-
-    method_list = (
-        ('RANDOM', "Random", ""),
-        ('MATERIAL', "Material", ""),
-        ('VERTEX', "Object / Vertex", "")
-    )
-    method: EnumProperty(
-        items=method_list,
-        name=f"{ALIAS} Method"
-    )
-    ui_method: EnumProperty(
-        items=method_list,
-        default="MATERIAL"
-    )
-    engine: EnumProperty(
-        items=SUPPORTED_ENGINES,
-        name='Render Engine',
-        update=GRABDOC_baker_defaults.update_engine
-    )
-
-
-class GRABDOC_color(GRABDOC_baker_defaults, PropertyGroup):
-    NAME = "color"
-    ALIAS = "Base Color"
-    MARMOSET_COMPATIBLE = False
-    COLOR_SPACE = "sRGB"
-    SUPPORTED_ENGINES = (
-        ('blender_eevee', "Eevee",     ""),
-        ('cycles',        "Cycles",    "")
-    )
-
-    engine: EnumProperty(
-        items=SUPPORTED_ENGINES,
-        name='Render Engine',
-        update=GRABDOC_baker_defaults.update_engine
-    )
-
-
-class GRABDOC_roughness(GRABDOC_baker_defaults, PropertyGroup):
-    NAME = "roughness"
-    ALIAS = NAME.capitalize()
-    MARMOSET_COMPATIBLE = False
-    COLOR_SPACE = "sRGB"
-    SUPPORTED_ENGINES = (
-        ('blender_eevee', "Eevee",  ""),
-        ('cycles',        "Cycles", "")
-    )
-
-    def update_roughness(self, _context: Context):
-        invert = \
-            bpy.data.node_groups[Global.ROUGHNESS_NG_NAME].nodes.get('Invert')
-        invert.inputs[0].default_value = 1 if self.invert else 0
-
-        # Update here so that it refreshes live in the VP
-        # if self.preview_state:
-        #    bpy.data.objects[BG_PLANE_NAME].active_material = \
-        #       bpy.data.materials[GD_MATERIAL_NAME]
-
-    invert: BoolProperty(
-        description="Invert the Roughness (AKA Glossiness)",
-        update=update_roughness
-    )
-    engine: EnumProperty(
-        items=SUPPORTED_ENGINES,
-        name='Render Engine',
-        update=GRABDOC_baker_defaults.update_engine
-    )
-
-
-class GRABDOC_metalness(GRABDOC_baker_defaults, PropertyGroup):
-    NAME = "metalness"
-    ALIAS = NAME.capitalize()
-    MARMOSET_COMPATIBLE = False
-    COLOR_SPACE = "sRGB"
-    SUPPORTED_ENGINES = (
-        ('blender_eevee', "Eevee",  ""),
-        ('cycles',        "Cycles", "")
-    )
-
-    engine: EnumProperty(
-        items=SUPPORTED_ENGINES,
-        name='Render Engine',
-        update=GRABDOC_baker_defaults.update_engine
-    )
-
-
-############################################################
 # PROPERTY GROUP
 ############################################################
 
@@ -624,13 +198,13 @@ class GRABDOC_property_group(PropertyGroup):
             self.export_path = ''
 
     def update_res_x(self, context: Context):
-        if self.lock_res and self.export_res_x != self.export_res_y:
-            self.export_res_y = self.export_res_x
+        if self.lock_res and self.resolution_x != self.resolution_y:
+            self.resolution_y = self.resolution_x
         scene_setup(self, context)
 
     def update_res_y(self, context: Context):
-        if self.lock_res and self.export_res_y != self.export_res_x:
-            self.export_res_x = self.export_res_y
+        if self.lock_res and self.resolution_y != self.resolution_x:
+            self.resolution_x = self.resolution_y
         scene_setup(self, context)
 
     def update_scale(self, context: Context):
@@ -639,7 +213,7 @@ class GRABDOC_property_group(PropertyGroup):
         gd_camera_ob_z = bpy.data.objects.get(
             Global.TRIM_CAMERA_NAME
         ).location[2]
-        height_ng = bpy.data.node_groups.get(Global.HEIGHT_NG_NAME)
+        height_ng = bpy.data.node_groups.get(Global.HEIGHT_NODE)
 
         map_range = height_ng.nodes.get('Map Range')
         map_range.inputs[1].default_value = \
@@ -647,7 +221,7 @@ class GRABDOC_property_group(PropertyGroup):
         map_range.inputs[2].default_value = gd_camera_ob_z
 
         map_range_alpha = \
-            bpy.data.node_groups[Global.ALPHA_NG_NAME].nodes.get('Map Range')
+            bpy.data.node_groups[Global.ALPHA_NODE].nodes.get('Map Range')
         map_range_alpha.inputs[1].default_value = gd_camera_ob_z - .00001
         map_range_alpha.inputs[2].default_value = gd_camera_ob_z
 
@@ -730,13 +304,13 @@ class GRABDOC_property_group(PropertyGroup):
         subtype='DIR_PATH',
         update=update_export_path
     )
-    export_res_x: IntProperty(
+    resolution_x: IntProperty(
         name="Res X",
         default=2048,
         min=4, soft_max=8192,
         update=update_res_x
     )
-    export_res_y: IntProperty(
+    resolution_y: IntProperty(
         name="Res Y",
         default=2048,
         min=4, soft_max=8192,
@@ -803,23 +377,19 @@ class GRABDOC_property_group(PropertyGroup):
 
     # Map preview
     preview_first_time: BoolProperty(default=True)
-    preview_auto_exit_camera: BoolProperty(
-        description=\
-            "Automatically leave camera view when exiting a Map Preview"
-    )
     preview_state: BoolProperty()
     preview_type: EnumProperty(items=MAP_TYPES)
 
     # Baking
-    normals: CollectionProperty(type=GRABDOC_normals)
-    curvature: CollectionProperty(type=GRABDOC_curvature)
-    occlusion: CollectionProperty(type=GRABDOC_occlusion)
-    height: CollectionProperty(type=GRABDOC_height)
-    id: CollectionProperty(type=GRABDOC_id)
-    alpha: CollectionProperty(type=GRABDOC_alpha)
-    color: CollectionProperty(type=GRABDOC_color)
-    roughness: CollectionProperty(type=GRABDOC_roughness)
-    metalness: CollectionProperty(type=GRABDOC_metalness)
+    normals: CollectionProperty(type=Normals)
+    curvature: CollectionProperty(type=Curvature)
+    occlusion: CollectionProperty(type=Occlusion)
+    height: CollectionProperty(type=Height)
+    id: CollectionProperty(type=Id)
+    alpha: CollectionProperty(type=Alpha)
+    color: CollectionProperty(type=Color)
+    roughness: CollectionProperty(type=Roughness)
+    metalness: CollectionProperty(type=Metalness)
 
     # Marmoset baking
     marmoset_auto_bake: BoolProperty(name="Auto bake", default=True)
@@ -888,15 +458,15 @@ classes = (
     GRABDOC_MT_presets,
     GRABDOC_PT_presets,
     GRABDOC_OT_add_preset,
-    GRABDOC_normals,
-    GRABDOC_curvature,
-    GRABDOC_occlusion,
-    GRABDOC_height,
-    GRABDOC_id,
-    GRABDOC_alpha,
-    GRABDOC_color,
-    GRABDOC_roughness,
-    GRABDOC_metalness,
+    Normals,
+    Curvature,
+    Occlusion,
+    Height,
+    Id,
+    Alpha,
+    Color,
+    Roughness,
+    Metalness,
     GRABDOC_property_group,
     GRABDOC_AP_preferences,
     GRABDOC_OT_check_for_update
