@@ -579,6 +579,24 @@ class Color(Baker, PropertyGroup):
     )
 
 
+class Emissive(Baker, PropertyGroup):
+    ID = Global.EMISSIVE_ID
+    NAME = Global.EMISSIVE_NAME
+    NODE = Global.EMISSIVE_NODE
+    COLOR_SPACE = "sRGB"
+    MARMOSET_COMPATIBLE = False
+    SUPPORTED_ENGINES = (
+        ('blender_eevee', "Eevee",  ""),
+        ('cycles',        "Cycles", "")
+    )
+
+    engine: EnumProperty(
+        items=SUPPORTED_ENGINES,
+        name='Render Engine',
+        update=Baker.update_engine
+    )
+
+
 class Roughness(Baker, PropertyGroup):
     ID = Global.ROUGHNESS_ID
     NAME = Global.ROUGHNESS_NAME

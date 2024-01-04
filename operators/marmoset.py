@@ -6,9 +6,9 @@ import json
 import bpy
 from bpy.types import Context, Operator
 
-from .operators import OpInfo
 from ..constants import Global, Error
 from ..utils.generic import (
+    OpInfo,
     bad_setup_check,
     export_plane,
     get_create_addon_temp_dir

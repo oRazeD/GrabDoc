@@ -11,6 +11,7 @@ from ..utils.render import get_rendered_objects
 from ..utils.node import apply_node_to_objects, node_cleanup
 from ..utils.scene import scene_setup, remove_setup
 from ..utils.generic import (
+    OpInfo,
     proper_scene_setup,
     bad_setup_check,
     export_plane,
@@ -25,9 +26,6 @@ from ..utils.baker import (
 )
 
 
-class OpInfo:
-    bl_options = {'REGISTER', 'UNDO'}
-    bl_label = ""
 
 
 ################################################

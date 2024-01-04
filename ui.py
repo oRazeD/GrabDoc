@@ -317,6 +317,8 @@ class GRABDOC_PT_view_edit_maps(PanelInfo, Panel):
             GRABDOC_PT_alpha.draw(self, context)
         elif gd.preview_type == Global.COLOR_ID:
             GRABDOC_PT_color.draw(self, context)
+        elif gd.preview_type == Global.EMISSIVE_ID:
+            GRABDOC_PT_emissive.draw(self, context)
         elif gd.preview_type == Global.ROUGHNESS_ID:
             GRABDOC_PT_roughness.draw(self, context)
         elif gd.preview_type == Global.METALNESS_ID:
@@ -588,6 +590,14 @@ class GRABDOC_PT_color(BakerPanel):
         warn_ui(layout)
 
 
+class GRABDOC_PT_emissive(BakerPanel, Panel):
+    ID = Global.EMISSIVE_ID
+    NAME = Global.EMISSIVE_NAME
+
+    def draw_baker_properties(self, context: Context, layout: UILayout):
+        warn_ui(layout)
+
+
 class GRABDOC_PT_roughness(BakerPanel, Panel):
     ID = Global.ROUGHNESS_ID
     NAME = Global.ROUGHNESS_NAME
@@ -602,7 +612,6 @@ class GRABDOC_PT_roughness(BakerPanel, Panel):
         col.separator(factor=.5)
         if gd.baker_type == 'blender':
             col.prop(baker, 'invert', text="Invert")
-            # col.separator(factor=.5)
 
 
 class GRABDOC_PT_metalness(BakerPanel, Panel):
@@ -630,6 +639,7 @@ classes = (
     GRABDOC_PT_id,
     GRABDOC_PT_alpha,
     GRABDOC_PT_color,
+    GRABDOC_PT_emissive,
     GRABDOC_PT_roughness,
     GRABDOC_PT_metalness
 )

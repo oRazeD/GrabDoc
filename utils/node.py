@@ -290,6 +290,42 @@ def node_init() -> None:
         links.new(emission.inputs["Color"], group_input.outputs["Base Color"])
         links.new(group_output.inputs["Shader"], emission.outputs["Emission"])
 
+    if not Global.EMISSIVE_NODE in bpy.data.node_groups:
+        tree = bpy.data.node_groups.new(
+            Global.EMISSIVE_NODE, 'ShaderNodeTree'
+        )
+        tree.use_fake_user = True
+
+        # Create sockets
+        generate_shader_interface(tree, inputs)
+        tree.interface.new_socket(
+            name='Emissive',
+            socket_type='NodeSocketFloat',
+            in_out='INPUT'
+        )
+
+        # Create nodes
+        group_output = tree.nodes.new('NodeGroupOutput')
+        group_output.name = "Group Output"
+        group_input = tree.nodes.new('NodeGroupInput')
+        group_input.name = "Group Input"
+        group_input.location = (-600, 0)
+
+        emission = tree.nodes.new('ShaderNodeEmission')
+        emission.name = "Emission"
+        emission.location = (-200, 0)
+
+        # Link nodes
+        links = tree.links
+        links.new(
+            emission.inputs["Emission Color"],
+            group_input.outputs["Emission Color"]
+        )
+        links.new(
+            group_output.inputs["Shader"],
+            emission.outputs["Emission"]
+        )
+
     if not Global.ROUGHNESS_NODE in bpy.data.node_groups:
         tree = bpy.data.node_groups.new(
             Global.ROUGHNESS_NODE, 'ShaderNodeTree'
@@ -438,9 +474,12 @@ def apply_node_to_objects(name: str, objects: Iterable[Object]) -> None:
                     nodes.new('ShaderNodeOutputMaterial')
                 )
 
-            # TODO: Use for code below
+            # TODO: Replace ('Surface', 'Volume', 'Displacement') tuples
             #inputs = get_material_output_inputs()
             #for name in inputs.keys():
+            #    print(name)
+
+            gd = bpy.context.scene.gd
 
             node_group = bpy.data.node_groups.get(name)
             for output in output_nodes:
@@ -471,30 +510,27 @@ def apply_node_to_objects(name: str, objects: Iterable[Object]) -> None:
                 GD_frame.width = 1000
                 GD_frame.height = 150
 
-
                 # Link nodes
+                # TODO: This section needs to
+                # be seriously reconsidered
+                # connections_to_make = \
+                #    ('Surface', 'Volume', 'Displacement')
+                # if node_input.name in connections_to_make:
+                #    for connection_name in connections_to_make:
+                #        if node_input.name != connection_name:
+                #            continue
+                #        mat_slot.node_tree.links.new(
+                #            passthrough_ng.inputs[connection_name],
+                #            source_node.outputs[link.from_socket.name]
+                #        )
                 for output_material_input in output.inputs:
                     for link in output_material_input.links:
                         source_node = nodes.get(link.from_node.name)
 
-                        # TODO: can be more modular
-                        #connections_to_make = \
-                        #    ('Surface', 'Volume', 'Displacement')
-                        #if node_input.name in connections_to_make:
-                        #    for connection_name in connections_to_make:
-                        #        if node_input.name != connection_name:
-                        #            continue
-                        #        mat_slot.node_tree.links.new(
-                        #            passthrough_ng.inputs[connection_name],
-                        #            source_node.outputs[link.from_socket.name]
-                        #        )
-
                         # Store original output material connections
                         try:
                             material.node_tree.links.new(
-                                passthrough.inputs[
-                                    output_material_input.name
-                                ],
+                                passthrough.inputs[output_material_input.name],
                                 source_node.outputs[link.from_socket.name]
                             )
                         except KeyError:
@@ -508,75 +544,79 @@ def apply_node_to_objects(name: str, objects: Iterable[Object]) -> None:
                         for original_input in source_node.inputs:
                             if original_input.name not in Global.ALL_MAP_NAMES:
                                 continue
-                            if (
-                                name == Global.COLOR_NODE \
-                                and original_input.name == Global.COLOR_NAME
-                            ):
-                                node_found = create_node_links(
-                                    input_name=original_input.name,
-                                    node_group=passthrough,
-                                    original_input=original_input,
-                                    material=material
-                                )
-                            elif (
-                                name == Global.ROUGHNESS_NODE \
-                                and original_input.name == Global.ROUGHNESS_NAME
-                            ):
-                                node_found = create_node_links(
-                                    input_name=original_input.name,
-                                    node_group=passthrough,
-                                    original_input=original_input,
-                                    material=material
-                                )
-                            elif (
-                                name == Global.METALNESS_NODE \
-                                and original_input.name == Global.METALNESS_NAME
-                            ):
-                                node_found = create_node_links(
-                                    input_name=original_input.name,
-                                    node_group=passthrough,
-                                    original_input=original_input,
-                                    material=material
-                                )
-                            if (
-                                name in (Global.ALPHA_NODE,
-                                         Global.NORMAL_NODE) \
-                                and original_input.name in (Global.ALPHA_NAME,
-                                                            Global.NORMAL_NAME)
-                            ):
-                                node_found = create_node_links(
-                                    input_name=original_input.name,
-                                    node_group=passthrough,
-                                    original_input=original_input,
-                                    material=material
-                                )
 
-                                # TODO: Does not work if Map Preview
-                                # Mode is entered and *then*
-                                # Texture Normals are enabled
-                                if (
-                                    original_input.name == 'Alpha' \
-                                    and bpy.context.scene.gd.normals[0].use_texture \
-                                    and material.blend_method == 'OPAQUE' \
-                                    and len(original_input.links)
-                                ):
+                            if name == Global.COLOR_NODE \
+                            and original_input.name == Global.COLOR_NAME:
+                                node_found = create_node_links(
+                                    input_name=original_input.name,
+                                    node_group=passthrough,
+                                    original_input=original_input,
+                                    material=material
+                                )
+                            elif name == Global.EMISSIVE_NODE \
+                            and original_input.name == Global.EMISSIVE_NAME:
+                                node_found = create_node_links(
+                                    input_name=original_input.name,
+                                    node_group=passthrough,
+                                    original_input=original_input,
+                                    material=material
+                                )
+                            elif name == Global.ROUGHNESS_NODE \
+                            and original_input.name == Global.ROUGHNESS_NAME:
+                                node_found = create_node_links(
+                                    input_name=original_input.name,
+                                    node_group=passthrough,
+                                    original_input=original_input,
+                                    material=material
+                                )
+                            elif name == Global.METALNESS_NODE \
+                            and original_input.name == Global.METALNESS_NAME:
+                                node_found = create_node_links(
+                                    input_name=original_input.name,
+                                    node_group=passthrough,
+                                    original_input=original_input,
+                                    material=material
+                                )
+                            elif name == Global.ALPHA_NODE \
+                            and original_input.name == Global.ALPHA_NAME:
+                                node_found = create_node_links(
+                                    input_name=original_input.name,
+                                    node_group=passthrough,
+                                    original_input=original_input,
+                                    material=material
+                                )
+                                if original_input.name == 'Alpha' \
+                                and gd.normals[0].use_texture \
+                                and material.blend_method == 'OPAQUE' \
+                                and len(original_input.links):
+                                    material.blend_method = 'CLIP'
+                            elif name == Global.NORMAL_NODE \
+                            and original_input.name == Global.NORMAL_NAME:
+                                node_found = create_node_links(
+                                    input_name=original_input.name,
+                                    node_group=passthrough,
+                                    original_input=original_input,
+                                    material=material
+                                )
+                                if original_input.name == 'Alpha' \
+                                and gd.normals[0].use_texture \
+                                and material.blend_method == 'OPAQUE' \
+                                and len(original_input.links):
                                     material.blend_method = 'CLIP'
                             elif node_found:
                                 break
-
-                        if (
-                            not node_found \
-                            and name != Global.NORMAL_NODE \
-                            and material.name != Global.GD_MATERIAL_NAME
-                        ):
-                            # TODO: Report on this to user...
+                        if not node_found \
+                        and name != Global.NORMAL_NODE \
+                        and material.name != Global.GD_MATERIAL_NAME:
+                            # TODO: Report on this to user
                             print(Error.MAT_SLOTS_WITHOUT_LINKS)
 
+                # NOTE: Remove all material output links and
+                # create new connection with main input
                 for link in output.inputs['Volume'].links:
                     material.node_tree.links.remove(link)
                 for link in output.inputs['Displacement'].links:
                     material.node_tree.links.remove(link)
-
                 material.node_tree.links.new(
                     output.inputs["Surface"],
                     passthrough.outputs["Shader"]

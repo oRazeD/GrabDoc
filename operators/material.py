@@ -3,9 +3,8 @@ from random import random, randint
 import bpy
 from bpy.types import Context, Operator
 
-from .operators import OpInfo
 from ..constants import Global
-from ..utils.generic import UseSelectedOnly
+from ..utils.generic import UseSelectedOnly, OpInfo
 from ..utils.render import get_rendered_objects
 
 

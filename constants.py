@@ -27,6 +27,7 @@ class Global:
     MATERIAL_ID  = "id"
     ALPHA_ID     = "alpha"
     COLOR_ID     = "color"
+    EMISSIVE_ID  = "emissive"
     ROUGHNESS_ID = "roughness"
     METALNESS_ID = "metalness"
 
@@ -37,6 +38,7 @@ class Global:
     MATERIAL_NAME  = "Material ID"
     ALPHA_NAME     = ALPHA_ID.capitalize()
     COLOR_NAME     = "Base Color"
+    EMISSIVE_NAME  = EMISSIVE_ID.capitalize()
     ROUGHNESS_NAME = ROUGHNESS_ID.capitalize()
     METALNESS_NAME = METALNESS_ID.capitalize()
 
@@ -45,6 +47,7 @@ class Global:
     HEIGHT_NODE    = GD_PREFIX + HEIGHT_NAME
     ALPHA_NODE     = GD_PREFIX + ALPHA_NAME
     COLOR_NODE     = GD_PREFIX + COLOR_NAME
+    EMISSIVE_NODE  = GD_PREFIX + EMISSIVE_NAME
     ROUGHNESS_NODE = GD_PREFIX + ROUGHNESS_NAME
     METALNESS_NODE = GD_PREFIX + METALNESS_NAME
 
@@ -56,6 +59,7 @@ class Global:
         MATERIAL_ID,
         ALPHA_ID,
         COLOR_ID,
+        EMISSIVE_ID,
         ROUGHNESS_ID,
         METALNESS_ID
     )
@@ -68,15 +72,17 @@ class Global:
         MATERIAL_NAME,
         ALPHA_NAME,
         COLOR_NAME,
+        EMISSIVE_NAME,
         ROUGHNESS_NAME,
         METALNESS_NAME
     )
 
     SHADER_MAP_NAMES = (
+        NORMAL_NODE,
         COLOR_NODE,
+        EMISSIVE_NODE,
         ROUGHNESS_NODE,
-        METALNESS_NODE,
-        NORMAL_NODE
+        METALNESS_NODE
     )
 
     INVALID_BAKE_TYPES = (

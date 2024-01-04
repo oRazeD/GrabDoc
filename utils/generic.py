@@ -9,6 +9,11 @@ from ..__init__ import bl_info
 from ..constants import Global, Error
 
 
+class OpInfo:
+    bl_options = {'REGISTER', 'UNDO'}
+    bl_label = ""
+
+
 class PanelInfo:
     bl_category = 'GrabDoc'
     bl_space_type = 'VIEW_3D'
@@ -88,7 +93,7 @@ def is_pro_version() -> bool:
 
 def format_bl_label(
         name: str = bl_info["name"],
-        bl_version: str = bl_info["name"]
+        bl_version: str = bl_info["version"]
     ) -> str:
     tuples_version_pattern = r'\((\d+), (\d+), (\d+)\)'
     match = re.match(tuples_version_pattern, str(bl_version))
@@ -185,6 +190,7 @@ def bad_setup_check(
             gd.id[0].enabled,
             gd.alpha[0].enabled,
             gd.color[0].enabled,
+            gd.emissive[0].enabled,
             gd.roughness[0].enabled,
             gd.metalness[0].enabled
         )
@@ -197,6 +203,7 @@ def bad_setup_check(
             gd.id[0].visibility,
             gd.alpha[0].visibility,
             gd.color[0].visibility,
+            gd.emissive[0].visibility,
             gd.roughness[0].visibility,
             gd.metalness[0].visibility
         )

@@ -25,7 +25,6 @@ from bpy.props import (
     FloatProperty
 )
 
-from .__init__ import bl_info
 from .constants import Global
 from .utils.scene import scene_setup
 #from .utils.render import get_rendered_objects, set_guide_height
@@ -38,6 +37,7 @@ from .utils.baker import (
     Metalness,
     Normals,
     Occlusion,
+    Emissive,
     Roughness
 )
 
@@ -113,6 +113,7 @@ class GRABDOC_OT_add_preset(AddPresetBase, Operator):
         "gd.alpha",
         "gd.id",
         "gd.color",
+        "gd.emissive",
         "gd.roughness",
         "gd.metalness",
     ]
@@ -183,6 +184,7 @@ class GRABDOC_property_group(PropertyGroup):
         ('id',        "Material ID",       ""),
         ('alpha',     "Alpha",             ""),
         ('color',     "Base Color",        ""),
+        ('emissive',  "Emissive",          ""),
         ('roughness', "Roughness",         ""),
         ('metalness', "Metalness",         "")
     )
@@ -390,6 +392,7 @@ class GRABDOC_property_group(PropertyGroup):
     id: CollectionProperty(type=Id)
     alpha: CollectionProperty(type=Alpha)
     color: CollectionProperty(type=Color)
+    emissive: CollectionProperty(type=Emissive)
     roughness: CollectionProperty(type=Roughness)
     metalness: CollectionProperty(type=Metalness)
 
@@ -485,7 +488,7 @@ def register():
     # NOTE: Git release tracking
     updater.user = "oRazeD"
     updater.repo = "grabdoc"
-    updater.current_version = bl_info["version"]
+    updater.current_version = (1, 4, 0)
     updater.check_for_update_now()
     if updater.update_ready:
         print("GrabDoc update available!")
