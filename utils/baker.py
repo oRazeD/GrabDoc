@@ -11,7 +11,7 @@ from bpy.props import (
 )
 
 from ..constants import Global
-from .generic import get_format
+from .generic import get_format, is_pro_version
 from .render import set_guide_height, get_rendered_objects
 from .scene import scene_setup
 
@@ -27,7 +27,8 @@ class Baker():
     ID = ""
     NAME = ID.capitalize()
     NODE = None
-    COLOR_SPACE = 'None'
+    COLOR_SPACE = "sRGB"
+    VIEW_TRANSFORM = 'Standard'
     MARMOSET_COMPATIBLE = True
     SUPPORTED_ENGINES = (
         ('blender_eevee',     "Eevee",     ""),
@@ -38,12 +39,17 @@ class Baker():
     # NOTE: Default functions
     def setup(self):
         """Operations to run before bake map export."""
+        self.apply_render_settings(check=False)
+
+    def apply_render_settings(self, check: bool=True):
+        if not check and not bpy.context.scene.gd.preview_state:
+            return
+
         scene = bpy.context.scene
         scene.render.engine = str(self.engine).upper()
 
         # NOTE: Allow use of custom engines but leave default
         # TODO: Better understand engines
-        print(scene.render.engine)
         if scene.render.engine == 'BLENDER_EEVEE':
             scene.eevee.taa_render_samples = \
             scene.eevee.taa_samples = self.samples
@@ -54,16 +60,15 @@ class Baker():
             scene.display.render_aa = \
             scene.display.viewport_aa = self.samples_workbench
 
-        try:
-            scene.view_settings.look = \
-                self.contrast.replace('_', ' ')
-        except TypeError:
-            pass
+        set_color_management(self.COLOR_SPACE, self.VIEW_TRANSFORM)
 
-        set_color_management(self.COLOR_SPACE)
+        scene.view_settings.look = self.contrast.replace('_', ' ')
 
     def cleanup(self):
         """Operations to run after bake map export conclusion."""
+
+    def draw_properties(self, context: Context, layout: UILayout):
+        pass
 
     def draw(self, context: Context, layout: UILayout):
         """Draw layout for contextual bake map properties and operators."""
@@ -73,9 +78,23 @@ class Baker():
         layout.use_property_decorate = False
 
         col = layout.column()
-        if len(self.SUPPORTED_ENGINES) > 1:
-            col.prop(self, 'engine', text="Engine")
 
+        if not self.MARMOSET_COMPATIBLE:
+            box = col.box()
+            col2 = box.column(align=True)
+            col2.label(text='\u2022 Requires Shader Manipulation', icon='INFO')
+            if is_pro_version():
+                col2.label(text='\u2022 No Marmoset Support', icon='BLANK1')
+
+        box = col.box()
+        box.label(text="Properties", icon="PROPERTIES")
+        if len(self.SUPPORTED_ENGINES) > 1:
+            box.prop(self, 'engine', text="Engine")
+        self.draw_properties(context, box)
+
+        box = col.box()
+        box.label(text="Settings", icon="SETTINGS")
+        col = box.column()
         if gd.baker_type == 'blender':
             if self.engine == 'blender_eevee':
                 prop = 'samples'
@@ -92,14 +111,6 @@ class Baker():
             col.prop(self, 'contrast', text="Contrast")
         col.prop(self, 'suffix', text="Suffix")
 
-    # NOTE: Default update methods
-    def update_engine(self, context: Context):
-        """Update the scenes used render engine."""
-        if not context.scene.gd.preview_state:
-            return
-        context.scene.render.engine = \
-            str(self.engine).upper()
-
     # NOTE: Default properties
     enabled: BoolProperty(name="Export Enabled", default=True)
     reimport: BoolProperty(
@@ -115,10 +126,12 @@ class Baker():
     )
     visibility: BoolProperty(default=True)
     samples: IntProperty(
-        name="Eevee Samples", default=128, min=1, soft_max=512
+        name="Eevee Samples", default=128, min=1, soft_max=512,
+        update=apply_render_settings
     )
     samples_cycles: IntProperty(
-        name="Cycles Samples", default=32, min=1, soft_max=1024
+        name="Cycles Samples", default=32, min=1, soft_max=1024,
+        update=apply_render_settings
     )
     samples_workbench: EnumProperty(
         items=(
@@ -131,7 +144,8 @@ class Baker():
             ('32', "32 Samples", "")
         ),
         default="16",
-        name="Workbench Samples"
+        name="Workbench Samples",
+        update=apply_render_settings
     )
     contrast: EnumProperty(
         items=(
@@ -143,14 +157,15 @@ class Baker():
             ('Low_Contrast', "Low", ""),
             ('Very_Low_Contrast', "Very Low", "")
         ),
-        name="Contrast"
+        name="Contrast",
+        update=apply_render_settings
     )
     # NOTE: You must add the following redundant
     # properties to all sub-classes for now...
     engine: EnumProperty(
         items=SUPPORTED_ENGINES,
         name='Render Engine',
-        update=update_engine
+        update=apply_render_settings
     )
 
 
@@ -158,7 +173,8 @@ class Normals(Baker, PropertyGroup):
     ID = Global.NORMAL_ID
     NAME = Global.NORMAL_NAME
     NODE = Global.NORMAL_NODE
-    COLOR_SPACE = "None"
+    COLOR_SPACE = "sRGB"
+    VIEW_TRANSFORM = "Standard"
     MARMOSET_COMPATIBLE = True
     SUPPORTED_ENGINES = (
         ('blender_eevee', "Eevee",  ""),
@@ -191,6 +207,12 @@ class Normals(Baker, PropertyGroup):
                 group_output.inputs["Shader"],
                 ng_normal.nodes.get('Vector Math.001').outputs["Vector"]
             )
+
+    def draw_properties(self, context: Context, layout: UILayout):
+        col = layout.column()
+        col.prop(self, 'flip_y', text="Flip Y (-Y)")
+        if context.scene.gd.baker_type == 'blender':
+            col.prop(self, 'use_texture', text="Texture Normals")
 
     def update_flip_y(self, _context: Context):
         vec_multiply = \
@@ -242,7 +264,7 @@ class Normals(Baker, PropertyGroup):
     engine: EnumProperty(
         items=SUPPORTED_ENGINES,
         name='Render Engine',
-        update=Baker.update_engine
+        update=Baker.apply_render_settings
     )
 
 
@@ -251,6 +273,7 @@ class Curvature(Baker, PropertyGroup):
     NAME = Global.CURVATURE_NAME
     NODE = None
     COLOR_SPACE = "sRGB"
+    VIEW_TRANSFORM = "Standard"
     MARMOSET_COMPATIBLE = True
     SUPPORTED_ENGINES = (
         ('blender_workbench', "Workbench", ""),
@@ -260,7 +283,6 @@ class Curvature(Baker, PropertyGroup):
         super().setup()
 
         scene = bpy.context.scene
-        gd = scene.gd
         scene_shading = bpy.data.scenes[str(scene.name)].display.shading
 
         scene_shading.light = 'FLAT'
@@ -277,12 +299,19 @@ class Curvature(Baker, PropertyGroup):
         scene_shading.show_cavity = True
         scene_shading.cavity_type = 'BOTH'
         scene_shading.cavity_ridge_factor = \
-        scene_shading.curvature_ridge_factor = gd.curvature[0].ridge
-        scene_shading.curvature_valley_factor = gd.curvature[0].valley
+        scene_shading.curvature_ridge_factor = self.ridge
+        scene_shading.curvature_valley_factor = self.valley
         scene_shading.cavity_valley_factor = 0
         scene_shading.single_color = (.214041, .214041, .214041)
 
         scene.display.matcap_ssao_distance = .075
+
+    def draw_properties(self, context: Context, layout: UILayout):
+        if context.scene.gd.baker_type != 'blender':
+            return
+        col = layout.column()
+        col.prop(self, 'ridge', text="Ridge")
+        col.prop(self, 'valley', text="Valley")
 
     def cleanup(self) -> None:
         display = \
@@ -329,7 +358,7 @@ class Curvature(Baker, PropertyGroup):
     engine: EnumProperty(
         items=SUPPORTED_ENGINES,
         name='Render Engine',
-        update=Baker.update_engine
+        update=Baker.apply_render_settings
     )
 
 
@@ -337,7 +366,8 @@ class Occlusion(Baker, PropertyGroup):
     ID = Global.OCCLUSION_ID
     NAME = Global.OCCLUSION_NAME
     NODE = Global.OCCLUSION_NODE
-    COLOR_SPACE = "None"
+    COLOR_SPACE = "sRGB"
+    VIEW_TRANSFORM = "Standard"
     MARMOSET_COMPATIBLE = True
     SUPPORTED_ENGINES = (
         ('blender_eevee', "Eevee",     ""),
@@ -362,6 +392,15 @@ class Occlusion(Baker, PropertyGroup):
         eevee.use_overscan = self.savedUseOverscan
         eevee.overscan_size = self.savedOverscanSize
         eevee.use_gtao = False
+
+    def draw_properties(self, context: Context, layout: UILayout):
+        gd = context.scene.gd
+        col = layout.column()
+        if gd.baker_type == 'marmoset':
+            col.prop(gd, "marmo_occlusion_ray_count", text="Ray Count")
+            return
+        col.prop(self, 'gamma', text="Intensity")
+        col.prop(self, 'distance', text="Distance")
 
     def update_gamma(self, _context: Context):
         gamma = bpy.data.node_groups[self.NODE].nodes.get('Gamma')
@@ -395,7 +434,7 @@ class Occlusion(Baker, PropertyGroup):
     engine: EnumProperty(
         items=SUPPORTED_ENGINES,
         name='Render Engine',
-        update=Baker.update_engine
+        update=Baker.apply_render_settings
     )
 
 
@@ -403,7 +442,8 @@ class Height(Baker, PropertyGroup):
     ID = Global.HEIGHT_ID
     NAME = Global.HEIGHT_NAME
     NODE = Global.HEIGHT_NODE
-    COLOR_SPACE = "None"
+    COLOR_SPACE = "sRGB"
+    VIEW_TRANSFORM = "Standard"
     MARMOSET_COMPATIBLE = True
     SUPPORTED_ENGINES = (
         ('blender_eevee', "Eevee",     ""),
@@ -417,12 +457,19 @@ class Height(Baker, PropertyGroup):
             rendered_obs = get_rendered_objects()
             set_guide_height(rendered_obs)
 
+    def draw_properties(self, context: Context, layout: UILayout):
+        col = layout.column()
+        if context.scene.gd.baker_type == 'blender':
+            col.prop(self, 'invert', text="Invert Mask")
+        row = col.row()
+        row.prop(self, 'method', text="Height Mode", expand=True)
+        if self.method == 'MANUAL':
+            col.prop(self, 'distance', text="0-1 Range")
+
     def update_method(self, context: Context):
         scene_setup(self, context)
         if not context.scene.gd.preview_state:
             return
-        bpy.data.objects[Global.BG_PLANE_NAME].active_material = \
-            bpy.data.materials[Global.GD_MATERIAL_NAME]
         if self.method == 'AUTO':
             rendered_obs = get_rendered_objects()
             set_guide_height(rendered_obs)
@@ -453,8 +500,6 @@ class Height(Baker, PropertyGroup):
         # Update here so that it refreshes live in the VP
         if not context.scene.gd.preview_state:
             return
-        bpy.data.objects[Global.BG_PLANE_NAME].active_material = \
-            bpy.data.materials[Global.GD_MATERIAL_NAME]
 
     invert: BoolProperty(
         description="Invert height mask, useful for sculpting negatively",
@@ -480,7 +525,7 @@ class Height(Baker, PropertyGroup):
     engine: EnumProperty(
         items=SUPPORTED_ENGINES,
         name='Render Engine',
-        update=Baker.update_engine
+        update=Baker.apply_render_settings
     )
 
 
@@ -488,12 +533,18 @@ class Alpha(Baker, PropertyGroup):
     ID = Global.ALPHA_ID
     NAME = Global.ALPHA_NAME
     NODE = Global.ALPHA_NODE
-    COLOR_SPACE = "None"
+    COLOR_SPACE = "sRGB"
+    VIEW_TRANSFORM = "Standard"
     MARMOSET_COMPATIBLE = True
     SUPPORTED_ENGINES = (
         ('blender_eevee', "Eevee",     ""),
         ('cycles',        "Cycles",    "")
     )
+
+    def draw_properties(self, context: Context, layout: UILayout):
+        col = layout.column()
+        if context.scene.gd.baker_type == 'blender':
+            col.prop(self, 'invert', text="Invert Mask")
 
     def update_alpha(self, context: Context):
         gd_camera_ob_z = bpy.data.objects.get(
@@ -507,11 +558,6 @@ class Alpha(Baker, PropertyGroup):
             bpy.data.node_groups[self.NODE].nodes.get('Invert')
         invert.inputs[0].default_value = 0 if self.invert else 1
 
-        # NOTE: Update here so that it refreshes live in the VP
-        if context.scene.gd.preview_state:
-            bpy.data.objects[Global.BG_PLANE_NAME].active_material = \
-                bpy.data.materials[Global.GD_MATERIAL_NAME]
-
     invert: BoolProperty(
         description="Invert the Alpha mask",
         update=update_alpha
@@ -519,7 +565,7 @@ class Alpha(Baker, PropertyGroup):
     engine: EnumProperty(
         items=SUPPORTED_ENGINES,
         name='Render Engine',
-        update=Baker.update_engine
+        update=Baker.apply_render_settings
     )
 
 
@@ -529,6 +575,7 @@ class Id(Baker, PropertyGroup):
     NODE = None
     MARMOSET_COMPATIBLE = True
     COLOR_SPACE = "sRGB"
+    VIEW_TRANSFORM = "Standard"
     SUPPORTED_ENGINES = (
         ('blender_workbench', "Workbench", ""),
     )
@@ -540,6 +587,47 @@ class Id(Baker, PropertyGroup):
             display = scene.display
             display.shading.light = 'FLAT'
             display.shading.color_type = self.method
+
+    def draw_properties(self, context: Context, layout: UILayout):
+        gd = context.scene.gd
+        col = layout.column()
+        row = col.row()
+        if gd.baker_type == 'marmoset':
+            row.enabled = False
+            row.prop(self, 'ui_method', text="ID Method")
+        else:
+            row.prop(self, 'method', text="ID Method")
+
+        if self.method != "MATERIAL" or gd.baker_type != 'marmoset':
+            return
+
+        col = layout.column(align=True)
+        col.separator(factor=.5)
+        col.scale_y = 1.1
+        col.operator("grab_doc.quick_id_setup")
+
+        row = col.row(align=True)
+        row.scale_y = .9
+        row.label(text=" Remove:")
+        row.operator(
+            "grab_doc.remove_mats_by_name",
+            text='All'
+        ).mat_name = Global.MAT_ID_RAND_PREFIX
+
+        col = layout.column(align=True)
+        col.separator(factor=.5)
+        col.scale_y = 1.1
+        col.operator("grab_doc.quick_id_selected")
+
+        row = col.row(align=True)
+        row.scale_y = .9
+        row.label(text=" Remove:")
+        row.operator(
+            "grab_doc.remove_mats_by_name",
+            text='All'
+        ).mat_name = Global.MAT_ID_PREFIX
+        row.operator("grab_doc.quick_remove_selected_mats",
+                        text='Selected')
 
     method_list = (
         ('RANDOM', "Random", ""),
@@ -557,7 +645,7 @@ class Id(Baker, PropertyGroup):
     engine: EnumProperty(
         items=SUPPORTED_ENGINES,
         name='Render Engine',
-        update=Baker.update_engine
+        update=Baker.apply_render_settings
     )
 
 
@@ -566,6 +654,7 @@ class Color(Baker, PropertyGroup):
     NAME = Global.COLOR_NAME
     NODE = Global.COLOR_NODE
     COLOR_SPACE = "sRGB"
+    VIEW_TRANSFORM = "Standard"
     MARMOSET_COMPATIBLE = False
     SUPPORTED_ENGINES = (
         ('blender_eevee', "Eevee",     ""),
@@ -575,7 +664,7 @@ class Color(Baker, PropertyGroup):
     engine: EnumProperty(
         items=SUPPORTED_ENGINES,
         name='Render Engine',
-        update=Baker.update_engine
+        update=Baker.apply_render_settings
     )
 
 
@@ -584,6 +673,7 @@ class Emissive(Baker, PropertyGroup):
     NAME = Global.EMISSIVE_NAME
     NODE = Global.EMISSIVE_NODE
     COLOR_SPACE = "sRGB"
+    VIEW_TRANSFORM = "Standard"
     MARMOSET_COMPATIBLE = False
     SUPPORTED_ENGINES = (
         ('blender_eevee', "Eevee",  ""),
@@ -593,7 +683,7 @@ class Emissive(Baker, PropertyGroup):
     engine: EnumProperty(
         items=SUPPORTED_ENGINES,
         name='Render Engine',
-        update=Baker.update_engine
+        update=Baker.apply_render_settings
     )
 
 
@@ -602,21 +692,22 @@ class Roughness(Baker, PropertyGroup):
     NAME = Global.ROUGHNESS_NAME
     NODE = Global.ROUGHNESS_NODE
     COLOR_SPACE = "sRGB"
+    VIEW_TRANSFORM = "Standard"
     MARMOSET_COMPATIBLE = False
     SUPPORTED_ENGINES = (
         ('blender_eevee', "Eevee",  ""),
         ('cycles',        "Cycles", "")
     )
 
+    def draw_properties(self, context: Context, layout: UILayout):
+        col = layout.column()
+        if context.scene.gd.baker_type == 'blender':
+            col.prop(self, 'invert', text="Invert")
+
     def update_roughness(self, _context: Context):
         invert = \
             bpy.data.node_groups[self.NODE].nodes.get('Invert')
         invert.inputs[0].default_value = 1 if self.invert else 0
-
-        # Update here so that it refreshes live in the VP
-        # if context.scene.gd.preview_state:
-        #    bpy.data.objects[BG_PLANE_NAME].active_material = \
-        #       bpy.data.materials[GD_MATERIAL_NAME]
 
     invert: BoolProperty(
         description="Invert the Roughness (AKA Glossiness)",
@@ -625,7 +716,7 @@ class Roughness(Baker, PropertyGroup):
     engine: EnumProperty(
         items=SUPPORTED_ENGINES,
         name='Render Engine',
-        update=Baker.update_engine
+        update=Baker.apply_render_settings
     )
 
 
@@ -634,6 +725,7 @@ class Metalness(Baker, PropertyGroup):
     NAME = Global.METALNESS_NAME
     NODE = Global.METALNESS_NODE
     COLOR_SPACE = "sRGB"
+    VIEW_TRANSFORM = "Standard"
     MARMOSET_COMPATIBLE = False
     SUPPORTED_ENGINES = (
         ('blender_eevee', "Eevee",  ""),
@@ -643,7 +735,7 @@ class Metalness(Baker, PropertyGroup):
     engine: EnumProperty(
         items=SUPPORTED_ENGINES,
         name='Render Engine',
-        update=Baker.update_engine
+        update=Baker.apply_render_settings
     )
 
 
@@ -652,29 +744,16 @@ class Metalness(Baker, PropertyGroup):
 ################################################
 
 
-def set_color_management(display_device: str='None') -> None:
+def set_color_management(
+        display_device: str='None',
+        view_transform: str='Standard'
+    ) -> None:
     """Helper function for supporting custom color management
      profiles. Ignores anything that isn't compatible"""
     display_settings = bpy.context.scene.display_settings
     view_settings = bpy.context.scene.view_settings
-
-    if display_device not in display_settings.display_device:
-        if display_device == 'sRGB':
-            alt_display_device = 'Blender Display'
-            alt_view_transform = 'sRGB'
-        else: # None
-            alt_display_device = 'Blender Display'
-            alt_view_transform = 'Raw'
-
-        try:
-            display_settings.display_device = alt_display_device
-            view_settings.view_transform = alt_view_transform
-        except TypeError:
-            pass
-    else:
-        display_settings.display_device = display_device
-        view_settings.view_transform = 'Standard'
-
+    display_settings.display_device = display_device
+    view_settings.view_transform = view_transform
     view_settings.look = 'None'
     view_settings.exposure = 0
     view_settings.gamma = 1

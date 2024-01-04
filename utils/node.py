@@ -299,7 +299,12 @@ def node_init() -> None:
         # Create sockets
         generate_shader_interface(tree, inputs)
         tree.interface.new_socket(
-            name='Emissive',
+            name='Emissive Color',
+            socket_type='NodeSocketColor',
+            in_out='INPUT'
+        )
+        tree.interface.new_socket(
+            name='Emissive Strength',
             socket_type='NodeSocketFloat',
             in_out='INPUT'
         )
@@ -318,8 +323,12 @@ def node_init() -> None:
         # Link nodes
         links = tree.links
         links.new(
-            emission.inputs["Emission Color"],
-            group_input.outputs["Emission Color"]
+            emission.inputs["Color"],
+            group_input.outputs["Emissive Color"]
+        )
+        links.new(
+            emission.inputs["Strength"],
+            group_input.outputs["Emissive Strength"]
         )
         links.new(
             group_output.inputs["Shader"],
@@ -441,12 +450,11 @@ def apply_node_to_objects(name: str, objects: Iterable[Object]) -> None:
     for ob in objects:
         # If no material slots found or empty mat
         # slots found, assign a material to it
-        if not ob.material_slots or '' in ob.material_slots:
-            mat_name = Global.GD_MATERIAL_NAME
-            if mat_name in bpy.data.materials:
-                mat = bpy.data.materials[mat_name]
+        if not ob.material_slots or "" in ob.material_slots:
+            if Global.GD_MATERIAL_NAME in bpy.data.materials:
+                mat = bpy.data.materials[Global.GD_MATERIAL_NAME]
             else:
-                mat = bpy.data.materials.new(name = mat_name)
+                mat = bpy.data.materials.new(name=Global.GD_MATERIAL_NAME)
                 mat.use_nodes = True
 
             # NOTE: We want to avoid removing empty material slots
@@ -625,6 +633,8 @@ def apply_node_to_objects(name: str, objects: Iterable[Object]) -> None:
 
 def node_cleanup(setup_type: str) -> None:
     """Remove node group & return original links if they exist"""
+    if setup_type is None:
+        return
     for mat in bpy.data.materials:
         mat.use_nodes = True
 

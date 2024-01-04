@@ -5,7 +5,6 @@ from inspect import getframeinfo, stack
 import bpy
 from bpy.types import Context, Operator
 
-from ..__init__ import bl_info
 from ..constants import Global, Error
 
 
@@ -19,11 +18,6 @@ class PanelInfo:
     bl_space_type = 'VIEW_3D'
     bl_region_type = 'UI'
     bl_label = ""
-
-
-#class SubPanelInfo:
-#    bl_parent_id = "GRABDOC_PT_view_edit_maps"
-#    bl_options = {'HEADER_LAYOUT_EXPAND', 'DEFAULT_CLOSED'}
 
 
 class UseSelectedOnly():
@@ -88,12 +82,12 @@ def is_camera_in_3d_view() -> bool:
 
 # NOTE: Basic DRM is best DRM
 def is_pro_version() -> bool:
-    return "Pro" in bl_info["name"]
+    return True
 
 
 def format_bl_label(
-        name: str = bl_info["name"],
-        bl_version: str = bl_info["version"]
+        name: str = "GrabDoc Pro",
+        bl_version: str = (1, 4, 0)
     ) -> str:
     tuples_version_pattern = r'\((\d+), (\d+), (\d+)\)'
     match = re.match(tuples_version_pattern, str(bl_version))
@@ -212,6 +206,3 @@ def bad_setup_check(
             report_value = True
             report_string = "No bake maps are turned on."
     return (report_value, report_string)
-
-
-

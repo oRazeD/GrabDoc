@@ -470,6 +470,7 @@ classes = (
     Id,
     Alpha,
     Color,
+    Emissive,
     Roughness,
     Metalness,
     GRABDOC_property_group,

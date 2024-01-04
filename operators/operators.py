@@ -167,7 +167,6 @@ class GRABDOC_OT_export_maps(OpInfo, Operator, UILayout):
         completion_step = 100 / (1 + len(bake_maps))
         completion_percent = 0
 
-        rendered_objects = get_rendered_objects()
         baker_init(self, context)
 
         active_selected = False
@@ -182,6 +181,7 @@ class GRABDOC_OT_export_maps(OpInfo, Operator, UILayout):
         plane_ob = bpy.data.objects[Global.BG_PLANE_NAME]
         plane_ob.scale[0] = plane_ob.scale[1] = 3
 
+        rendered_objects = get_rendered_objects()
         for bake_map in bake_maps:
             bake_map.setup()
             if bake_map.NODE:
@@ -447,23 +447,21 @@ class GRABDOC_OT_map_preview(OpInfo, Operator):
         baker_cleanup(self, context)
 
         # Current workspace shading type
-        #for area in context.screen.areas:
-        #    if area.type == 'VIEW_3D':
-        #        for space in area.spaces:
-        #            space.shading.type = self.saved_render_view
-        #            break
-
-        # NOTE: Return workspace shading
-        areas = (
-            context.screen.areas,
-            *bpy.data.workspaces[self.savedWorkspace].screens.areas
-        )
-        for area in areas:
+        for area in context.screen.areas:
             if area.type != 'VIEW_3D':
                 continue
             for space in area.spaces:
                 space.shading.type = self.saved_render_view
                 break
+
+        # Current workspace shading type
+        for screens in bpy.data.workspaces[self.savedWorkspace].screens:
+            for area in screens.areas:
+                if area.type != 'VIEW_3D':
+                    continue
+                for space in area.spaces:
+                    space.shading.type = self.saved_render_view
+                    break
 
         gd.baker_type = self.savedBakerType
         context.scene.render.engine = self.savedEngine
