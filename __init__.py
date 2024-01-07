@@ -1,5 +1,5 @@
 bl_info = {
-    "name": "GrabDoc Pro",
+    "name": "GrabDoc",
     "author": "Ethan Simon-Law",
     "location": "3D View > Sidebar > GrabDoc",
     "version": (1, 4, 0),

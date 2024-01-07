@@ -80,13 +80,8 @@ def is_camera_in_3d_view() -> bool:
     ] == ['CAMERA']
 
 
-# NOTE: Basic DRM is best DRM
-def is_pro_version() -> bool:
-    return True
-
-
 def format_bl_label(
-        name: str = "GrabDoc Pro",
+        name: str = "GrabDoc",
         bl_version: str = (1, 4, 0)
     ) -> str:
     tuples_version_pattern = r'\((\d+), (\d+), (\d+)\)'

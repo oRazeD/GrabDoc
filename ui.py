@@ -13,8 +13,7 @@ from .utils.generic import (
     PanelInfo,
     proper_scene_setup,
     is_camera_in_3d_view,
-    format_bl_label,
-    is_pro_version
+    format_bl_label
 )
 
 
@@ -37,74 +36,68 @@ class GRABDOC_PT_grabdoc(Panel, PanelInfo):
         gd = context.scene.gd
 
         layout = self.layout
-        col = layout.column(align=True)
 
+        box = layout.box()
+        box.use_property_split = True
+        box.use_property_decorate = False
+
+        split = box.split(factor=.65)
+        split.label(text="Scene Settings", icon="SCENE_DATA")
+        if proper_scene_setup():
+            in_trim_cam = is_camera_in_3d_view()
+            split.operator(
+                "grab_doc.view_cam",
+                text="Leave" if in_trim_cam else "View",
+                icon="OUTLINER_OB_CAMERA"
+            )
+
+        col = box.column(align=True)
         row = col.row(align=True)
         row.enabled = not gd.preview_state
-        row.scale_y = 1.5
+        row.scale_y = 1.25
         row.operator(
             "grab_doc.setup_scene",
-            text="Refresh Scene" if proper_scene_setup() else "Setup Scene",
-            icon="TOOL_SETTINGS"
+            text="Rebuild Scene" if proper_scene_setup() else "Setup Scene",
+            icon="FILE_REFRESH"
         )
-
         if not proper_scene_setup():
             return
 
         row.scale_x = 1.1
         row.operator("grab_doc.remove_setup", text="", icon="CANCEL")
 
-        row = col.row(align=True)
-        row.scale_y = .95
-
+        split = box.split(align=True, factor=.65)
+        split.label(text="Object Restrictions")
+        row = split.row(align=True)
         row.prop(
             gd, "coll_selectable",
-            text="Select",
+            text="",
             icon='RESTRICT_SELECT_OFF' if gd.coll_selectable else 'RESTRICT_SELECT_ON'
         )
         row.prop(
             gd, "coll_visible",
-            text="Visible",
+            text="",
             icon='RESTRICT_VIEW_OFF' if gd.coll_visible else 'RESTRICT_VIEW_ON'
         )
         row.prop(
             gd, "coll_rendered",
-            text="Render",
+            text="",
             icon='RESTRICT_RENDER_OFF' if gd.coll_rendered else 'RESTRICT_RENDER_ON'
         )
 
-        row = col.row(align=True)
-        row.scale_y = 1.25
-        in_trim_cam = is_camera_in_3d_view()
-        row.operator(
-            "grab_doc.view_cam",
-            text="Leave Camera View" if in_trim_cam else "View GrabDoc Camera",
-            icon="OUTLINER_OB_CAMERA"
-        )
-
-        box = col.box()
-        box.use_property_split = True
-        box.use_property_decorate = False
-
-        col = box.column()
-        col.prop(gd, "scale", text='Scaling', expand=True)
-        col.separator(factor=.5)
-        row = col.row()
+        box.prop(gd, "scale", text='Scaling', expand=True)
+        row = box.row()
         row.prop(gd, "filter_width", text="Filtering")
         row.separator()
         row.prop(gd, "filter", text="")
-
-        col.separator()
-
-        row = col.row()
-        row.enabled = not gd.preview_state
-        row.prop(gd, "reference", text='Reference')
-        row.operator("grab_doc.load_reference", text="", icon='FILE_FOLDER')
-        col.separator(factor=.5)
-        row = col.row()
+        row = box.row()
         row.prop(gd, "grid_subdivs", text="Grid")
         row.separator()
         row.prop(gd, "use_grid", text="")
+        row = box.row()
+        row.enabled = not gd.preview_state
+        row.prop(gd, "reference", text='Reference')
+        row.operator("grab_doc.load_reference", text="", icon='FILE_FOLDER')
 
 
 class GRABDOC_PT_export(PanelInfo, Panel):
@@ -156,7 +149,7 @@ class GRABDOC_PT_export(PanelInfo, Panel):
         layout.use_property_split = True
         layout.use_property_decorate = False
 
-        if is_pro_version() and gd.baker_type == 'marmoset':
+        if gd.baker_type == 'marmoset':
             self.marmo_header_layout(layout)
 
         col = self.layout.column(align=True)
@@ -167,10 +160,9 @@ class GRABDOC_PT_export(PanelInfo, Panel):
 
         box = col.box()
         col2 = box.column()
-        if is_pro_version():
-            row = col2.row()
-            row.enabled = not gd.preview_state
-            row.prop(gd, 'baker_type', text="Baker")
+        row = col2.row()
+        row.enabled = not gd.preview_state
+        row.prop(gd, 'baker_type', text="Baker")
         col2.separator(factor=.5)
 
         row = col2.row()

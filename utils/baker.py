@@ -11,7 +11,7 @@ from bpy.props import (
 )
 
 from ..constants import Global
-from .generic import get_format, is_pro_version
+from .generic import get_format
 from .render import set_guide_height, get_rendered_objects
 from .scene import scene_setup
 
@@ -83,8 +83,7 @@ class Baker():
             box = col.box()
             col2 = box.column(align=True)
             col2.label(text='\u2022 Requires Shader Manipulation', icon='INFO')
-            if is_pro_version():
-                col2.label(text='\u2022 No Marmoset Support', icon='BLANK1')
+            col2.label(text='\u2022 No Marmoset Support', icon='BLANK1')
 
         box = col.box()
         box.label(text="Properties", icon="PROPERTIES")
