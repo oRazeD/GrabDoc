@@ -3,20 +3,20 @@ class Global:
     """A collection of constants used for global variable standardization"""
     GD_PREFIX      = "GD_"
     GD_FLAG_PREFIX = "[GrabDoc] "
-    GD_LOW_PREFIX  = GD_PREFIX + "low"
-    GD_HIGH_PREFIX = GD_PREFIX + "high"
+    GD_LOW_PREFIX  = "_" + GD_PREFIX.lower() + "low"
+    GD_HIGH_PREFIX = "_" + GD_PREFIX.lower() + "high"
 
-    REFERENCE_NAME    = GD_PREFIX + "Reference"
-    TRIM_CAMERA_NAME  = GD_PREFIX + "Trim Camera"
-    BG_PLANE_NAME     = GD_PREFIX + "Background Plane"
-    HEIGHT_GUIDE_NAME = GD_PREFIX + "Height Guide"
-    ORIENT_GUIDE_NAME = GD_PREFIX + "Orient Guide"
-    GD_MATERIAL_NAME  = GD_PREFIX + "Material (do not touch contents)"
-    COLL_NAME         = "GrabDoc (do not touch contents)"
-    COLL_OB_NAME      = "GrabDoc Objects (put objects here)"
+    REFERENCE_NAME    = GD_FLAG_PREFIX + "Reference"
+    TRIM_CAMERA_NAME  = GD_FLAG_PREFIX + "Trim Camera"
+    BG_PLANE_NAME     = GD_FLAG_PREFIX + "Background Plane"
+    HEIGHT_GUIDE_NAME = GD_FLAG_PREFIX + "Height Guide"
+    ORIENT_GUIDE_NAME = GD_FLAG_PREFIX + "Orient Guide"
+    GD_MATERIAL_NAME  = GD_FLAG_PREFIX + "Material"
+    COLL_NAME         = "GrabDoc Core"
+    COLL_OB_NAME      = "GrabDoc Bake Group"
 
-    MAT_ID_PREFIX      = GD_PREFIX + "ID"
-    MAT_ID_RAND_PREFIX = GD_PREFIX + "RANDOM_ID"
+    MAT_ID_PREFIX      = GD_FLAG_PREFIX + "ID"
+    MAT_ID_RAND_PREFIX = GD_FLAG_PREFIX + "RANDOM_ID"
 
     REIMPORT_MAT_NAME = GD_FLAG_PREFIX + "Render Result"
 
@@ -43,6 +43,7 @@ class Global:
     METALNESS_NAME = METALNESS_ID.capitalize()
 
     NORMAL_NODE    = GD_PREFIX + NORMAL_NAME
+    #CURVATURE_NODE = GD_PREFIX + CURVATURE_NAME
     OCCLUSION_NODE = GD_PREFIX + OCCLUSION_NAME
     HEIGHT_NODE    = GD_PREFIX + HEIGHT_NAME
     ALPHA_NODE     = GD_PREFIX + ALPHA_NAME
@@ -79,6 +80,7 @@ class Global:
 
     SHADER_MAP_NAMES = (
         NORMAL_NODE,
+        #CURVATURE_NODE,
         COLOR_NODE,
         EMISSIVE_NODE,
         ROUGHNESS_NODE,

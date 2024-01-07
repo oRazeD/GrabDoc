@@ -445,8 +445,9 @@ def create_node_links(
     return node_found
 
 
-def apply_node_to_objects(name: str, objects: Iterable[Object]) -> None:
+def apply_node_to_objects(name: str, objects: Iterable[Object]) -> bool:
     """Add node group to given object material slots"""
+    operation_success = True
     for ob in objects:
         # If no material slots found or empty mat
         # slots found, assign a material to it
@@ -616,8 +617,7 @@ def apply_node_to_objects(name: str, objects: Iterable[Object]) -> None:
                         if not node_found \
                         and name != Global.NORMAL_NODE \
                         and material.name != Global.GD_MATERIAL_NAME:
-                            # TODO: Report on this to user
-                            print(Error.MAT_SLOTS_WITHOUT_LINKS)
+                            operation_success = False
 
                 # NOTE: Remove all material output links and
                 # create new connection with main input
@@ -629,6 +629,7 @@ def apply_node_to_objects(name: str, objects: Iterable[Object]) -> None:
                     output.inputs["Surface"],
                     passthrough.outputs["Shader"]
                 )
+    return operation_success
 
 
 def node_cleanup(setup_type: str) -> None:

@@ -41,15 +41,11 @@ def refresh_scene() -> None:
 
         # Import the models
         baker.importModel(
-            os.path.normpath(os.path.join(temp_path, "GD_temp_model.fbx"))
+            os.path.normpath(os.path.join(temp_path, "mesh_export.fbx"))
         )
 
         # Set cage offset
         mset.findObject('Low').maxOffset = marmo_json["cage_height"] + .01
-
-        # Change skybox to Evening Clouds
-        if mset.getToolbagVersion() < 4000:
-            mset.findObject('Sky').loadSky(marmo_json["marmo_sky_path"])
 
         # Rotate all models 90 degrees
         bakeGroup = mset.findObject('GD')

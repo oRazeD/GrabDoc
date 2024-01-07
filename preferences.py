@@ -146,8 +146,8 @@ class GRABDOC_AP_preferences(AddonPreferences):
 
     marmo_executable: StringProperty(
         name="",
-        description="",
-        default="Path to Marmoset Toolbag 3 or 4 executable",
+        description="Path to Marmoset Toolbag 3 or 4 executable",
+        default="",
         subtype="FILE_PATH"
     )
 

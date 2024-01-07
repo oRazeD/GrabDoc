@@ -159,7 +159,7 @@ class GrabDoc_OT_send_to_marmo(OpInfo, Operator):
 
         # Get background plane low and high poly
         bg_plane_ob = bpy.data.objects.get(Global.BG_PLANE_NAME)
-        bg_plane_ob.name = f"{Global.GD_LOW_PREFIX} {Global.BG_PLANE_NAME}"
+        bg_plane_ob.name = Global.BG_PLANE_NAME+Global.GD_LOW_PREFIX
         bpy.data.collections[Global.COLL_NAME].hide_select = \
             bg_plane_ob.hide_select = False
         bg_plane_ob.select_set(True)
@@ -177,7 +177,7 @@ class GrabDoc_OT_send_to_marmo(OpInfo, Operator):
 
         # Export models
         bpy.ops.export_scene.fbx(
-            filepath=f"{temp_path}\\GD_temp_model.fbx",
+            filepath=f"{temp_path}\\mesh_export.fbx",
             use_selection=True,
             path_mode='ABSOLUTE'
         )
@@ -188,7 +188,7 @@ class GrabDoc_OT_send_to_marmo(OpInfo, Operator):
 
         for ob in context.selected_objects:
             ob.select_set(False)
-            if ob.name == f"{Global.GD_LOW_PREFIX} {Global.BG_PLANE_NAME}":
+            if ob.name == Global.BG_PLANE_NAME+Global.GD_LOW_PREFIX:
                 ob.name = Global.BG_PLANE_NAME
             else:
                 ob.name = ob.name[8:] # TODO: what does this represent?

@@ -37,64 +37,63 @@ class GRABDOC_PT_grabdoc(Panel, PanelInfo):
 
         layout = self.layout
 
+        scene_setup = proper_scene_setup()
         box = layout.box()
-        box.use_property_split = True
-        box.use_property_decorate = False
-
-        split = box.split(factor=.65)
+        split = box.split(factor=.65 if scene_setup else .9)
         split.label(text="Scene Settings", icon="SCENE_DATA")
-        if proper_scene_setup():
+        if scene_setup:
+            col = split.column(align=True)
             in_trim_cam = is_camera_in_3d_view()
-            split.operator(
+            col.operator(
                 "grab_doc.view_cam",
                 text="Leave" if in_trim_cam else "View",
                 icon="OUTLINER_OB_CAMERA"
             )
+            col = box.column(align=True)
+            col.label(text="Camera Restrictions")
+            row = col.row(align=True)
+            row.prop(
+                gd, "coll_selectable", text="Select",
+                icon='RESTRICT_SELECT_OFF' if gd.coll_selectable else 'RESTRICT_SELECT_ON'
+            )
+            row.prop(
+                gd, "coll_visible", text="Visible",
+                icon='RESTRICT_VIEW_OFF' if gd.coll_visible else 'RESTRICT_VIEW_ON'
+            )
+            row.prop(
+                gd, "coll_rendered", text="Render",
+                icon='RESTRICT_RENDER_OFF' if gd.coll_rendered else 'RESTRICT_RENDER_ON'
+            )
+
+        box.use_property_split = True
+        box.use_property_decorate = False
 
         col = box.column(align=True)
         row = col.row(align=True)
         row.enabled = not gd.preview_state
+        row.scale_x = 1.25
         row.scale_y = 1.25
         row.operator(
             "grab_doc.setup_scene",
-            text="Rebuild Scene" if proper_scene_setup() else "Setup Scene",
+            text="Rebuild Scene" if scene_setup else "Setup Scene",
             icon="FILE_REFRESH"
         )
-        if not proper_scene_setup():
+        if not scene_setup:
             return
 
-        row.scale_x = 1.1
         row.operator("grab_doc.remove_setup", text="", icon="CANCEL")
 
-        split = box.split(align=True, factor=.65)
-        split.label(text="Object Restrictions")
-        row = split.row(align=True)
-        row.prop(
-            gd, "coll_selectable",
-            text="",
-            icon='RESTRICT_SELECT_OFF' if gd.coll_selectable else 'RESTRICT_SELECT_ON'
-        )
-        row.prop(
-            gd, "coll_visible",
-            text="",
-            icon='RESTRICT_VIEW_OFF' if gd.coll_visible else 'RESTRICT_VIEW_ON'
-        )
-        row.prop(
-            gd, "coll_rendered",
-            text="",
-            icon='RESTRICT_RENDER_OFF' if gd.coll_rendered else 'RESTRICT_RENDER_ON'
-        )
-
-        box.prop(gd, "scale", text='Scaling', expand=True)
-        row = box.row()
+        col = box.column()
+        col.prop(gd, "scale", text='Scaling', expand=True)
+        row = col.row()
         row.prop(gd, "filter_width", text="Filtering")
         row.separator()
         row.prop(gd, "filter", text="")
-        row = box.row()
+        row = col.row()
         row.prop(gd, "grid_subdivs", text="Grid")
         row.separator()
         row.prop(gd, "use_grid", text="")
-        row = box.row()
+        row = col.row()
         row.enabled = not gd.preview_state
         row.prop(gd, "reference", text='Reference')
         row.operator("grab_doc.load_reference", text="", icon='FILE_FOLDER')
@@ -108,24 +107,34 @@ class GRABDOC_PT_export(PanelInfo, Panel):
     def poll(cls, _context: Context) -> bool:
         return proper_scene_setup()
 
+    def draw_header_preset(self, context: Context):
+        gd = context.scene.gd
+        preferences = bpy.context.preferences.addons[__package__].preferences
+        marmo_executable = preferences.marmo_executable
+        layout = self.layout
+        if gd.baker_type == 'marmoset' \
+        and not os.path.exists(marmo_executable):
+            layout.enabled = False
+        layout.operator(
+            "grab_doc.export_maps",
+            text="Export",
+            icon="EXPORT"
+        )
+
     def marmo_header_layout(self, layout: UILayout):
-        user_prefs = bpy.context.preferences.addons[__package__].preferences
-        marmo_exe = user_prefs.marmo_exe
+        preferences = bpy.context.preferences.addons[__package__].preferences
+        marmo_executable = preferences.marmo_executable
 
         col = layout.column(align=True)
 
         row = col.row()
-        if not os.path.exists(marmo_exe):
+        if not os.path.exists(marmo_executable):
             row.alignment = 'CENTER'
             row.label(text="Marmoset Toolbag Executable Required", icon='INFO')
-
             row = col.row()
-            row.prop(user_prefs, 'marmo_exe', text="Toolbag Executable")
-
-            col.separator()
+            row.prop(preferences, 'marmo_executable', text="Executable Path")
         else:
-            row.prop(user_prefs, 'marmo_exe', text="Toolbag Executable")
-
+            row.prop(preferences, 'marmo_executable', text="Executable Path")
             row = col.row(align=True)
             row.scale_y = 1.5
             row.operator(
@@ -152,13 +161,9 @@ class GRABDOC_PT_export(PanelInfo, Panel):
         if gd.baker_type == 'marmoset':
             self.marmo_header_layout(layout)
 
-        col = self.layout.column(align=True)
+        box = layout.box()
+        box.label(text="Output Settings", icon="OUTPUT")
 
-        row = col.row(align=True)
-        row.scale_y = 1.5
-        row.operator("grab_doc.export_maps", icon="EXPORT")
-
-        box = col.box()
         col2 = box.column()
         row = col2.row()
         row.enabled = not gd.preview_state
@@ -167,38 +172,31 @@ class GRABDOC_PT_export(PanelInfo, Panel):
 
         row = col2.row()
         row.alert = not self.export_path_exists
-        row.prop(gd, 'export_path', text="Export Path")
+        row.prop(gd, 'export_path', text="Path")
         row.alert = False
-        row.operator("grab_doc.open_folder", text='', icon="FOLDER_REDIRECT")
-
-        col2.separator(factor=.5)
-
+        row.operator(
+            "grab_doc.open_folder",
+            text="",
+            icon="FOLDER_REDIRECT"
+        )
         col2.prop(gd, "export_name", text="Name")
-
-        col2.separator(factor=.5)
-
         row = col2.row()
         row.prop(gd, "resolution_x", text='Resolution')
         row.prop(gd, "resolution_y", text='')
         row.prop(
-            gd,
-            'lock_res',
+            gd, 'lock_res',
             icon_only=True,
             icon="LOCKED" if gd.lock_res else "UNLOCKED"
         )
 
-        col2.separator(factor=.5)
-
-        if gd.baker_type == "marmoset":
-            row = col2.row()
-            row.prop(gd, "marmo_format")
-        else:
-            row = col2.row()
-            row.prop(gd, "format")
-            row.separator(factor=.5)
-            row2 = row.row()
+        row = col2.row()
+        row.prop(
+            gd,
+            "marmo_format" if gd.baker_type == "marmoset" else "format"
+        )
 
         # TODO: This is insane lol
+        row2 = row.row()
         if gd.format == "OPEN_EXR":
             row2.prop(gd, "exr_depth", expand=True)
         elif gd.format != "TARGA" or gd.baker_type == 'marmoset':
@@ -206,11 +204,9 @@ class GRABDOC_PT_export(PanelInfo, Panel):
         else:
             row2.enabled = False
             row2.prop(gd, "tga_depth", expand=True)
-        col2.separator(factor=.5)
         if gd.format != "TARGA":
             image_settings = bpy.context.scene.render.image_settings
             row = col2.row(align=True)
-
             if gd.format == "PNG":
                 row.prop(gd, "png_compression", text="Compression")
             elif gd.format == "OPEN_EXR":
@@ -222,36 +218,25 @@ class GRABDOC_PT_export(PanelInfo, Panel):
             row = col2.row(align=True)
             row.prop(gd, "marmo_samples", text="Samples", expand=True)
 
-        box.use_property_split = False
-
         col = box.column(align=True)
         col.prop(
             gd, "use_bake_collections",
-            text="Use Bake Collections",
-            icon='CHECKBOX_HLT' if gd.use_bake_collections else 'CHECKBOX_DEHLT'
+            text="Bake Groups"
         )
         col.prop(
             gd, "export_plane",
-            text='Export Plane',
-            icon='CHECKBOX_HLT' if gd.export_plane else 'CHECKBOX_DEHLT'
+            text='Export Plane'
         )
-
         if gd.baker_type == "marmoset":
-            col = box.column(align=True)
             col.prop(
-                gd,
-                'marmo_auto_bake',
-                text='Bake on Import',
-                icon='CHECKBOX_HLT' if gd.marmo_auto_bake else 'CHECKBOX_DEHLT'
+                gd, 'marmo_auto_bake',
+                text='Bake on Import'
             )
-
-            col = col.column(align=True)
-            col.enabled = gd.marmo_auto_bake
-            col.prop(
-                gd,
-                'marmo_auto_close',
-                text='Close Toolbag after Baking',
-                icon='CHECKBOX_HLT' if gd.marmo_auto_close else 'CHECKBOX_DEHLT'
+            row = col.row()
+            row.enabled = gd.marmo_auto_bake
+            row.prop(
+                gd, 'marmo_auto_close',
+                text='Close after Baking'
             )
 
 

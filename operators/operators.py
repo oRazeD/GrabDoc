@@ -185,7 +185,10 @@ class GRABDOC_OT_export_maps(OpInfo, Operator, UILayout):
         for bake_map in bake_maps:
             bake_map.setup()
             if bake_map.NODE:
-                apply_node_to_objects(bake_map.NODE, rendered_objects)
+                result = apply_node_to_objects(bake_map.NODE, rendered_objects)
+                if result is False:
+                    self.report({'INFO'}, Error.MAT_SLOTS_WITHOUT_LINKS)
+
             self.export(context, bake_map.suffix)
             bake_map.cleanup()
             if bake_map.NODE:
@@ -279,7 +282,11 @@ class GRABDOC_OT_single_render(OpInfo, Operator):
         self.baker = getattr(gd, self.map_name)[0]
         self.baker.setup()
         if self.baker.NODE:
-            apply_node_to_objects(self.baker.NODE, get_rendered_objects())
+            result = apply_node_to_objects(
+                self.baker.NODE, get_rendered_objects()
+            )
+            if result is False:
+                self.report({'INFO'}, Error.MAT_SLOTS_WITHOUT_LINKS)
         path = GRABDOC_OT_export_maps.export(context, self.baker.suffix)
         self.open_render_image(path)
         self.baker.cleanup()
@@ -503,8 +510,9 @@ class GRABDOC_OT_map_preview(OpInfo, Operator):
         self.baker.setup()
         if self.baker.NODE:
             rendered_objects = get_rendered_objects()
-            apply_node_to_objects(self.baker.NODE, rendered_objects)
-
+            result = apply_node_to_objects(self.baker.NODE, rendered_objects)
+            if result is False:
+                self.report({'INFO'}, Error.MAT_SLOTS_WITHOUT_LINKS)
         self._handle = SpaceView3D.draw_handler_add(
             draw_callback_px, (self, context), 'WINDOW', 'POST_PIXEL'
         )

@@ -42,14 +42,14 @@ class Baker():
         self.apply_render_settings(check=False)
 
     def apply_render_settings(self, check: bool=True):
-        if not check and not bpy.context.scene.gd.preview_state:
-            return
+        # TODO: What is this for?
+        #if not check and not bpy.context.scene.gd.preview_state:
+        #    return
 
         scene = bpy.context.scene
         scene.render.engine = str(self.engine).upper()
 
         # NOTE: Allow use of custom engines but leave default
-        # TODO: Better understand engines
         if scene.render.engine == 'BLENDER_EEVEE':
             scene.eevee.taa_render_samples = \
             scene.eevee.taa_samples = self.samples
@@ -276,6 +276,7 @@ class Curvature(Baker, PropertyGroup):
     MARMOSET_COMPATIBLE = True
     SUPPORTED_ENGINES = (
         ('blender_workbench', "Workbench", ""),
+        #('cycles',        "Cycles", "")
     )
 
     def setup(self) -> None:
@@ -582,10 +583,14 @@ class Id(Baker, PropertyGroup):
     def setup(self) -> None:
         super().setup()
         scene = bpy.context.scene
+
         if scene.render.engine == 'BLENDER_WORKBENCH':
-            display = scene.display
-            display.shading.light = 'FLAT'
-            display.shading.color_type = self.method
+            shading = \
+                bpy.context.scene.display.shading
+            shading.show_cavity = False
+            shading.light = 'FLAT'
+            shading.color_type = self.method
+
 
     def draw_properties(self, context: Context, layout: UILayout):
         gd = context.scene.gd
