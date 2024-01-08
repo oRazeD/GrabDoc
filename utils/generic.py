@@ -151,53 +151,51 @@ def bad_setup_check(
     explanation of things for the user to fix"""
     gd = context.scene.gd
 
-    # Look for Trim Camera (only thing required to render)
     if not Global.TRIM_CAMERA_NAME in context.view_layer.objects \
     and not report_value:
         report_value = True
         report_string = Error.TRIM_CAM_NOT_FOUND
 
-    # Check for no objects in manual collection
     if gd.use_bake_collections and not report_value:
         if not len(bpy.data.collections[Global.COLL_OB_NAME].objects):
             report_value = True
             report_string = Error.NO_OBJECTS_BAKE_GROUPS
 
-    if active_export:
-        # Check for export path
-        if not os.path.exists(bpy.path.abspath(gd.export_path)) \
-        and not report_value:
-            report_value = True
-            report_string = Error.NO_VALID_PATH_SET
+    if not active_export:
+        return report_value, report_string
 
-        # Check if all bake maps are disabled
-        bake_maps = (
-            gd.normals[0].enabled,
-            gd.curvature[0].enabled,
-            gd.occlusion[0].enabled,
-            gd.height[0].enabled,
-            gd.id[0].enabled,
-            gd.alpha[0].enabled,
-            gd.color[0].enabled,
-            gd.emissive[0].enabled,
-            gd.roughness[0].enabled,
-            gd.metalness[0].enabled
-        )
+    if not os.path.exists(bpy.path.abspath(gd.export_path)) \
+    and not report_value:
+        report_value = True
+        report_string = Error.NO_VALID_PATH_SET
 
-        bake_map_vis = (
-            gd.normals[0].visibility,
-            gd.curvature[0].visibility,
-            gd.occlusion[0].visibility,
-            gd.height[0].visibility,
-            gd.id[0].visibility,
-            gd.alpha[0].visibility,
-            gd.color[0].visibility,
-            gd.emissive[0].visibility,
-            gd.roughness[0].visibility,
-            gd.metalness[0].visibility
-        )
+    # Check if all bake maps are disabled
+    bake_maps = (
+        gd.normals[0].enabled,
+        gd.curvature[0].enabled,
+        gd.occlusion[0].enabled,
+        gd.height[0].enabled,
+        gd.id[0].enabled,
+        gd.alpha[0].enabled,
+        gd.color[0].enabled,
+        gd.emissive[0].enabled,
+        gd.roughness[0].enabled,
+        gd.metalness[0].enabled
+    )
+    bake_map_vis = (
+        gd.normals[0].visibility,
+        gd.curvature[0].visibility,
+        gd.occlusion[0].visibility,
+        gd.height[0].visibility,
+        gd.id[0].visibility,
+        gd.alpha[0].visibility,
+        gd.color[0].visibility,
+        gd.emissive[0].visibility,
+        gd.roughness[0].visibility,
+        gd.metalness[0].visibility
+    )
 
-        if True not in bake_maps or True not in bake_map_vis:
-            report_value = True
-            report_string = "No bake maps are turned on."
-    return (report_value, report_string)
+    if True not in bake_maps or True not in bake_map_vis:
+        report_value = True
+        report_string = "No bake maps are turned on."
+    return report_value, report_string

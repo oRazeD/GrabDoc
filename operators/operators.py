@@ -12,6 +12,7 @@ from ..utils.node import apply_node_to_objects, node_cleanup
 from ..utils.scene import scene_setup, remove_setup
 from ..utils.generic import (
     OpInfo,
+    get_format,
     proper_scene_setup,
     bad_setup_check,
     export_plane,
@@ -22,7 +23,8 @@ from ..utils.baker import (
     baker_init,
     get_bake_maps,
     baker_cleanup,
-    get_bakers
+    get_bakers,
+    reimport_as_material
 )
 
 
@@ -138,17 +140,15 @@ class GRABDOC_OT_export_maps(OpInfo, Operator, UILayout):
         render = context.scene.render
         saved_path = render.filepath
 
-        path = \
-            bpy.path.abspath(gd.export_path) + f"{gd.export_name}_{suffix}"
-        #if name in bpy.data.images:
-        #    bpy.data.images.remove(bpy.data.images[name])
+        name = f"{gd.export_name}_{suffix}"
+        path = bpy.path.abspath(gd.export_path) + name + get_format()
         render.filepath = path
 
         context.scene.camera = bpy.data.objects[Global.TRIM_CAMERA_NAME]
 
         bpy.ops.render.render(write_still=True)
         render.filepath = saved_path
-        return
+        return path
 
     def execute(self, context: Context):
         report_value, report_string = \
@@ -197,7 +197,9 @@ class GRABDOC_OT_export_maps(OpInfo, Operator, UILayout):
             completion_percent += completion_step
             context.window_manager.progress_update(completion_percent)
 
-        # TODO: New material reimport implementation
+        # Reimport textures to render result material
+        map_names = [bake.ID for bake in bake_maps if bake.reimport]
+        reimport_as_material(map_names)
 
         # Refresh all original settings
         baker_cleanup(self, context)
@@ -293,6 +295,10 @@ class GRABDOC_OT_single_render(OpInfo, Operator):
         if self.baker.NODE:
             node_cleanup(self.baker.NODE)
 
+        # Reimport textures to render result material
+        if self.baker.reimport:
+            reimport_as_material([self.baker.ID])
+
         baker_cleanup(self, context)
 
         plane_ob = bpy.data.objects[Global.BG_PLANE_NAME]
@@ -364,7 +370,7 @@ def draw_callback_px(self, context: Context) -> None:
     font_y_pos = 80
     font_pos_offset = 50
 
-    # Handle small viewports
+    # NOTE: Handle small viewports
     for area in context.screen.areas:
         if area.type != 'VIEW_3D':
             continue
@@ -418,22 +424,6 @@ class GRABDOC_OT_map_preview(OpInfo, Operator):
             image_settings.color_depth = gd.exr_depth
         elif gd.format != 'TARGA':
             image_settings.color_depth = gd.depth
-
-        # Bake map specific settings that are forcibly kept in check
-        # TODO: update the node group input values for Mixed Normal
-        view_settings = scene.view_settings
-        if self.baker.ID == Global.CURVATURE_ID:
-            view_settings.look = self.baker.contrast.replace('_', ' ')
-            bpy.data.objects[Global.BG_PLANE_NAME].color[3] = .9999
-        elif self.map_name == Global.OCCLUSION_ID:
-            view_settings.look = self.baker.contrast.replace('_', ' ')
-            #ao = \
-            #    bpy.data.node_groups[NG_AO_NAME].nodes.get('Ambient Occlusion')
-            #ao.inputs[1].default_value = self.baker.distance
-        elif self.map_name == Global.HEIGHT_ID:
-            view_settings.look = self.baker.contrast.replace('_', ' ')
-        elif self.map_name == Global.MATERIAL_ID:
-            scene.display.shading.color_type = self.baker.method
 
         # Exit check
         if not gd.preview_state \
@@ -550,6 +540,8 @@ class GRABDOC_OT_export_current_preview(OpInfo, Operator):
         baker = getattr(gd, gd.preview_type)[0]
 
         GRABDOC_OT_export_maps.export(context, baker.suffix)
+        if baker.reimport:
+            reimport_as_material([baker.ID])
 
         if scale_plane:
             plane_ob.scale[0] = plane_ob.scale[1] = 1

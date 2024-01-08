@@ -36,9 +36,8 @@ class GRABDOC_PT_grabdoc(Panel, PanelInfo):
         gd = context.scene.gd
 
         layout = self.layout
-
-        scene_setup = proper_scene_setup()
         box = layout.box()
+        scene_setup = proper_scene_setup()
         split = box.split(factor=.65 if scene_setup else .9)
         split.label(text="Scene Settings", icon="SCENE_DATA")
         if scene_setup:
@@ -87,7 +86,7 @@ class GRABDOC_PT_grabdoc(Panel, PanelInfo):
         col.prop(gd, "scale", text='Scaling', expand=True)
         row = col.row()
         row.prop(gd, "filter_width", text="Filtering")
-        row.separator()
+        row.separator() # NOTE: Odd spacing without these
         row.prop(gd, "filter", text="")
         row = col.row()
         row.prop(gd, "grid_subdivs", text="Grid")
@@ -111,14 +110,14 @@ class GRABDOC_PT_export(PanelInfo, Panel):
         gd = context.scene.gd
         preferences = bpy.context.preferences.addons[__package__].preferences
         marmo_executable = preferences.marmo_executable
+
         layout = self.layout
         if gd.baker_type == 'marmoset' \
         and not os.path.exists(marmo_executable):
             layout.enabled = False
         layout.operator(
             "grab_doc.export_maps",
-            text="Export",
-            icon="EXPORT"
+            text="Export", icon="EXPORT"
         )
 
     def marmo_header_layout(self, layout: UILayout):
@@ -126,27 +125,24 @@ class GRABDOC_PT_export(PanelInfo, Panel):
         marmo_executable = preferences.marmo_executable
 
         col = layout.column(align=True)
-
         row = col.row()
         if not os.path.exists(marmo_executable):
             row.alignment = 'CENTER'
             row.label(text="Marmoset Toolbag Executable Required", icon='INFO')
             row = col.row()
             row.prop(preferences, 'marmo_executable', text="Executable Path")
-        else:
-            row.prop(preferences, 'marmo_executable', text="Executable Path")
-            row = col.row(align=True)
-            row.scale_y = 1.5
-            row.operator(
-                "grab_doc.bake_marmoset",
-                text="Bake in Marmoset",
-                icon="EXPORT"
-            ).send_type = 'open'
-            row.operator(
-                "grab_doc.bake_marmoset",
-                text="",
-                icon='FILE_REFRESH'
-            ).send_type = 'refresh'
+            return
+        row.prop(preferences, 'marmo_executable', text="Executable Path")
+        row = col.row(align=True)
+        row.scale_y = 1.25
+        row.operator(
+            "grab_doc.bake_marmoset",
+            text="Bake in Marmoset", icon="EXPORT"
+        ).send_type = 'open'
+        row.operator(
+            "grab_doc.bake_marmoset",
+            text="", icon='FILE_REFRESH'
+        ).send_type = 'refresh'
 
     def draw(self, context: Context):
         gd = context.scene.gd
@@ -190,10 +186,11 @@ class GRABDOC_PT_export(PanelInfo, Panel):
         )
 
         row = col2.row()
-        row.prop(
-            gd,
-            "marmo_format" if gd.baker_type == "marmoset" else "format"
-        )
+        if gd.baker_type == "marmoset":
+            image_format = "marmo_format"
+        else:
+            image_format = "format"
+        row.prop(gd, image_format)
 
         # TODO: This is insane lol
         row2 = row.row()
@@ -331,7 +328,8 @@ class BakerPanel():
 
     @classmethod
     def poll(cls, context: Context) -> bool:
-        return not context.scene.gd.preview_state
+        baker = getattr(context.scene.gd, cls.ID)[0]
+        return not context.scene.gd.preview_state and baker.visibility
 
     def draw_header(self, context: Context):
         baker = getattr(context.scene.gd, self.ID)[0]

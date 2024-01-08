@@ -82,8 +82,8 @@ class Baker():
         if not self.MARMOSET_COMPATIBLE:
             box = col.box()
             col2 = box.column(align=True)
-            col2.label(text='\u2022 Requires Shader Manipulation', icon='INFO')
-            col2.label(text='\u2022 No Marmoset Support', icon='BLANK1')
+            col2.label(text="\u2022 Requires Shader Manipulation", icon='INFO')
+            col2.label(text="\u2022 No Marmoset Support", icon='BLANK1')
 
         box = col.box()
         box.label(text="Properties", icon="PROPERTIES")
@@ -95,6 +95,7 @@ class Baker():
         box.label(text="Settings", icon="SETTINGS")
         col = box.column()
         if gd.baker_type == 'blender':
+            col.prop(self, 'reimport', text="Re-import")
             if self.engine == 'blender_eevee':
                 prop = 'samples'
             elif self.engine == 'blender_workbench':
@@ -106,7 +107,6 @@ class Baker():
                 prop,
                 text='Samples'
             )
-            col.prop(self, 'reimport', text="Re-import")
             col.prop(self, 'contrast', text="Contrast")
         col.prop(self, 'suffix', text="Suffix")
 
@@ -446,8 +446,8 @@ class Height(Baker, PropertyGroup):
     VIEW_TRANSFORM = "Standard"
     MARMOSET_COMPATIBLE = True
     SUPPORTED_ENGINES = (
-        ('blender_eevee', "Eevee",     ""),
-        ('cycles',        "Cycles",    "")
+        ('blender_eevee', "Eevee",  ""),
+        ('cycles',        "Cycles", "")
     )
 
     def setup(self) -> None:
@@ -583,26 +583,15 @@ class Id(Baker, PropertyGroup):
     def setup(self) -> None:
         super().setup()
         scene = bpy.context.scene
-
         if scene.render.engine == 'BLENDER_WORKBENCH':
-            shading = \
-                bpy.context.scene.display.shading
-            shading.show_cavity = False
-            shading.light = 'FLAT'
-            shading.color_type = self.method
-
+            self.update_method(bpy.context)
 
     def draw_properties(self, context: Context, layout: UILayout):
         gd = context.scene.gd
-        col = layout.column()
-        row = col.row()
-        if gd.baker_type == 'marmoset':
-            row.enabled = False
-            row.prop(self, 'ui_method', text="ID Method")
-        else:
+        row = layout.row()
+        if gd.baker_type != 'marmoset':
             row.prop(self, 'method', text="ID Method")
-
-        if self.method != "MATERIAL" or gd.baker_type != 'marmoset':
+        if self.method != 'MATERIAL':
             return
 
         col = layout.column(align=True)
@@ -616,7 +605,7 @@ class Id(Baker, PropertyGroup):
         row.operator(
             "grab_doc.remove_mats_by_name",
             text='All'
-        ).mat_name = Global.MAT_ID_RAND_PREFIX
+        ).name = Global.MAT_ID_RAND_PREFIX
 
         col = layout.column(align=True)
         col.separator(factor=.5)
@@ -629,9 +618,15 @@ class Id(Baker, PropertyGroup):
         row.operator(
             "grab_doc.remove_mats_by_name",
             text='All'
-        ).mat_name = Global.MAT_ID_PREFIX
+        ).name = Global.MAT_ID_PREFIX
         row.operator("grab_doc.quick_remove_selected_mats",
                         text='Selected')
+
+    def update_method(self, context: Context):
+        shading = context.scene.display.shading
+        shading.show_cavity = False
+        shading.light = 'FLAT'
+        shading.color_type = self.method
 
     method_list = (
         ('RANDOM', "Random", ""),
@@ -640,11 +635,8 @@ class Id(Baker, PropertyGroup):
     )
     method: EnumProperty(
         items=method_list,
-        name=f"{NAME} Method"
-    )
-    ui_method: EnumProperty(
-        items=method_list,
-        default="MATERIAL"
+        name=f"{NAME} Method",
+        update=update_method
     )
     engine: EnumProperty(
         items=SUPPORTED_ENGINES,
@@ -786,7 +778,7 @@ def get_bake_maps(enabled_only: bool = True) -> list[Baker]:
     return bake_maps
 
 
-def reimport_as_material(suffix, map_names: list) -> None:
+def reimport_as_material(map_names: list[str]) -> None:
     """Reimport baked textures as a material for use inside of Blender"""
     gd = bpy.context.scene.gd
 
@@ -797,40 +789,63 @@ def reimport_as_material(suffix, map_names: list) -> None:
     mat.use_nodes = True
     links = mat.node_tree.links
 
-    # Create nodes
     bsdf = mat.node_tree.nodes['Principled BSDF']
 
-    # Import images
-    # TODO: Create function for getting enabled maps
-    y_offset = 0
+    y_offset = 256
     for name in map_names:
-        image_name = Global.GD_PREFIX + name
-        if image_name in bpy.data.images:
-            bpy.data.images.remove(bpy.data.images.get(image_name))
-
-        image = mat.node_tree.nodes.get(image_name)
+        # Import images
+        image = mat.node_tree.nodes.get(name)
         if image is None:
             image = mat.node_tree.nodes.new('ShaderNodeTexImage')
-            image.name = image_name
-            image.location = (-300, y_offset)
-        y_offset -= 200
+        image.hide = True
+        image.name = image.label = name
+        image.location = (-300, y_offset)
+        y_offset -= 32
 
-        export_name = f'{gd.export_name}_{suffix}'
+        export_name = f'{gd.export_name}_{name}'
         export_path = os.path.join(
             bpy.path.abspath(gd.export_path), export_name + get_format()
         )
         if not os.path.exists(export_path):
             continue
-        image.image = bpy.data.images.load(export_path)
+        image.image = bpy.data.images.load(export_path, check_existing=True)
 
-        if name not in (Global.COLOR_ID):
+        # NOTE: Unique exceptions for specific bake maps
+        if name not in Global.COLOR_ID:
             image.image.colorspace_settings.name = 'Non-Color'
-
-        # NOTE: Attempt socket match and link
-        try:
-            links.new(bsdf.inputs[name], image.outputs[name])
-        except KeyError:
-            pass
+        if name == Global.NORMAL_ID:
+            normal = mat.node_tree.nodes.get("Normal Map")
+            if normal is None:
+                normal = mat.node_tree.nodes.new('ShaderNodeNormalMap')
+            normal.hide = True
+            normal.location = (image.location[0] + 100, image.location[1])
+            image.location = (image.location[0] - 200, image.location[1])
+            links.new(normal.inputs["Color"], image.outputs["Color"])
+            links.new(bsdf.inputs["Normal"], normal.outputs["Normal"])
+        elif name == Global.COLOR_ID:
+            links.new(bsdf.inputs["Base Color"], image.outputs["Color"])
+        elif name == Global.EMISSIVE_ID:
+            links.new(bsdf.inputs["Emission Color"], image.outputs["Color"])
+        elif name == Global.METALNESS_ID:
+            links.new(bsdf.inputs["Metallic"], image.outputs["Color"])
+        elif name == Global.CURVATURE_ID:
+            continue
+        elif name == Global.OCCLUSION_ID:
+            # TODO: Could mix AO with Base Color in the future, not PBR
+            continue
+        elif name == Global.HEIGHT_ID:
+            continue
+        elif name == Global.MATERIAL_ID:
+            continue
+        elif name == Global.ALPHA_ID:
+            continue
+        else:
+            try:
+                links.new(
+                    bsdf.inputs[name.capitalize()], image.outputs["Color"]
+                )
+            except KeyError:
+                pass
 
 
 ################################################
