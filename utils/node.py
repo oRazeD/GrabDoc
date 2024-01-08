@@ -9,7 +9,7 @@ from bpy.types import (
     Material
 )
 
-from ..constants import Global, Error
+from ..constants import Global
 
 
 def generate_shader_interface(tree: NodeTree, inputs: dict) -> None:
@@ -330,16 +330,18 @@ def node_init() -> None:
 
         # Create sockets
         generate_shader_interface(tree, inputs)
-        tree.interface.new_socket(
-            name='Emissive Color',
+        emit_color = tree.interface.new_socket(
+            name="Emission Color",
             socket_type='NodeSocketColor',
             in_out='INPUT'
         )
-        tree.interface.new_socket(
-            name='Emissive Strength',
+        emit_color.default_value = (0, 0, 0, 1)
+        emit_strength = tree.interface.new_socket(
+            name="Emission Strength",
             socket_type='NodeSocketFloat',
             in_out='INPUT'
         )
+        emit_strength.default_value = 1
 
         # Create nodes
         group_output = tree.nodes.new('NodeGroupOutput')
@@ -356,11 +358,7 @@ def node_init() -> None:
         links = tree.links
         links.new(
             emission.inputs["Color"],
-            group_input.outputs["Emissive Color"]
-        )
-        links.new(
-            emission.inputs["Strength"],
-            group_input.outputs["Emissive Strength"]
+            group_input.outputs["Emission Color"]
         )
         links.new(
             group_output.inputs["Shader"],
@@ -420,7 +418,7 @@ def node_init() -> None:
         # Create sockets
         generate_shader_interface(tree, inputs)
         tree.interface.new_socket(
-            name='Metalness',
+            name='Metallic',
             socket_type='NodeSocketFloat',
             in_out='INPUT'
         )
@@ -440,7 +438,7 @@ def node_init() -> None:
         links = tree.links
         links.new(
             emission.inputs["Color"],
-            group_input.outputs["Metalness"]
+            group_input.outputs["Metallic"]
         )
         links.new(
             group_output.inputs["Shader"],
@@ -489,6 +487,10 @@ def apply_node_to_objects(name: str, objects: Iterable[Object]) -> bool:
             else:
                 mat = bpy.data.materials.new(name=Global.GD_MATERIAL_NAME)
                 mat.use_nodes = True
+
+                # NOTE: Set default emission color
+                bsdf = mat.node_tree.nodes['Principled BSDF']
+                bsdf.inputs["Emission Color"].default_value = (0,0,0,1)
 
             # NOTE: We want to avoid removing empty material slots
             # as they can be used for geometry masking
@@ -583,9 +585,6 @@ def apply_node_to_objects(name: str, objects: Iterable[Object]) -> bool:
                             continue
                         node_found = False
                         for original_input in source_node.inputs:
-                            if original_input.name not in Global.ALL_MAP_NAMES:
-                                continue
-
                             if name == Global.COLOR_NODE \
                             and original_input.name == Global.COLOR_NAME:
                                 node_found = create_node_links(
@@ -595,7 +594,7 @@ def apply_node_to_objects(name: str, objects: Iterable[Object]) -> bool:
                                     material=material
                                 )
                             elif name == Global.EMISSIVE_NODE \
-                            and original_input.name == Global.EMISSIVE_NAME:
+                            and original_input.name == "Emission Color":
                                 node_found = create_node_links(
                                     input_name=original_input.name,
                                     node_group=passthrough,
@@ -611,7 +610,7 @@ def apply_node_to_objects(name: str, objects: Iterable[Object]) -> bool:
                                     material=material
                                 )
                             elif name == Global.METALNESS_NODE \
-                            and original_input.name == Global.METALNESS_NAME:
+                            and original_input.name == "Metallic":
                                 node_found = create_node_links(
                                     input_name=original_input.name,
                                     node_group=passthrough,

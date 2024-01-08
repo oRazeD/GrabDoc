@@ -821,6 +821,8 @@ def reimport_as_material(map_names: list[str]) -> None:
     links = mat.node_tree.links
 
     bsdf = mat.node_tree.nodes['Principled BSDF']
+    bsdf.inputs["Emission Color"].default_value = (0,0,0,1)
+    bsdf.inputs["Emission Strength"].default_value = 1
 
     y_offset = 256
     for name in map_names:
@@ -842,7 +844,7 @@ def reimport_as_material(map_names: list[str]) -> None:
         image.image = bpy.data.images.load(export_path, check_existing=True)
 
         # NOTE: Unique exceptions for specific bake maps
-        if name not in Global.COLOR_ID:
+        if name not in (Global.COLOR_ID, Global.EMISSIVE_ID):
             image.image.colorspace_settings.name = 'Non-Color'
         if name == Global.NORMAL_ID:
             normal = mat.node_tree.nodes.get("Normal Map")
