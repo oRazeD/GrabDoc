@@ -153,6 +153,38 @@ def node_init() -> None:
         links.new(mix_shader.inputs[1], transp_shader.outputs['BSDF'])
         links.new(mix_shader.inputs[2], vec_add.outputs['Vector'])
 
+    if not Global.CURVATURE_NODE in bpy.data.node_groups:
+        tree = bpy.data.node_groups.new(
+            Global.CURVATURE_NODE, 'ShaderNodeTree'
+        )
+        tree.use_fake_user = True
+
+        # Create sockets
+        generate_shader_interface(tree, inputs)
+
+        # Create nodes
+        group_output = tree.nodes.new('NodeGroupOutput')
+        group_output.name = "Group Output"
+
+        geometry = tree.nodes.new('ShaderNodeNewGeometry')
+        geometry.location = (-800, 0)
+
+        color_ramp = tree.nodes.new('ShaderNodeValToRGB')
+        color_ramp.color_ramp.elements.new(.5)
+        color_ramp.color_ramp.elements[0].position = 0.49
+        color_ramp.color_ramp.elements[2].position = 0.51
+        color_ramp.location = (-600, 0)
+
+        emission = tree.nodes.new('ShaderNodeEmission')
+        emission.name = "Emission"
+        emission.location = (-200, 0)
+
+        # Link nodes
+        links = tree.links
+        links.new(color_ramp.inputs["Fac"], geometry.outputs["Pointiness"])
+        links.new(emission.inputs["Color"], color_ramp.outputs["Color"])
+        links.new(group_output.inputs["Shader"], emission.outputs["Emission"])
+
     if not Global.OCCLUSION_NODE in bpy.data.node_groups:
         tree = bpy.data.node_groups.new(
             Global.OCCLUSION_NODE, 'ShaderNodeTree'

@@ -60,7 +60,13 @@ class Baker():
             scene.display.render_aa = \
             scene.display.viewport_aa = self.samples_workbench
 
-        set_color_management(self.COLOR_SPACE, self.VIEW_TRANSFORM)
+        # NOTE: Exceptions for specific render
+        # engines that need specific view transforms
+        if self.ID == Global.CURVATURE_ID:
+            view_transform = "Raw"
+        else:
+            view_transform = self.VIEW_TRANSFORM
+        set_color_management(self.COLOR_SPACE, view_transform)
 
         scene.view_settings.look = self.contrast.replace('_', ' ')
 
@@ -129,7 +135,7 @@ class Baker():
         update=apply_render_settings
     )
     samples_cycles: IntProperty(
-        name="Cycles Samples", default=32, min=1, soft_max=1024,
+        name="Cycles Samples", default=16, min=1, soft_max=1024,
         update=apply_render_settings
     )
     samples_workbench: EnumProperty(
@@ -270,24 +276,19 @@ class Normals(Baker, PropertyGroup):
 class Curvature(Baker, PropertyGroup):
     ID = Global.CURVATURE_ID
     NAME = Global.CURVATURE_NAME
-    NODE = None
+    NODE = Global.CURVATURE_NODE
     COLOR_SPACE = "sRGB"
     VIEW_TRANSFORM = "Standard"
     MARMOSET_COMPATIBLE = True
     SUPPORTED_ENGINES = (
         ('blender_workbench', "Workbench", ""),
-        #('cycles',        "Cycles", "")
+        ('cycles',            "Cycles",    "")
     )
 
     def setup(self) -> None:
         super().setup()
-
         scene = bpy.context.scene
         scene_shading = bpy.data.scenes[str(scene.name)].display.shading
-
-        scene_shading.light = 'FLAT'
-        scene_shading.color_type = 'SINGLE'
-
         self.savedCavityType = scene_shading.cavity_type
         self.savedCavityRidgeFactor = scene_shading.cavity_ridge_factor
         self.savedCurveRidgeFactor = scene_shading.curvature_ridge_factor
@@ -295,7 +296,8 @@ class Curvature(Baker, PropertyGroup):
         self.savedCurveValleyFactor = scene_shading.curvature_valley_factor
         self.savedRidgeDistance = scene.display.matcap_ssao_distance
         self.savedSingleColor = [*scene_shading.single_color]
-
+        scene_shading.light = 'FLAT'
+        scene_shading.color_type = 'SINGLE'
         scene_shading.show_cavity = True
         scene_shading.cavity_type = 'BOTH'
         scene_shading.cavity_ridge_factor = \
@@ -303,15 +305,27 @@ class Curvature(Baker, PropertyGroup):
         scene_shading.curvature_valley_factor = self.valley
         scene_shading.cavity_valley_factor = 0
         scene_shading.single_color = (.214041, .214041, .214041)
-
         scene.display.matcap_ssao_distance = .075
+        self.update_range(bpy.context)
+
+    def apply_render_settings(self, check: bool = True):
+        super().apply_render_settings(check=check)
+        scene = bpy.context.scene
+        if scene.render.engine == 'CYCLES':
+            set_color_management(self.COLOR_SPACE, "Raw")
+        else:
+            set_color_management(self.COLOR_SPACE, self.VIEW_TRANSFORM)
+
 
     def draw_properties(self, context: Context, layout: UILayout):
         if context.scene.gd.baker_type != 'blender':
             return
         col = layout.column()
-        col.prop(self, 'ridge', text="Ridge")
-        col.prop(self, 'valley', text="Valley")
+        if context.scene.render.engine == 'BLENDER_WORKBENCH':
+            col.prop(self, 'ridge', text="Ridge")
+            col.prop(self, 'valley', text="Valley")
+        elif context.scene.render.engine == 'CYCLES':
+            col.prop(self, 'range', text="Range")
 
     def cleanup(self) -> None:
         display = \
@@ -335,6 +349,14 @@ class Curvature(Baker, PropertyGroup):
             scene_shading.curvature_ridge_factor = self.ridge
         scene_shading.curvature_valley_factor = self.valley
 
+    def update_range(self, context: Context):
+        color_ramp = \
+            bpy.data.node_groups[self.NODE].nodes.get("Color Ramp")
+        color_ramp.color_ramp.elements[0].position = \
+            0.49 - (self.range/2+.01)
+        color_ramp.color_ramp.elements[2].position = \
+            0.51 + (self.range/2-.01)
+
     ridge: FloatProperty(
         name="",
         default=2,
@@ -355,10 +377,19 @@ class Curvature(Baker, PropertyGroup):
         update=update_curvature,
         subtype='FACTOR'
     )
+    range: FloatProperty(
+        name="",
+        default=.05,
+        min=0,
+        max=1,
+        step=.1,
+        update=update_range,
+        subtype='FACTOR'
+    )
     engine: EnumProperty(
         items=SUPPORTED_ENGINES,
         name='Render Engine',
-        update=Baker.apply_render_settings
+        update=apply_render_settings
     )
 
 
