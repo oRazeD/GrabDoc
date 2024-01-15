@@ -39,12 +39,11 @@ class Baker():
     # NOTE: Default functions
     def setup(self):
         """Operations to run before bake map export."""
-        self.apply_render_settings(check=False)
+        self.apply_render_settings(requires_preview=False)
 
-    def apply_render_settings(self, check: bool=True):
-        # TODO: What is this for?
-        #if not check and not bpy.context.scene.gd.preview_state:
-        #    return
+    def apply_render_settings(self, requires_preview: bool=True) -> None:
+        if requires_preview and not bpy.context.scene.gd.preview_state:
+            return
 
         scene = bpy.context.scene
         scene.render.engine = str(self.engine).upper()
@@ -60,15 +59,11 @@ class Baker():
             scene.display.render_aa = \
             scene.display.viewport_aa = self.samples_workbench
 
-        # NOTE: Exceptions for specific render
-        # engines that need specific view transforms
-        if self.ID == Global.CURVATURE_ID:
-            view_transform = "Raw"
-        else:
-            view_transform = self.VIEW_TRANSFORM
-        set_color_management(self.COLOR_SPACE, view_transform)
-
-        scene.view_settings.look = self.contrast.replace('_', ' ')
+        set_color_management(
+            self.COLOR_SPACE,
+            self.VIEW_TRANSFORM,
+            self.contrast.replace('_', ' ')
+        )
 
     def cleanup(self):
         """Operations to run after bake map export conclusion."""
@@ -117,7 +112,10 @@ class Baker():
         col.prop(self, 'suffix', text="Suffix")
 
     # NOTE: Default properties
-    enabled: BoolProperty(name="Export Enabled", default=True)
+    enabled: BoolProperty(
+        name="Export Enabled",
+        default=True # TODO: Could set this based on marmoset compat
+        )
     reimport: BoolProperty(
         name="Reimport Texture",
         description="Reimport bake map texture into a Blender material"
@@ -308,8 +306,8 @@ class Curvature(Baker, PropertyGroup):
         scene.display.matcap_ssao_distance = .075
         self.update_range(bpy.context)
 
-    def apply_render_settings(self, check: bool = True):
-        super().apply_render_settings(check=check)
+    def apply_render_settings(self, requires_preview: bool=True):
+        super().apply_render_settings(requires_preview)
         scene = bpy.context.scene
         if scene.render.engine == 'CYCLES':
             set_color_management(self.COLOR_SPACE, "Raw")
@@ -491,7 +489,7 @@ class Height(Baker, PropertyGroup):
     def draw_properties(self, context: Context, layout: UILayout):
         col = layout.column()
         if context.scene.gd.baker_type == 'blender':
-            col.prop(self, 'invert', text="Invert Mask")
+            col.prop(self, 'invert', text="Invert")
         row = col.row()
         row.prop(self, 'method', text="Height Mode", expand=True)
         if self.method == 'MANUAL':
@@ -527,10 +525,6 @@ class Height(Baker, PropertyGroup):
 
         if self.method == 'MANUAL':
             scene_setup(self, context)
-
-        # Update here so that it refreshes live in the VP
-        if not context.scene.gd.preview_state:
-            return
 
     invert: BoolProperty(
         description="Invert height mask, useful for sculpting negatively",
@@ -575,7 +569,7 @@ class Alpha(Baker, PropertyGroup):
     def draw_properties(self, context: Context, layout: UILayout):
         col = layout.column()
         if context.scene.gd.baker_type == 'blender':
-            col.prop(self, 'invert', text="Invert Mask")
+            col.prop(self, 'invert', text="Invert")
 
     def update_alpha(self, context: Context):
         gd_camera_ob_z = bpy.data.objects.get(
@@ -773,7 +767,8 @@ class Metalness(Baker, PropertyGroup):
 
 def set_color_management(
         display_device: str='None',
-        view_transform: str='Standard'
+        view_transform: str='Standard',
+        look: str='None'
     ) -> None:
     """Helper function for supporting custom color management
      profiles. Ignores anything that isn't compatible"""
@@ -781,7 +776,7 @@ def set_color_management(
     view_settings = bpy.context.scene.view_settings
     display_settings.display_device = display_device
     view_settings.view_transform = view_transform
-    view_settings.look = 'None'
+    view_settings.look = look
     view_settings.exposure = 0
     view_settings.gamma = 1
 
@@ -812,6 +807,8 @@ def get_bake_maps(enabled_only: bool = True) -> list[Baker]:
 def reimport_as_material(map_names: list[str]) -> None:
     """Reimport baked textures as a material for use inside of Blender"""
     gd = bpy.context.scene.gd
+    if not map_names:
+        return
 
     # Create material
     mat = bpy.data.materials.get(Global.REIMPORT_MAT_NAME)
@@ -938,7 +935,7 @@ def baker_init(self, context: Context):
     view_settings = scene.view_settings
     self.savedDisplayDevice = scene.display_settings.display_device
     self.savedViewTransform = view_settings.view_transform
-    self.savedContrastType = view_settings.look
+    self.savedLook = view_settings.look
     self.savedExposure = view_settings.exposure
     self.savedGamma = view_settings.gamma
     self.savedTransparency = render.film_transparent
@@ -1055,9 +1052,9 @@ def baker_cleanup(self, context: Context) -> None:
     # Color Management
     view_settings = scene.view_settings
 
-    view_settings.look = self.savedContrastType
     scene.display_settings.display_device = self.savedDisplayDevice
     view_settings.view_transform = self.savedViewTransform
+    view_settings.look = self.savedLook
     view_settings.exposure = self.savedExposure
     view_settings.gamma = self.savedGamma
 
