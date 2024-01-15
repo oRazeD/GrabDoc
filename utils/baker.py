@@ -177,7 +177,7 @@ class Normals(Baker, PropertyGroup):
     NAME = Global.NORMAL_NAME
     NODE = Global.NORMAL_NODE
     COLOR_SPACE = "sRGB"
-    VIEW_TRANSFORM = "Standard"
+    VIEW_TRANSFORM = "Raw"
     MARMOSET_COMPATIBLE = True
     SUPPORTED_ENGINES = (
         ('blender_eevee', "Eevee",  ""),
@@ -396,11 +396,11 @@ class Occlusion(Baker, PropertyGroup):
     NAME = Global.OCCLUSION_NAME
     NODE = Global.OCCLUSION_NODE
     COLOR_SPACE = "sRGB"
-    VIEW_TRANSFORM = "Standard"
+    VIEW_TRANSFORM = "Raw"
     MARMOSET_COMPATIBLE = True
     SUPPORTED_ENGINES = (
-        ('blender_eevee', "Eevee",     ""),
-        ('cycles',        "Cycles",    "")
+        ('blender_eevee', "Eevee",  ""),
+        ('cycles',        "Cycles", "")
     )
 
     def setup(self) -> None:
@@ -472,7 +472,7 @@ class Height(Baker, PropertyGroup):
     NAME = Global.HEIGHT_NAME
     NODE = Global.HEIGHT_NODE
     COLOR_SPACE = "sRGB"
-    VIEW_TRANSFORM = "Standard"
+    VIEW_TRANSFORM = "Raw"
     MARMOSET_COMPATIBLE = True
     SUPPORTED_ENGINES = (
         ('blender_eevee', "Eevee",  ""),
@@ -559,11 +559,11 @@ class Alpha(Baker, PropertyGroup):
     NAME = Global.ALPHA_NAME
     NODE = Global.ALPHA_NODE
     COLOR_SPACE = "sRGB"
-    VIEW_TRANSFORM = "Standard"
+    VIEW_TRANSFORM = "Raw"
     MARMOSET_COMPATIBLE = True
     SUPPORTED_ENGINES = (
-        ('blender_eevee', "Eevee",     ""),
-        ('cycles',        "Cycles",    "")
+        ('blender_eevee', "Eevee",  ""),
+        ('cycles',        "Cycles", "")
     )
 
     def draw_properties(self, context: Context, layout: UILayout):
@@ -675,11 +675,11 @@ class Color(Baker, PropertyGroup):
     NAME = Global.COLOR_NAME
     NODE = Global.COLOR_NODE
     COLOR_SPACE = "sRGB"
-    VIEW_TRANSFORM = "Standard"
+    VIEW_TRANSFORM = "Raw"
     MARMOSET_COMPATIBLE = False
     SUPPORTED_ENGINES = (
-        ('blender_eevee', "Eevee",     ""),
-        ('cycles',        "Cycles",    "")
+        ('blender_eevee', "Eevee",  ""),
+        ('cycles',        "Cycles", "")
     )
 
     engine: EnumProperty(
@@ -694,7 +694,7 @@ class Emissive(Baker, PropertyGroup):
     NAME = Global.EMISSIVE_NAME
     NODE = Global.EMISSIVE_NODE
     COLOR_SPACE = "sRGB"
-    VIEW_TRANSFORM = "Standard"
+    VIEW_TRANSFORM = "Raw"
     MARMOSET_COMPATIBLE = False
     SUPPORTED_ENGINES = (
         ('blender_eevee', "Eevee",  ""),
@@ -713,7 +713,7 @@ class Roughness(Baker, PropertyGroup):
     NAME = Global.ROUGHNESS_NAME
     NODE = Global.ROUGHNESS_NODE
     COLOR_SPACE = "sRGB"
-    VIEW_TRANSFORM = "Standard"
+    VIEW_TRANSFORM = "Raw"
     MARMOSET_COMPATIBLE = False
     SUPPORTED_ENGINES = (
         ('blender_eevee', "Eevee",  ""),
@@ -746,7 +746,7 @@ class Metalness(Baker, PropertyGroup):
     NAME = Global.METALNESS_NAME
     NODE = Global.METALNESS_NODE
     COLOR_SPACE = "sRGB"
-    VIEW_TRANSFORM = "Standard"
+    VIEW_TRANSFORM = "Raw"
     MARMOSET_COMPATIBLE = False
     SUPPORTED_ENGINES = (
         ('blender_eevee', "Eevee",  ""),
@@ -779,6 +779,8 @@ def set_color_management(
     view_settings.look = look
     view_settings.exposure = 0
     view_settings.gamma = 1
+    view_settings.use_curve_mapping = False
+    view_settings.use_hdr_view = False
 
 
 def get_bakers() -> list[Baker]:
@@ -939,6 +941,8 @@ def baker_init(self, context: Context):
     self.savedExposure = view_settings.exposure
     self.savedGamma = view_settings.gamma
     self.savedTransparency = render.film_transparent
+    self.savedCurveMapping = view_settings.use_curve_mapping
+    self.savedHdrView = view_settings.use_hdr_view
 
     # Performance
     if bpy.app.version >= (2, 83, 0):
@@ -1057,6 +1061,9 @@ def baker_cleanup(self, context: Context) -> None:
     view_settings.look = self.savedLook
     view_settings.exposure = self.savedExposure
     view_settings.gamma = self.savedGamma
+
+    view_settings.use_curve_mapping = self.savedCurveMapping
+    view_settings.use_hdr_view = self.savedHdrView
 
     scene.render.film_transparent = self.savedTransparency
 
