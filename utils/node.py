@@ -477,6 +477,7 @@ def create_node_links(
 
 def apply_node_to_objects(name: str, objects: Iterable[Object]) -> bool:
     """Add node group to given object material slots"""
+    gd = bpy.context.scene.gd
     operation_success = True
     for ob in objects:
         # If no material slots found or empty mat
@@ -517,13 +518,6 @@ def apply_node_to_objects(name: str, objects: Iterable[Object]) -> bool:
                     nodes.new('ShaderNodeOutputMaterial')
                 )
 
-            # TODO: Replace ('Surface', 'Volume', 'Displacement') tuples
-            #inputs = get_material_output_inputs()
-            #for name in inputs.keys():
-            #    print(name)
-
-            gd = bpy.context.scene.gd
-
             node_group = bpy.data.node_groups.get(name)
             for output in output_nodes:
                 passthrough = nodes.new('ShaderNodeGroup')
@@ -556,10 +550,9 @@ def apply_node_to_objects(name: str, objects: Iterable[Object]) -> bool:
                 # Link nodes
                 # TODO: This section needs to
                 # be seriously reconsidered
-                # connections_to_make = \
-                #    ('Surface', 'Volume', 'Displacement')
-                # if node_input.name in connections_to_make:
-                #    for connection_name in connections_to_make:
+                # inputs = get_material_output_inputs()
+                # if node_input.name in inputs:
+                #    for connection_name in inputs:
                 #        if node_input.name != connection_name:
                 #            continue
                 #        mat_slot.node_tree.links.new(
@@ -631,7 +624,7 @@ def apply_node_to_objects(name: str, objects: Iterable[Object]) -> bool:
                                 and len(original_input.links):
                                     material.blend_method = 'CLIP'
                             elif name == Global.NORMAL_NODE \
-                            and original_input.name == Global.NORMAL_NAME:
+                            and original_input.name == "Normal":
                                 node_found = create_node_links(
                                     input_name=original_input.name,
                                     node_group=passthrough,
@@ -657,8 +650,7 @@ def apply_node_to_objects(name: str, objects: Iterable[Object]) -> bool:
                 for link in output.inputs['Displacement'].links:
                     material.node_tree.links.remove(link)
                 material.node_tree.links.new(
-                    output.inputs["Surface"],
-                    passthrough.outputs["Shader"]
+                    output.inputs["Surface"], passthrough.outputs["Shader"]
                 )
     return operation_success
 
@@ -667,52 +659,46 @@ def node_cleanup(setup_type: str) -> None:
     """Remove node group & return original links if they exist"""
     if setup_type is None:
         return
+    inputs = get_material_output_inputs()
     for mat in bpy.data.materials:
         mat.use_nodes = True
-
+        nodes = mat.node_tree.nodes
         if mat.name == Global.GD_MATERIAL_NAME:
             bpy.data.materials.remove(mat)
             continue
-        if setup_type not in mat.node_tree.nodes:
+        if setup_type not in nodes:
             continue
 
-        # If a material has a GrabDoc created Node Group, remove it
-        GD_node_groups = [
-            mat for mat in mat.node_tree.nodes if mat.name.startswith(
-                setup_type
-            )
+        grabdoc_nodes = [
+            mat for mat in nodes if mat.name.startswith(setup_type)
         ]
-        for GD_node_group in GD_node_groups:
+        for node in grabdoc_nodes:
             output = None
-            for output in GD_node_group.outputs:
+            for output in node.outputs:
                 for link in output.links:
                     if link.to_node.type == 'OUTPUT_MATERIAL':
                         output = link.to_node
                         break
                 if output is not None:
                     break
-
             if output is None:
-                mat.node_tree.nodes.remove(GD_node_group)
+                nodes.remove(node)
                 continue
 
-            for node_input in GD_node_group.inputs:
+            for node_input in node.inputs:
                 for link in node_input.links:
                     original_node_connection = \
-                        mat.node_tree.nodes.get(link.from_node.name)
+                        nodes.get(link.from_node.name)
                     original_node_socket = link.from_socket.name
-
-                    # TODO: can be more modular
-                    connections_to_make = \
-                        ('Surface', 'Volume', 'Displacement')
-                    if node_input.name.split(' ')[-1] in connections_to_make:
-                        for connection_name in connections_to_make:
-                            if node_input.name == connection_name:
-                                mat.node_tree.links.new(
-                                    output.inputs[connection_name],
-                                    original_node_connection.outputs[
-                                        original_node_socket
-                                    ]
-                                )
-
-            mat.node_tree.nodes.remove(GD_node_group)
+                    if node_input.name.split(' ')[-1] not in inputs:
+                        continue
+                    for connection_name in inputs:
+                        if node_input.name != connection_name:
+                            continue
+                        mat.node_tree.links.new(
+                            output.inputs[connection_name],
+                            original_node_connection.outputs[
+                                original_node_socket
+                            ]
+                        )
+            nodes.remove(node)
