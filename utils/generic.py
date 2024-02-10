@@ -1,5 +1,6 @@
 import os
 import re
+from pathlib import Path
 from inspect import getframeinfo, stack
 
 import bpy
@@ -97,7 +98,7 @@ def get_create_addon_temp_dir(
     ) -> tuple[str, str]:
     """Creates a temporary files directory
     for automatically handled I/O"""
-    addon_path = os.path.dirname(__file__)
+    addon_path = os.path.dirname(Path(__file__).parent)
     temp_path = os.path.join(addon_path, dir_name)
     if create_dir and not os.path.exists(temp_path):
         os.mkdir(temp_path)

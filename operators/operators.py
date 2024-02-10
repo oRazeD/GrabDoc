@@ -17,7 +17,8 @@ from ..utils.generic import (
     bad_setup_check,
     export_plane,
     is_camera_in_3d_view,
-    poll_message_error
+    poll_message_error,
+    get_create_addon_temp_dir
 )
 from ..utils.baker import (
     baker_init,
@@ -134,14 +135,15 @@ class GRABDOC_OT_export_maps(OpInfo, Operator, UILayout):
         return not context.scene.gd.preview_state
 
     @staticmethod
-    def export(context: Context, suffix: str) -> str:
+    def export(context: Context, suffix: str, path: str = None) -> str:
         gd = context.scene.gd
-
         render = context.scene.render
         saved_path = render.filepath
 
         name = f"{gd.export_name}_{suffix}"
-        path = bpy.path.abspath(gd.export_path) + name + get_format()
+        if path is None:
+            path = bpy.path.abspath(gd.export_path)
+        path = os.path.join(path, name + get_format())
         render.filepath = path
 
         context.scene.camera = bpy.data.objects[Global.TRIM_CAMERA_NAME]
@@ -251,8 +253,6 @@ class GRABDOC_OT_single_render(OpInfo, Operator):
 
     def open_render_image(self, filepath: str):
         new_image = bpy.data.images.load(filepath, check_existing=True)
-        #new_image.name = filepath
-
         bpy.ops.screen.userpref_show("INVOKE_DEFAULT")
         area = bpy.context.window_manager.windows[-1].screen.areas[0]
         area.type = "IMAGE_EDITOR"
@@ -289,7 +289,9 @@ class GRABDOC_OT_single_render(OpInfo, Operator):
             )
             if result is False:
                 self.report({'INFO'}, Error.MAT_SLOTS_WITHOUT_LINKS)
-        path = GRABDOC_OT_export_maps.export(context, self.baker.suffix)
+        path = GRABDOC_OT_export_maps.export(
+            context, self.baker.suffix, path=get_create_addon_temp_dir()[1]
+        )
         self.open_render_image(path)
         self.baker.cleanup()
         if self.baker.NODE:
