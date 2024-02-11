@@ -1,24 +1,24 @@
 
 class Global:
     """A collection of constants used for global variable standardization"""
-    GD_PREFIX      = "GD_"
-    GD_FLAG_PREFIX = "[GrabDoc] "
-    GD_LOW_PREFIX  = "_" + GD_PREFIX.lower() + "low"
-    GD_HIGH_PREFIX = "_" + GD_PREFIX.lower() + "high"
+    PREFIX      = "GD_"
+    FLAG_PREFIX = "[GrabDoc] "
+    LOW_SUFFIX  = "_low_gd"
+    HIGH_SUFFIX = "_high_gd"
 
-    REFERENCE_NAME    = GD_FLAG_PREFIX + "Reference"
-    TRIM_CAMERA_NAME  = GD_FLAG_PREFIX + "Trim Camera"
-    BG_PLANE_NAME     = GD_FLAG_PREFIX + "Background Plane"
-    HEIGHT_GUIDE_NAME = GD_FLAG_PREFIX + "Height Guide"
-    ORIENT_GUIDE_NAME = GD_FLAG_PREFIX + "Orient Guide"
-    GD_MATERIAL_NAME  = GD_FLAG_PREFIX + "Material"
+    REFERENCE_NAME    = FLAG_PREFIX + "Reference"
+    TRIM_CAMERA_NAME  = FLAG_PREFIX + "Trim Camera"
+    BG_PLANE_NAME     = FLAG_PREFIX + "Background Plane"
+    HEIGHT_GUIDE_NAME = FLAG_PREFIX + "Height Guide"
+    ORIENT_GUIDE_NAME = FLAG_PREFIX + "Orient Guide"
+    GD_MATERIAL_NAME  = FLAG_PREFIX + "Material"
     COLL_NAME         = "GrabDoc Core"
     COLL_OB_NAME      = "GrabDoc Bake Group"
 
-    MAT_ID_PREFIX      = GD_FLAG_PREFIX + "ID"
-    MAT_ID_RAND_PREFIX = GD_FLAG_PREFIX + "RANDOM_ID"
+    ID_PREFIX        = FLAG_PREFIX + "ID"
+    RANDOM_ID_PREFIX = FLAG_PREFIX + "RANDOM_ID"
 
-    REIMPORT_MAT_NAME = GD_FLAG_PREFIX + "Render Result"
+    REIMPORT_MAT_NAME = FLAG_PREFIX + "Bake Result"
 
     NORMAL_ID    = "normals"
     CURVATURE_ID = "curvature"
@@ -42,15 +42,15 @@ class Global:
     ROUGHNESS_NAME = ROUGHNESS_ID.capitalize()
     METALNESS_NAME = METALNESS_ID.capitalize()
 
-    NORMAL_NODE    = GD_PREFIX + NORMAL_NAME
-    CURVATURE_NODE = GD_PREFIX + CURVATURE_NAME
-    OCCLUSION_NODE = GD_PREFIX + OCCLUSION_NAME
-    HEIGHT_NODE    = GD_PREFIX + HEIGHT_NAME
-    ALPHA_NODE     = GD_PREFIX + ALPHA_NAME
-    COLOR_NODE     = GD_PREFIX + COLOR_NAME
-    EMISSIVE_NODE  = GD_PREFIX + EMISSIVE_NAME
-    ROUGHNESS_NODE = GD_PREFIX + ROUGHNESS_NAME
-    METALNESS_NODE = GD_PREFIX + METALNESS_NAME
+    NORMAL_NODE    = PREFIX + NORMAL_NAME
+    CURVATURE_NODE = PREFIX + CURVATURE_NAME
+    OCCLUSION_NODE = PREFIX + OCCLUSION_NAME
+    HEIGHT_NODE    = PREFIX + HEIGHT_NAME
+    ALPHA_NODE     = PREFIX + ALPHA_NAME
+    COLOR_NODE     = PREFIX + COLOR_NAME
+    EMISSIVE_NODE  = PREFIX + EMISSIVE_NAME
+    ROUGHNESS_NODE = PREFIX + ROUGHNESS_NAME
+    METALNESS_NODE = PREFIX + METALNESS_NAME
 
     ALL_MAP_IDS = (
         NORMAL_ID,
@@ -151,7 +151,7 @@ class Error:
         "Material slots were found without links, using default values"
     MARMOSET_EXPORT_COMPLETE = \
         "Export completed! Opening Marmoset Toolbag..."
-    MARMOSET_RE_EXPORT_COMPLETE = \
+    MARMOSET_REFRESH_COMPLETE = \
         "Models re-exported! Check Marmoset Toolbag"
     OFFLINE_RENDER_COMPLETE = \
         "Offline render completed!"

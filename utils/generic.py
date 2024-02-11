@@ -2,6 +2,7 @@ import os
 import re
 from pathlib import Path
 from inspect import getframeinfo, stack
+from pathlib import Path
 
 import bpy
 from bpy.types import Context, Operator
@@ -99,10 +100,11 @@ def get_create_addon_temp_dir(
     """Creates a temporary files directory
     for automatically handled I/O"""
     addon_path = os.path.dirname(Path(__file__).parent)
+    addon_path = Path(__file__).parents[1]
     temp_path = os.path.join(addon_path, dir_name)
     if create_dir and not os.path.exists(temp_path):
         os.mkdir(temp_path)
-    return (addon_path, temp_path)
+    return addon_path, temp_path
 
 
 def get_debug_line_no() -> str:

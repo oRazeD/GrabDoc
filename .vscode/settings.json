@@ -1,5 +1,9 @@
 {
   "python.analysis.typeCheckingMode": "off",
+  "python.analysis.diagnosticSeverityOverrides": {
+    "reportGeneralTypeIssues": "none",
+    "reportInvalidTypeForm": "none"
+  },
   "python.analysis.autoImportCompletions": true,
   "cSpell.words": [
     "backface",
