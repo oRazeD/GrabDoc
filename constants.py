@@ -3,8 +3,8 @@ class Global:
     """A collection of constants used for global variable standardization"""
     GD_PREFIX      = "GD_"
     GD_FLAG_PREFIX = "[GrabDoc] "
-    GD_LOW_PREFIX  = "_" + GD_PREFIX.lower() + "low"
-    GD_HIGH_PREFIX = "_" + GD_PREFIX.lower() + "high"
+    GD_LOW_SUFFIX  = "_" + GD_PREFIX.lower() + "low"
+    GD_HIGH_SUFFIX = "_" + GD_PREFIX.lower() + "high"
 
     REFERENCE_NAME    = GD_FLAG_PREFIX + "Reference"
     TRIM_CAMERA_NAME  = GD_FLAG_PREFIX + "Trim Camera"
@@ -151,7 +151,7 @@ class Error:
         "Material slots were found without links, using default values"
     MARMOSET_EXPORT_COMPLETE = \
         "Export completed! Opening Marmoset Toolbag..."
-    MARMOSET_RE_EXPORT_COMPLETE = \
+    MARMOSET_REFRESH_COMPLETE = \
         "Models re-exported! Check Marmoset Toolbag"
     OFFLINE_RENDER_COMPLETE = \
         "Offline render completed!"

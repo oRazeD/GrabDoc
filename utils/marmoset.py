@@ -1,151 +1,156 @@
+"""Startup script to run alongside Marmoset Toolbag.
+"""
+
+
 import os
 import json
+from pathlib import Path
 
 import mset
 
-from ..constants import Global
+
+def run_auto_baker(baker, properties: dict) -> None:
+    baker.bake()
+    os.startfile(properties['file_path_no_ext'])
+
+    # NOTE: There is no alpha support in Marmoset so we use
+    # height with a modified range and run another bake pass
+    #if properties['export_alpha'] and properties['auto_bake']:
+    #    enabled_maps = \
+    #        [bake_map for bake_map in baker.getAllMaps() is bake_map.enabled]
+    #    for bake_map in baker.getAllMaps():
+    #        bake_map.enabled = False
+    #    alpha = baker.getMap("Height")
+    #    alpha.enabled = True
+    #    alpha.suffix = properties['suffix_alpha']
+    #    alpha.innerDistance = 0
+    #    alpha.outerDistance = .01
+    #    baker.bake()
+    #
+    #    # NOTE: Refresh original bake
+    #    baker_setup()
+    #    alpha.enabled = False
+
+    # Close marmo if the option is selected
+    if properties['close_after_bake']:
+        mset.quit()
+        return
+
+    mset.findObject('High').visible = False
+
+    # Scale up the high poly plane
+    mset.findObject(
+        "[GrabDoc] Background Plane"
+    ).scale = [300, 300, 300]
 
 
-temp_path = os.path.join(os.path.dirname(mset.getPluginPath()), "_temp")
+def baker_setup(baker, properties: dict) -> None:
+    for bake_map in baker.getAllMaps():
+        bake_map.enabled = False
 
-def refresh_scene() -> None:
-    if os.path.exists(os.path.join(temp_path, "marmo_vars.json")):
-        mset.newScene()
+    normals = baker.getMap("Normals")
+    normals.enabled = properties['export_normal']
+    normals.suffix = properties['suffix_normal']
+    normals.flipY = properties['flipy_normal']
+    normals.flipX = False
+    normals.dither = False
 
-        with open(
-            os.path.join(temp_path, "marmo_vars.json"), 'r', encoding='utf-8'
-        ) as openfile:
-            marmo_json = json.load(openfile)
+    curvature = baker.getMap("Curvature")
+    curvature.enabled = properties['export_curvature']
+    curvature.suffix = properties['suffix_curvature']
 
-        ## BAKER SETUP
+    occlusion = baker.getMap("Ambient Occlusion")
+    occlusion.enabled = properties['export_occlusion']
+    occlusion.suffix = properties['suffix_occlusion']
+    occlusion.rayCount = properties['ray_count_occlusion']
 
-        baker = mset.BakerObject()
+    height = baker.getMap("Height")
+    height.enabled = properties['export_height']
+    height.suffix = properties['suffix_height']
+    height.innerDistance = 0
+    height.outerDistance = properties['cage_height'] / 2 - .02
 
-        baker.outputPath = marmo_json["file_path"]
-        baker.outputBits = marmo_json["bits_per_channel"]
+    material = baker.getMap("Material ID")
+    material.enabled = properties['export_matid']
+    material.suffix = properties['suffix_id']
 
-        baker.edgePadding = "None"
-        baker.outputSoften = 0.5
-        baker.useHiddenMeshes = True
-        baker.ignoreTransforms = False
-        baker.smoothCage = True
-        baker.ignoreBackfaces = True
-        baker.multipleTextureSets = False
-        baker.outputWidth = marmo_json["resolution_x"]
-        baker.outputHeight = marmo_json["resolution_y"]
-
-        if mset.getToolbagVersion() < 4000 and marmo_json["samples"] == 64:
-            baker.outputSamples = 16
-        else:
-            baker.outputSamples = marmo_json["samples"]
-
-        # Import the models
-        baker.importModel(
-            os.path.normpath(os.path.join(temp_path, "mesh_export.fbx"))
+def shader_setup(properties: dict) -> None:
+    findDefault = mset.findMaterial("Default")
+    findDefault.name = "GrabDoc Bake Result"
+    if properties["export_normal"]:
+        findDefault.getSubroutine('surface').setField(
+            'Normal Map',
+            properties['file_path'][:-4] + '_' +
+            properties['suffix_normal'] + '.' + properties['file_ext']
+        )
+    if properties["export_occlusion"]:
+        findDefault.setSubroutine('occlusion', 'Occlusion')
+        findDefault.getSubroutine('occlusion').setField(
+            'Occlusion Map',
+            properties['file_path'][:-4] + '_' +
+            properties['suffix_occlusion'] + '.' + properties['file_ext']
         )
 
-        # Set cage offset
-        mset.findObject('Low').maxOffset = marmo_json["cage_height"] + .01
 
-        # Rotate all models 90 degrees
-        bakeGroup = mset.findObject('GD')
-        bakeGroup.rotation = [90, 0, 0]
+def refresh_scene() -> None:
+    plugin_path = Path(mset.getPluginPath()).parents[1]
+    temp_path = os.path.join(plugin_path, "temp")
+    properties_path = os.path.join(temp_path, "marmo_vars.json")
 
-        # Make a folder for Mat ID materials
-        for mat in mset.getAllMaterials():
-            if mat.name.startswith(Global.GD_PREFIX):
-                mat.setGroup('Mat ID')
+    # Check if file location has been repopulated
+    if not os.path.exists(properties_path):
+        return
 
-        ## BAKE MAPS SETUP
+    with open(properties_path, 'r', encoding='utf-8') as file:
+        properties = json.load(file)
+    # NOTE: Remove the file so when the file is
+    # recreated we know to update scene properties
+    os.remove(properties_path)
 
-        for maps in baker.getAllMaps():
-            maps.enabled = False
+    # Baker setup
+    mset.newScene()
+    baker = mset.BakerObject()
+    baker.outputPath = properties['file_path']
+    baker.outputBits = properties['bits_per_channel']
+    baker.edgePadding = "None"
+    baker.outputSoften = 0.5
+    baker.useHiddenMeshes = True
+    baker.ignoreTransforms = False
+    baker.smoothCage = True
+    baker.ignoreBackfaces = True
+    baker.multipleTextureSets = False
+    baker.outputWidth = properties['resolution_x']
+    baker.outputHeight = properties['resolution_y']
+    # NOTE: Output samples is broken in older APIs
+    if mset.getToolbagVersion() < 4000 and properties['samples'] == 64:
+        baker.outputSamples = 16
+    else:
+        baker.outputSamples = properties['samples']
 
-        # Extra bake pass for alpha map
-        if marmo_json["export_alpha"]:
-            alphaMap = baker.getMap("Height")
-            alphaMap.enabled = marmo_json["export_alpha"]
-            alphaMap.suffix = marmo_json['suffix_alpha']
-            alphaMap.innerDistance = 0
-            alphaMap.outerDistance = .01
+    # Import the models
+    model_path = os.path.join(temp_path, "mesh_export.fbx")
+    baker.importModel(model_path)
+    # NOTE: Delete FBX file to avoid temp folder bloat
+    os.remove(model_path)
 
-            if marmo_json["auto_bake"]:
-                baker.bake()
+    # Set cage distance
+    mset.findObject('Low').maxOffset = properties['cage_height'] + .001
 
-                alphaMap.enabled = False
+    # Rotate all models to align with default camera
+    plane_group = "[GrabDoc] Background Plane_gd"
+    bakeGroup = mset.findObject(plane_group)
+    bakeGroup.rotation = [90, 0, 0]
+    # Create groups for material id
+    for mat in mset.getAllMaterials():
+        if mat.name.startswith("GD_"):
+            mat.setGroup('[GrabDoc] Material IDs')
 
-        normalMap = baker.getMap("Normals")
-        normalMap.enabled = marmo_json["export_normal"]
-        normalMap.suffix = marmo_json['suffix_normal']
-        normalMap.flipY = marmo_json["flipy_normal"]
-        normalMap.flipX = False
-        normalMap.dither = False
-
-        curvatureMap = baker.getMap("Curvature")
-        curvatureMap.enabled = marmo_json["export_curvature"]
-        curvatureMap.suffix = marmo_json['suffix_curvature']
-
-        occlusionMap = baker.getMap("Ambient Occlusion")
-        occlusionMap.enabled = marmo_json["export_occlusion"]
-        occlusionMap.suffix = marmo_json['suffix_occlusion']
-        occlusionMap.rayCount = marmo_json["ray_count_occlusion"]
-
-        heightMap = baker.getMap("Height")
-        heightMap.enabled = marmo_json["export_height"]
-        heightMap.suffix = marmo_json['suffix_height']
-        heightMap.innerDistance = 0
-        heightMap.outerDistance = marmo_json["cage_height"] / 2 - .02
-
-        matIDMap = baker.getMap("Material ID")
-        matIDMap.enabled = marmo_json["export_matid"]
-        matIDMap.suffix = marmo_json['suffix_id']
-
-        ## BAKE & FINALIZE
-
-        if marmo_json["auto_bake"]:
-            baker.bake()
-
-            # Open folder on export
-            if marmo_json["open_folder"]:
-                os.startfile(marmo_json["file_path_no_ext"])
-
-            # Close marmo if the option is selected
-            if marmo_json["close_after_bake"]:
-                mset.quit()
-            else:
-                # Hide the _High group
-                mset.findObject('High').visible = False
-
-                # Scale up the high poly plane
-                mset.findObject(
-                    f'{Global.GD_HIGH_PREFIX} {Global.BG_PLANE_NAME}'
-                ).scale = [300, 300, 300]
-
-                findDefault = mset.findMaterial("Default")
-
-                # Material preview
-                if marmo_json["export_normal"]:
-                    findDefault.getSubroutine('surface').setField(
-                        'Normal Map', marmo_json["file_path"][:-4] + '_' + marmo_json['suffix_normal'] + '.' + marmo_json['file_ext']
-                    )
-
-                if marmo_json["export_occlusion"]:
-                    findDefault.setSubroutine('occlusion', 'Occlusion')
-                    findDefault.getSubroutine('occlusion').setField(
-                        'Occlusion Map', marmo_json["file_path"][:-4] + '_' + marmo_json['suffix_occlusion'] + '.' + marmo_json['file_ext']
-                    )
-
-                # Rename bake material
-                findDefault.name = 'Bake Material'
-
-        # Remove the json file to signal the no rebakes
-        # need to take place until a new one is made
-        os.remove(os.path.join(temp_path, "marmo_vars.json"))
+    baker_setup(baker, properties)
+    if properties['auto_bake']:
+        run_auto_baker(baker, properties)
+    shader_setup(properties)
 
 
-mset.callbacks.onRegainFocus = refresh_scene
-
-refresh_scene()
-
-
-
+if __name__ == "__main__":
+    mset.callbacks.onRegainFocus = refresh_scene
+    refresh_scene()
