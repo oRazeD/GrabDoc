@@ -11,8 +11,9 @@ import mset
 
 def run_auto_baker(baker, properties: dict) -> None:
     baker.bake()
-    os.startfile(properties['file_path_no_ext'])
+    os.startfile(properties['export_path'])
 
+    # TODO: Implement alpha mask
     # NOTE: There is no alpha support in Marmoset so we use
     # height with a modified range and run another bake pass
     #if properties['export_alpha'] and properties['auto_bake']:
@@ -38,10 +39,27 @@ def run_auto_baker(baker, properties: dict) -> None:
 
     mset.findObject('High').visible = False
 
-    # Scale up the high poly plane
-    mset.findObject(
-        "[GrabDoc] Background Plane"
-    ).scale = [300, 300, 300]
+
+def create_baker(properties: dict):
+    mset.newScene()
+    baker = mset.BakerObject()
+    baker.outputPath = properties['file_path']
+    baker.outputBits = properties['bits_per_channel']
+    baker.edgePadding = "None"
+    baker.outputSoften = 0.5
+    baker.useHiddenMeshes = True
+    baker.ignoreTransforms = False
+    baker.smoothCage = True
+    baker.ignoreBackfaces = True
+    baker.multipleTextureSets = False
+    baker.outputWidth = properties['resolution_x']
+    baker.outputHeight = properties['resolution_y']
+    # NOTE: Output samples is broken in older APIs
+    if mset.getToolbagVersion() < 4000 and properties['samples'] == 64:
+        baker.outputSamples = 16
+    else:
+        baker.outputSamples = properties['samples']
+    return baker
 
 
 def baker_setup(baker, properties: dict) -> None:
@@ -81,18 +99,18 @@ def shader_setup(properties: dict) -> None:
         findDefault.getSubroutine('surface').setField(
             'Normal Map',
             properties['file_path'][:-4] + '_' +
-            properties['suffix_normal'] + '.' + properties['file_ext']
+            properties['suffix_normal'] + '.' + properties['format']
         )
     if properties["export_occlusion"]:
         findDefault.setSubroutine('occlusion', 'Occlusion')
         findDefault.getSubroutine('occlusion').setField(
             'Occlusion Map',
             properties['file_path'][:-4] + '_' +
-            properties['suffix_occlusion'] + '.' + properties['file_ext']
+            properties['suffix_occlusion'] + '.' + properties['format']
         )
 
 
-def refresh_scene() -> None:
+def main():
     plugin_path = Path(mset.getPluginPath()).parents[1]
     temp_path = os.path.join(plugin_path, "temp")
     properties_path = os.path.join(temp_path, "marmo_vars.json")
@@ -108,49 +126,34 @@ def refresh_scene() -> None:
     os.remove(properties_path)
 
     # Baker setup
-    mset.newScene()
-    baker = mset.BakerObject()
-    baker.outputPath = properties['file_path']
-    baker.outputBits = properties['bits_per_channel']
-    baker.edgePadding = "None"
-    baker.outputSoften = 0.5
-    baker.useHiddenMeshes = True
-    baker.ignoreTransforms = False
-    baker.smoothCage = True
-    baker.ignoreBackfaces = True
-    baker.multipleTextureSets = False
-    baker.outputWidth = properties['resolution_x']
-    baker.outputHeight = properties['resolution_y']
-    # NOTE: Output samples is broken in older APIs
-    if mset.getToolbagVersion() < 4000 and properties['samples'] == 64:
-        baker.outputSamples = 16
-    else:
-        baker.outputSamples = properties['samples']
-
-    # Import the models
+    baker = create_baker(properties)
     model_path = os.path.join(temp_path, "mesh_export.fbx")
     baker.importModel(model_path)
-    # NOTE: Delete FBX file to avoid temp folder bloat
-    os.remove(model_path)
 
     # Set cage distance
     mset.findObject('Low').maxOffset = properties['cage_height'] + .001
 
-    # Rotate all models to align with default camera
-    plane_group = "[GrabDoc] Background Plane_gd"
-    bakeGroup = mset.findObject(plane_group)
-    bakeGroup.rotation = [90, 0, 0]
+    # Scale up the high poly plane
+    mset.findObject(
+        "[GrabDoc] Background Plane_high_gd"
+    ).scale = [300, 300, 300]
+
+    # Rotate imported group to align with camera
+    bake_group = mset.findObject("[GrabDoc] Background Plane")
+    bake_group.rotation = [90, 0, 0]
     # Create groups for material id
     for mat in mset.getAllMaterials():
         if mat.name.startswith("GD_"):
-            mat.setGroup('[GrabDoc] Material IDs')
+            mat.setGroup('[GrabDoc] Materials')
 
     baker_setup(baker, properties)
     if properties['auto_bake']:
         run_auto_baker(baker, properties)
+    # NOTE: Delete FBX file to avoid temp folder bloat
+    #os.remove(model_path)
     shader_setup(properties)
 
 
 if __name__ == "__main__":
-    mset.callbacks.onRegainFocus = refresh_scene
-    refresh_scene()
+    mset.callbacks.onRegainFocus = main
+    main()

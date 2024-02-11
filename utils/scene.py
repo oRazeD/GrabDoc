@@ -69,7 +69,7 @@ def remove_setup(context: Context, hard_reset: bool=True) -> None | list:
             bpy.data.materials.remove(bpy.data.materials[Global.REFERENCE_NAME])
 
         for group in bpy.data.node_groups:
-            if group.name.startswith(Global.GD_PREFIX):
+            if group.name.startswith(Global.PREFIX):
                 bpy.data.node_groups.remove(group)
 
         return None
