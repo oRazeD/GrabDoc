@@ -141,13 +141,15 @@ class GrabDoc_OT_send_to_marmo(OpInfo, Operator):
             set_guide_height(rendered_obs)
 
         # Attach _high suffix to all user assets
+        # NOTE: Only supports single bake group for now
         for ob in context.view_layer.objects[:]:
             ob.select_set(False)
             if ob in rendered_obs \
             and Global.FLAG_PREFIX not in ob.name:
-                print(ob, "YEAH")
                 ob.select_set(True)
-                ob.name = Global.BG_PLANE_NAME + Global.HIGH_SUFFIX
+                # NOTE: Add name to end of name for reuse later
+                ob.name = \
+                    Global.BG_PLANE_NAME + Global.HIGH_SUFFIX + ob.name
 
         # Get background plane low and high poly
         plane_low: Object = bpy.data.objects.get(Global.BG_PLANE_NAME)
@@ -157,7 +159,6 @@ class GrabDoc_OT_send_to_marmo(OpInfo, Operator):
         plane_low.select_set(True)
         plane_high: Object = plane_low.copy()
         context.collection.objects.link(plane_high)
-        # NOTE: Only supports single bake group for now
         plane_high.name = Global.BG_PLANE_NAME + Global.HIGH_SUFFIX
         plane_high.select_set(True)
 
@@ -177,7 +178,9 @@ class GrabDoc_OT_send_to_marmo(OpInfo, Operator):
         for ob in context.view_layer.objects:
             ob.select_set(False)
             if ob.name.endswith(Global.LOW_SUFFIX):
-                ob.name = str(ob.name).replace(Global.LOW_SUFFIX, "")
+                ob.name = ob.name.replace(Global.LOW_SUFFIX, "")
+            elif plane_high.name in ob.name:
+                ob.name = ob.name.replace(plane_high.name, "")
 
         bpy.data.objects.remove(plane_high)
 

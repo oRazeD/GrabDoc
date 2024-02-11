@@ -107,7 +107,7 @@ def remove_setup(context: Context, hard_reset: bool=True) -> None | list:
     return saved_plane_loc, saved_plane_rot, saved_mat, update_camera, saved_bake_group_obs
 
 
-# NOTE: Needs self for update functions to register?
+# NOTE: Needs self for property update functions to register
 def scene_setup(_self, context: Context) -> None:
     """Generate/setup all relevant GrabDoc object, collections, node groups and scene settings"""
     gd = context.scene.gd
