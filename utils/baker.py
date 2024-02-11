@@ -560,7 +560,7 @@ class Alpha(Baker, PropertyGroup):
     NODE = Global.ALPHA_NODE
     COLOR_SPACE = "sRGB"
     VIEW_TRANSFORM = "Raw"
-    MARMOSET_COMPATIBLE = True
+    MARMOSET_COMPATIBLE = False
     SUPPORTED_ENGINES = (
         ('blender_eevee', "Eevee",  ""),
         ('cycles',        "Cycles", "")
@@ -630,7 +630,7 @@ class Id(Baker, PropertyGroup):
         row.operator(
             "grab_doc.remove_mats_by_name",
             text='All'
-        ).name = Global.MAT_ID_RAND_PREFIX
+        ).name = Global.RANDOM_ID_PREFIX
 
         col = layout.column(align=True)
         col.separator(factor=.5)
@@ -643,7 +643,7 @@ class Id(Baker, PropertyGroup):
         row.operator(
             "grab_doc.remove_mats_by_name",
             text='All'
-        ).name = Global.MAT_ID_PREFIX
+        ).name = Global.ID_PREFIX
         row.operator("grab_doc.quick_remove_selected_mats",
                         text='Selected')
 
