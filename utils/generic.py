@@ -99,11 +99,8 @@ def get_create_addon_temp_dir(
     ) -> tuple[str, str]:
     """Creates a temporary files directory
     for automatically handled I/O"""
-<<<<<<< HEAD
     addon_path = os.path.dirname(Path(__file__).parent)
-=======
     addon_path = Path(__file__).parents[1]
->>>>>>> 2ce61a242883e0a7a8b5b3e0a02cd958903f4f25
     temp_path = os.path.join(addon_path, dir_name)
     if create_dir and not os.path.exists(temp_path):
         os.mkdir(temp_path)

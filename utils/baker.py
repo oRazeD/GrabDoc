@@ -559,11 +559,8 @@ class Alpha(Baker, PropertyGroup):
     NAME = Global.ALPHA_NAME
     NODE = Global.ALPHA_NODE
     COLOR_SPACE = "sRGB"
-<<<<<<< HEAD
     VIEW_TRANSFORM = "Raw"
-=======
     VIEW_TRANSFORM = "Standard"
->>>>>>> 2ce61a242883e0a7a8b5b3e0a02cd958903f4f25
     MARMOSET_COMPATIBLE = False
     SUPPORTED_ENGINES = (
         ('blender_eevee', "Eevee",  ""),
