@@ -489,7 +489,8 @@ def register():
     # NOTE: Git release tracking
     updater.user = "oRazeD"
     updater.repo = "grabdoc"
-    updater.current_version = (1, 4, 0)
+    # NOTE: MUST BE CHANGED ALONGSIDE BL_INFO
+    updater.current_version = (1, 4, 1)
     updater.check_for_update_now()
     if updater.update_ready:
         print("GrabDoc update available!")
