@@ -116,7 +116,11 @@ def find_tallest_object(objects: list[Object]=None) -> float:
     ]
     for ob in objects:
         ob_eval = ob.evaluated_get(depsgraph)
-        mesh_eval = ob_eval.to_mesh()
+        try:
+            mesh_eval = ob_eval.to_mesh()
+        except RuntimeError:
+            # NOTE: Object can't be evaluates as mesh; maybe particle system
+            continue
 
         global_vert_co = [
             ob_eval.matrix_world @ v.co for v in mesh_eval.vertices
@@ -129,9 +133,7 @@ def find_tallest_object(objects: list[Object]=None) -> float:
             tallest_verts.append(max_z_co)
         ob_eval.to_mesh_clear()
     if not tallest_verts:
+        bpy.context.scene.gd.height[0].method = 'MANUAL'
         # NOTE: Fallback to manual height value
         return bpy.context.scene.gd.height[0].distance
     return max(tallest_verts)
-
-
-

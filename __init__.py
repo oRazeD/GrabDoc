@@ -5,7 +5,7 @@ bl_info = {
     # NOTE: Also change:
     # - Update check in preferences.py
     # - Panel version in generic.py
-    "version": (1, 4, 1),
+    "version": (1, 4, 3),
     "blender": (4, 0, 2),
     "tracker_url": "https://discord.com/invite/wHAyVZG",
     "category": "3D View"

@@ -151,23 +151,6 @@ class GRABDOC_AP_preferences(AddonPreferences):
         subtype="FILE_PATH"
     )
 
-    def draw(self, _context: Context):
-        layout = self.layout
-        row = layout.row()
-        if updater.update_ready is None:
-            row.label(text="Checking for an update...")
-            updater.check_for_update_now()
-        elif updater.update_ready:
-            row.alert = True
-            row.label(text="There is a GrabDoc update available!")
-        elif not updater.update_ready:
-            row.label(text="You have the latest version of GrabDoc!")
-            row.operator(
-                "grab_doc.check_for_update",
-                text="",
-                icon="FILE_REFRESH"
-            )
-
 
 ############################################################
 # PROPERTY GROUP
@@ -485,15 +468,6 @@ def register():
     Scene.gd = PointerProperty(type=GRABDOC_property_group)
     Collection.gd_bake_collection = BoolProperty(default=False)
     Object.gd_object = BoolProperty(default=False)
-
-    # NOTE: Git release tracking
-    updater.user = "oRazeD"
-    updater.repo = "grabdoc"
-    # NOTE: MUST BE CHANGED ALONGSIDE BL_INFO
-    updater.current_version = (1, 4, 1)
-    updater.check_for_update_now()
-    if updater.update_ready:
-        print("GrabDoc update available!")
 
 def unregister():
     for cls in classes:
