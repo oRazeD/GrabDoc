@@ -41,8 +41,6 @@ from .utils.baker import (
     Roughness
 )
 
-from .addon_updater import Updater as updater
-
 
 ################################################
 # PRESETS
