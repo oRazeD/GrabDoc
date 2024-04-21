@@ -347,7 +347,7 @@ class Curvature(Baker, PropertyGroup):
             scene_shading.curvature_ridge_factor = self.ridge
         scene_shading.curvature_valley_factor = self.valley
 
-    def update_range(self, context: Context):
+    def update_range(self, _context: Context):
         color_ramp = \
             bpy.data.node_groups[self.NODE].nodes.get("Color Ramp")
         color_ramp.color_ramp.elements[0].position = \
@@ -554,47 +554,6 @@ class Height(Baker, PropertyGroup):
     )
 
 
-class Alpha(Baker, PropertyGroup):
-    ID = Global.ALPHA_ID
-    NAME = Global.ALPHA_NAME
-    NODE = Global.ALPHA_NODE
-    COLOR_SPACE = "sRGB"
-    VIEW_TRANSFORM = "Raw"
-    VIEW_TRANSFORM = "Standard"
-    MARMOSET_COMPATIBLE = False
-    SUPPORTED_ENGINES = (
-        ('blender_eevee', "Eevee",  ""),
-        ('cycles',        "Cycles", "")
-    )
-
-    def draw_properties(self, context: Context, layout: UILayout):
-        col = layout.column()
-        if context.scene.gd.baker_type == 'blender':
-            col.prop(self, 'invert', text="Invert")
-
-    def update_alpha(self, context: Context):
-        gd_camera_ob_z = bpy.data.objects.get(
-            Global.TRIM_CAMERA_NAME
-        ).location[2]
-        map_range = \
-            bpy.data.node_groups[self.NODE].nodes.get('Map Range')
-        map_range.inputs[1].default_value = gd_camera_ob_z - .00001
-        map_range.inputs[2].default_value = gd_camera_ob_z
-        invert = \
-            bpy.data.node_groups[self.NODE].nodes.get('Invert')
-        invert.inputs[0].default_value = 0 if self.invert else 1
-
-    invert: BoolProperty(
-        description="Invert the Alpha mask",
-        update=update_alpha
-    )
-    engine: EnumProperty(
-        items=SUPPORTED_ENGINES,
-        name='Render Engine',
-        update=Baker.apply_render_settings
-    )
-
-
 class Id(Baker, PropertyGroup):
     ID = Global.MATERIAL_ID
     NAME = Global.MATERIAL_NAME
@@ -671,12 +630,57 @@ class Id(Baker, PropertyGroup):
     )
 
 
+class Alpha(Baker, PropertyGroup):
+    ID = Global.ALPHA_ID
+    NAME = Global.ALPHA_NAME
+    NODE = Global.ALPHA_NODE
+    COLOR_SPACE = "sRGB"
+    VIEW_TRANSFORM = "Raw"
+    VIEW_TRANSFORM = "Standard"
+    MARMOSET_COMPATIBLE = False
+    SUPPORTED_ENGINES = (
+        ('blender_eevee', "Eevee",  ""),
+        ('cycles',        "Cycles", "")
+    )
+
+    def draw_properties(self, context: Context, layout: UILayout):
+        col = layout.column()
+        if context.scene.gd.baker_type == 'blender':
+            col.prop(self, 'invert_depth', text="Invert Depth")
+            col.prop(self, 'invert_mask', text="Invert Mask")
+
+    def update_alpha(self, _context: Context):
+        gd_camera_ob_z = \
+            bpy.data.objects.get(Global.TRIM_CAMERA_NAME).location[2]
+        map_range = bpy.data.node_groups[self.NODE].nodes.get('Map Range')
+        map_range.inputs[1].default_value = gd_camera_ob_z - .00001
+        map_range.inputs[2].default_value = gd_camera_ob_z
+        invert_depth = bpy.data.node_groups[self.NODE].nodes.get('Invert Depth')
+        invert_depth.inputs[0].default_value = 0 if self.invert_depth else 1
+        invert_mask = bpy.data.node_groups[self.NODE].nodes.get('Invert Mask')
+        invert_mask.inputs[0].default_value = 0 if self.invert_mask else 1
+
+    invert_depth: BoolProperty(
+        description="Invert the global depth mask",
+        update=update_alpha
+    )
+    invert_mask: BoolProperty(
+        description="Invert the alpha mask",
+        update=update_alpha
+    )
+    engine: EnumProperty(
+        items=SUPPORTED_ENGINES,
+        name='Render Engine',
+        update=Baker.apply_render_settings
+    )
+
+
 class Color(Baker, PropertyGroup):
     ID = Global.COLOR_ID
     NAME = Global.COLOR_NAME
     NODE = Global.COLOR_NODE
     COLOR_SPACE = "sRGB"
-    VIEW_TRANSFORM = "Raw"
+    VIEW_TRANSFORM = "Standard"
     MARMOSET_COMPATIBLE = False
     SUPPORTED_ENGINES = (
         ('blender_eevee', "Eevee",  ""),
@@ -695,7 +699,7 @@ class Emissive(Baker, PropertyGroup):
     NAME = Global.EMISSIVE_NAME
     NODE = Global.EMISSIVE_NODE
     COLOR_SPACE = "sRGB"
-    VIEW_TRANSFORM = "Raw"
+    VIEW_TRANSFORM = "Standard"
     MARMOSET_COMPATIBLE = False
     SUPPORTED_ENGINES = (
         ('blender_eevee', "Eevee",  ""),
@@ -727,8 +731,7 @@ class Roughness(Baker, PropertyGroup):
             col.prop(self, 'invert', text="Invert")
 
     def update_roughness(self, _context: Context):
-        invert = \
-            bpy.data.node_groups[self.NODE].nodes.get('Invert')
+        invert = bpy.data.node_groups[self.NODE].nodes.get('Invert')
         invert.inputs[0].default_value = 1 if self.invert else 0
 
     invert: BoolProperty(
@@ -742,10 +745,10 @@ class Roughness(Baker, PropertyGroup):
     )
 
 
-class Metalness(Baker, PropertyGroup):
-    ID = Global.METALNESS_ID
-    NAME = Global.METALNESS_NAME
-    NODE = Global.METALNESS_NODE
+class Metallic(Baker, PropertyGroup):
+    ID = Global.METALLIC_ID
+    NAME = Global.METALLIC_NAME
+    NODE = Global.METALLIC_NODE
     COLOR_SPACE = "sRGB"
     VIEW_TRANSFORM = "Raw"
     MARMOSET_COMPATIBLE = False
@@ -843,7 +846,7 @@ def reimport_as_material(map_names: list[str]) -> None:
             continue
         image.image = bpy.data.images.load(export_path, check_existing=True)
 
-        # NOTE: Unique exceptions for specific bake maps
+        # NOTE: Unique bake map exceptions
         if name not in (Global.COLOR_ID, Global.EMISSIVE_ID):
             image.image.colorspace_settings.name = 'Non-Color'
         if name == Global.NORMAL_ID:
@@ -859,12 +862,12 @@ def reimport_as_material(map_names: list[str]) -> None:
             links.new(bsdf.inputs["Base Color"], image.outputs["Color"])
         elif name == Global.EMISSIVE_ID:
             links.new(bsdf.inputs["Emission Color"], image.outputs["Color"])
-        elif name == Global.METALNESS_ID:
+        elif name == Global.METALLIC_ID:
             links.new(bsdf.inputs["Metallic"], image.outputs["Color"])
         elif name == Global.CURVATURE_ID:
             continue
         elif name == Global.OCCLUSION_ID:
-            # TODO: Could mix AO with Base Color in the future, not PBR
+            # TODO: Could mix AO with Base Color in the future
             continue
         elif name == Global.HEIGHT_ID:
             continue

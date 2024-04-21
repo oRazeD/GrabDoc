@@ -90,10 +90,10 @@ def node_init() -> None:
         bevel.inputs[0].default_value = 0
         bevel.location = (-1000,0)
 
-        bevel_node_2 = tree.nodes.new('ShaderNodeBevel')
-        bevel_node_2.name = "Bevel.001"
-        bevel_node_2.location = (-1000,-200)
-        bevel_node_2.inputs[0].default_value = 0
+        bevel_2 = tree.nodes.new('ShaderNodeBevel')
+        bevel_2.name = "Bevel.001"
+        bevel_2.location = (-1000,-200)
+        bevel_2.inputs[0].default_value = 0
 
         vec_transform = tree.nodes.new('ShaderNodeVectorTransform')
         vec_transform.name = "Vector Transform"
@@ -138,15 +138,13 @@ def node_init() -> None:
 
         # Link nodes
         links = tree.links
-        # NOTE: Branch 1
+
         links.new(bevel.inputs["Normal"], group_input.outputs["Normal"])
-        links.new(
-            vec_transform.inputs["Vector"], bevel_node_2.outputs["Normal"]
-        )
+        links.new(vec_transform.inputs["Vector"], bevel_2.outputs["Normal"])
         links.new(vec_mult.inputs["Vector"], vec_transform.outputs["Vector"])
         links.new(vec_add.inputs["Vector"], vec_mult.outputs["Vector"])
         links.new(group_output.inputs["Shader"], vec_add.outputs["Vector"])
-        # NOTE: Branch 2
+
         links.new(invert.inputs['Color'], group_input.outputs['Alpha'])
         links.new(subtract.inputs['Color2'], invert.outputs['Color'])
         links.new(mix_shader.inputs['Fac'], subtract.outputs['Color'])
@@ -154,9 +152,7 @@ def node_init() -> None:
         links.new(mix_shader.inputs[2], vec_add.outputs['Vector'])
 
     if not Global.CURVATURE_NODE in bpy.data.node_groups:
-        tree = bpy.data.node_groups.new(
-            Global.CURVATURE_NODE, 'ShaderNodeTree'
-        )
+        tree = bpy.data.node_groups.new(Global.CURVATURE_NODE, 'ShaderNodeTree')
         tree.use_fake_user = True
 
         # Create sockets
@@ -260,27 +256,45 @@ def node_init() -> None:
 
         # Create sockets
         generate_shader_interface(tree, inputs)
+        alpha = tree.interface.new_socket(
+            name=Global.ALPHA_NAME,
+            socket_type='NodeSocketFloat'
+        )
+        alpha.default_value = 1
 
         # Create nodes
         group_output = tree.nodes.new('NodeGroupOutput')
         group_output.name = "Group Output"
+        group_input = tree.nodes.new('NodeGroupInput')
+        group_input.name = "Group Input"
+        group_input.location = (-1000, 200)
 
         camera = tree.nodes.new('ShaderNodeCameraData')
         camera.name = "Camera Data"
-        camera.location = (-800,0)
+        camera.location = (-1000, 0)
 
         camera_object_z = \
             bpy.data.objects.get(Global.TRIM_CAMERA_NAME).location[2]
 
         map_range = tree.nodes.new('ShaderNodeMapRange')
         map_range.name = "Map Range"
-        map_range.location = (-600,0)
+        map_range.location = (-800, 0)
         map_range.inputs[1].default_value = camera_object_z - .00001
         map_range.inputs[2].default_value = camera_object_z
 
-        invert = tree.nodes.new('ShaderNodeInvert')
-        invert.name = "Invert"
-        invert.location = (-400,0)
+        invert_mask = tree.nodes.new('ShaderNodeInvert')
+        invert_mask.name = "Invert Mask"
+        invert_mask.location = (-600, 200)
+
+        invert_depth = tree.nodes.new('ShaderNodeInvert')
+        invert_depth.name = "Invert Depth"
+        invert_depth.location = (-600, 0)
+
+        mix = tree.nodes.new('ShaderNodeMix')
+        mix.name = "Invert Mask"
+        mix.data_type = "RGBA"
+        mix.inputs["B"].default_value = (0, 0, 0, 1)
+        mix.location = (-400, 0)
 
         emission = tree.nodes.new('ShaderNodeEmission')
         emission.name = "Emission"
@@ -288,9 +302,14 @@ def node_init() -> None:
 
         # Link nodes
         links = tree.links
+        links.new(invert_mask.inputs["Color"], group_input.outputs["Alpha"])
+        links.new(mix.inputs["Factor"], invert_mask.outputs["Color"])
+
         links.new(map_range.inputs["Value"], camera.outputs["View Z Depth"])
-        links.new(invert.inputs["Color"], map_range.outputs["Result"])
-        links.new(emission.inputs["Color"], invert.outputs["Color"])
+        links.new(invert_depth.inputs["Color"], map_range.outputs["Result"])
+        links.new(mix.inputs["A"], invert_depth.outputs["Color"])
+
+        links.new(emission.inputs["Color"], mix.outputs["Result"])
         links.new(group_output.inputs["Shader"], emission.outputs["Emission"])
 
     if not Global.COLOR_NODE in bpy.data.node_groups:
@@ -409,9 +428,9 @@ def node_init() -> None:
             emission.outputs["Emission"]
         )
 
-    if not Global.METALNESS_NODE in bpy.data.node_groups:
+    if not Global.METALLIC_NODE in bpy.data.node_groups:
         tree = bpy.data.node_groups.new(
-            Global.METALNESS_NODE, 'ShaderNodeTree'
+            Global.METALLIC_NODE, 'ShaderNodeTree'
         )
         tree.use_fake_user = True
 
@@ -602,8 +621,8 @@ def apply_node_to_objects(name: str, objects: Iterable[Object]) -> bool:
                                     original_input=original_input,
                                     material=material
                                 )
-                            elif name == Global.METALNESS_NODE \
-                            and original_input.name == "Metallic":
+                            elif name == Global.METALLIC_NODE \
+                            and original_input.name == Global.METALLIC_NAME:
                                 node_found = create_node_links(
                                     input_name=original_input.name,
                                     node_group=passthrough,
@@ -619,7 +638,6 @@ def apply_node_to_objects(name: str, objects: Iterable[Object]) -> bool:
                                     material=material
                                 )
                                 if original_input.name == 'Alpha' \
-                                and gd.normals[0].use_texture \
                                 and material.blend_method == 'OPAQUE' \
                                 and len(original_input.links):
                                     material.blend_method = 'CLIP'
@@ -673,30 +691,29 @@ def node_cleanup(setup_type: str) -> None:
             mat for mat in nodes if mat.name.startswith(setup_type)
         ]
         for node in grabdoc_nodes:
-            output = None
+            output_node = None
             for output in node.outputs:
                 for link in output.links:
                     if link.to_node.type == 'OUTPUT_MATERIAL':
-                        output = link.to_node
+                        output_node = link.to_node
                         break
-                if output is not None:
+                if output_node is not None:
                     break
-            if output is None:
+            if output_node is None:
                 nodes.remove(node)
                 continue
 
             for node_input in node.inputs:
                 for link in node_input.links:
-                    original_node_connection = \
-                        nodes.get(link.from_node.name)
-                    original_node_socket = link.from_socket.name
                     if node_input.name.split(' ')[-1] not in inputs:
                         continue
+                    original_node_connection = nodes.get(link.from_node.name)
+                    original_node_socket = link.from_socket.name
                     for connection_name in inputs:
                         if node_input.name != connection_name:
                             continue
                         mat.node_tree.links.new(
-                            output.inputs[connection_name],
+                            output_node.inputs[connection_name],
                             original_node_connection.outputs[
                                 original_node_socket
                             ]

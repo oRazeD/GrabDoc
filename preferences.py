@@ -34,7 +34,7 @@ from .utils.baker import (
     Curvature,
     Height,
     Id,
-    Metalness,
+    Metallic,
     Normals,
     Occlusion,
     Emissive,
@@ -113,7 +113,7 @@ class GRABDOC_OT_add_preset(AddPresetBase, Operator):
         "gd.color",
         "gd.emissive",
         "gd.roughness",
-        "gd.metalness",
+        "gd.metallic",
     ]
 
     # Where to store the preset
@@ -121,26 +121,12 @@ class GRABDOC_OT_add_preset(AddPresetBase, Operator):
 
 
 ############################################################
-# USER PREFERENCES
+# PROPERTY GROUP
 ############################################################
-
-
-class GRABDOC_OT_check_for_update(Operator):
-    """Check GitHub releases page for newer version"""
-    bl_idname = "grab_doc.check_for_update"
-    bl_label = ""
-    bl_options = {'REGISTER', 'UNDO', 'INTERNAL'}
-
-    def execute(self, _context: Context):
-        updater.check_for_update_now()
-        return {'FINISHED'}
 
 
 class GRABDOC_AP_preferences(AddonPreferences):
     bl_idname = __package__
-
-    # NOTE: Special properties stored
-    # here are saved in User Preferences
 
     marmo_executable: StringProperty(
         name="",
@@ -148,11 +134,6 @@ class GRABDOC_AP_preferences(AddonPreferences):
         default="",
         subtype="FILE_PATH"
     )
-
-
-############################################################
-# PROPERTY GROUP
-############################################################
 
 
 class GRABDOC_property_group(PropertyGroup):
@@ -167,7 +148,7 @@ class GRABDOC_property_group(PropertyGroup):
         ('color',     "Base Color",        ""),
         ('emissive',  "Emissive",          ""),
         ('roughness', "Roughness",         ""),
-        ('metalness', "Metalness",         "")
+        ('metallic',  "Metallic",          "")
     )
 
     def update_export_name(self, _context: Context):
@@ -375,7 +356,7 @@ class GRABDOC_property_group(PropertyGroup):
     color: CollectionProperty(type=Color)
     emissive: CollectionProperty(type=Emissive)
     roughness: CollectionProperty(type=Roughness)
-    metalness: CollectionProperty(type=Metalness)
+    metallic: CollectionProperty(type=Metallic)
 
     # Marmoset baking
     marmo_auto_bake: BoolProperty(name="Auto bake", default=True)
@@ -425,7 +406,7 @@ class GRABDOC_property_group(PropertyGroup):
     #)
     #channel_B: EnumProperty(
     #    items=MAP_TYPES,
-    #    default="metalness",
+    #    default="metallic",
     #    name='B'
     #)
     #channel_A: EnumProperty(
@@ -453,10 +434,9 @@ classes = (
     Color,
     Emissive,
     Roughness,
-    Metalness,
+    Metallic,
     GRABDOC_property_group,
-    GRABDOC_AP_preferences,
-    GRABDOC_OT_check_for_update
+    GRABDOC_AP_preferences
 )
 
 def register():

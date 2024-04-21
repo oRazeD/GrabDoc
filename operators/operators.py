@@ -29,8 +29,6 @@ from ..utils.baker import (
 )
 
 
-
-
 ################################################
 # MISC
 ################################################
@@ -587,7 +585,7 @@ class GRABDOC_OT_config_maps(Operator):
 
 
 ################################################
-# CHANNEL PACKING
+# TODO: CHANNEL PACKING
 ################################################
 
 
@@ -626,7 +624,7 @@ classes = (
     GRABDOC_OT_map_preview,
     GRABDOC_OT_leave_map_preview,
     GRABDOC_OT_export_current_preview,
-    GRABDOC_OT_config_maps
+    GRABDOC_OT_config_maps,
     #GRABDOC_OT_map_pack_info
 )
 

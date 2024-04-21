@@ -397,9 +397,9 @@ class GRABDOC_PT_roughness(BakerPanel, PanelInfo, Panel):
     NAME = Global.ROUGHNESS_NAME
 
 
-class GRABDOC_PT_metalness(BakerPanel, PanelInfo, Panel):
-    ID = Global.METALNESS_ID
-    NAME = Global.METALNESS_NAME
+class GRABDOC_PT_metallic(BakerPanel, PanelInfo, Panel):
+    ID = Global.METALLIC_ID
+    NAME = Global.METALLIC_NAME
 
 
 ################################################
@@ -420,7 +420,7 @@ classes = (
     GRABDOC_PT_color,
     GRABDOC_PT_emissive,
     GRABDOC_PT_roughness,
-    GRABDOC_PT_metalness
+    GRABDOC_PT_metallic
 )
 # GRABDOC_PT_pack_maps
 

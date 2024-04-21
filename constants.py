@@ -29,7 +29,7 @@ class Global:
     COLOR_ID     = "color"
     EMISSIVE_ID  = "emissive"
     ROUGHNESS_ID = "roughness"
-    METALNESS_ID = "metalness"
+    METALLIC_ID = "metallic"
 
     NORMAL_NAME    = NORMAL_ID.capitalize()
     CURVATURE_NAME = CURVATURE_ID.capitalize()
@@ -40,7 +40,7 @@ class Global:
     COLOR_NAME     = "Base Color"
     EMISSIVE_NAME  = EMISSIVE_ID.capitalize()
     ROUGHNESS_NAME = ROUGHNESS_ID.capitalize()
-    METALNESS_NAME = METALNESS_ID.capitalize()
+    METALLIC_NAME = METALLIC_ID.capitalize()
 
     NORMAL_NODE    = PREFIX + NORMAL_NAME
     CURVATURE_NODE = PREFIX + CURVATURE_NAME
@@ -50,7 +50,7 @@ class Global:
     COLOR_NODE     = PREFIX + COLOR_NAME
     EMISSIVE_NODE  = PREFIX + EMISSIVE_NAME
     ROUGHNESS_NODE = PREFIX + ROUGHNESS_NAME
-    METALNESS_NODE = PREFIX + METALNESS_NAME
+    METALLIC_NODE = PREFIX + METALLIC_NAME
 
     ALL_MAP_IDS = (
         NORMAL_ID,
@@ -62,7 +62,7 @@ class Global:
         COLOR_ID,
         EMISSIVE_ID,
         ROUGHNESS_ID,
-        METALNESS_ID
+        METALLIC_ID
     )
 
     ALL_MAP_NAMES = (
@@ -75,16 +75,17 @@ class Global:
         COLOR_NAME,
         EMISSIVE_NAME,
         ROUGHNESS_NAME,
-        METALNESS_NAME
+        METALLIC_NAME
     )
 
     SHADER_MAP_NAMES = (
         NORMAL_NODE,
         CURVATURE_NODE,
+        ALPHA_NODE,
         COLOR_NODE,
         EMISSIVE_NODE,
         ROUGHNESS_NODE,
-        METALNESS_NODE
+        METALLIC_NODE
     )
 
     INVALID_BAKE_TYPES = (

@@ -2,7 +2,6 @@ import os
 import re
 from pathlib import Path
 from inspect import getframeinfo, stack
-from pathlib import Path
 
 import bpy
 from bpy.types import Context, Operator
@@ -184,7 +183,7 @@ def bad_setup_check(
         gd.color[0].enabled,
         gd.emissive[0].enabled,
         gd.roughness[0].enabled,
-        gd.metalness[0].enabled
+        gd.metallic[0].enabled
     )
     bake_map_vis = (
         gd.normals[0].visibility,
@@ -196,7 +195,7 @@ def bad_setup_check(
         gd.color[0].visibility,
         gd.emissive[0].visibility,
         gd.roughness[0].visibility,
-        gd.metalness[0].visibility
+        gd.metallic[0].visibility
     )
 
     if True not in bake_maps or True not in bake_map_vis:
