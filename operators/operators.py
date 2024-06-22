@@ -636,25 +636,25 @@ def Return_Channel_Path(context ,Channel):
     if Channel == 'none':
         return ("") 
     if Channel == 'normals':
-        return ((os.path.join(gd.export_path,gd.export_name+'_'+gd.occlusion[0].suffix+'.png'))) 
+        return ((os.path.join(gd.export_path,gd.export_name+'_'+gd.occlusion[0].suffix+get_format()))) 
     if Channel == 'curvature':
-        return((os.path.join(gd.export_path,gd.export_name+'_'+gd.curvature[0].suffix+'.png'))) 
+        return((os.path.join(gd.export_path,gd.export_name+'_'+gd.curvature[0].suffix+get_format()))) 
     if Channel == 'occlusion':
-        return((os.path.join(gd.export_path,gd.export_name+'_'+gd.occlusion[0].suffix+'.png')))    
+        return((os.path.join(gd.export_path,gd.export_name+'_'+gd.occlusion[0].suffix+get_format())))    
     if Channel == 'height':
-        return((os.path.join(gd.export_path,gd.export_name+'_'+gd.height[0].suffix+'.png')))    
+        return((os.path.join(gd.export_path,gd.export_name+'_'+gd.height[0].suffix+get_format())))    
     if Channel == 'id':
-        return((os.path.join(gd.export_path,gd.export_name+'_'+gd.id[0].suffix+'.png')))    
+        return((os.path.join(gd.export_path,gd.export_name+'_'+gd.id[0].suffix+get_format())))    
     if Channel == 'alpha':
-        return((os.path.join(gd.export_path,gd.export_name+'_'+gd.alpha[0].suffix+'.png')))    
+        return((os.path.join(gd.export_path,gd.export_name+'_'+gd.alpha[0].suffix+get_format())))    
     if Channel == 'color':
-        return((os.path.join(gd.export_path,gd.export_name+'_'+gd.color[0].suffix+'.png')))    
+        return((os.path.join(gd.export_path,gd.export_name+'_'+gd.color[0].suffix+get_format())))    
     if Channel == 'emissive':
-        return((os.path.join(gd.export_path,gd.export_name+'_'+gd.emissive[0].suffix+'.png')))    
+        return((os.path.join(gd.export_path,gd.export_name+'_'+gd.emissive[0].suffix+get_format())))    
     if Channel == 'roughness':
-        return((os.path.join(gd.export_path,gd.export_name+'_'+gd.roughness[0].suffix+'.png')))    
+        return((os.path.join(gd.export_path,gd.export_name+'_'+gd.roughness[0].suffix+get_format())))    
     if Channel == 'metallic':
-        return((os.path.join(gd.export_path,gd.export_name+'_'+gd.metallic[0].suffix+'.png')))  
+        return((os.path.join(gd.export_path,gd.export_name+'_'+gd.metallic[0].suffix+get_format())))  
     return False  
 
 
@@ -728,7 +728,7 @@ class GRABDOC_OT_pack_maps(Operator):
 
         dst_image=pack_image_channels(pack_order,PackName)
 
-        dst_image.filepath_raw = Path+"//"+PackName+'.'+gd.format
+        dst_image.filepath_raw = Path+"//"+PackName+get_format()
         dst_image.file_format = gd.format
         dst_image.save()
 
