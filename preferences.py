@@ -408,17 +408,17 @@ class GRABDOC_property_group(PropertyGroup):
         default= 'AORM')
 
     channel_R: EnumProperty(
-       items=MAP_TYPES,
+       items=MAP_TYPES[1:],
        default="occlusion",
        name='R'
     )
     channel_G: EnumProperty(
-       items=MAP_TYPES,
+       items=MAP_TYPES[1:],
        default="roughness",
        name='G'
     )
     channel_B: EnumProperty(
-       items=MAP_TYPES,
+       items=MAP_TYPES[1:],
        default="metallic",
        name='B'
     )

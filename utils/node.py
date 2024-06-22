@@ -189,16 +189,18 @@ def node_init() -> None:
 
         # Create sockets
         generate_shader_interface(tree, inputs)
+        tree.interface.new_socket(
+            name='Normal',
+            socket_type='NodeSocketVector',
+            in_out='INPUT'
+        )
 
-        # Create nodes
-        tree.interface.new_socket(name="Normal",description="some_color_input",in_out ="INPUT", socket_type="NodeSocketColor")
-
-        
+        # Create nodes        
         group_input = tree.nodes.new('NodeGroupInput')
         group_input.name = "Group Input"
         group_input.location = (-1000,0)
         
-        bpy.data.node_groups["GD_Ambient Occlusion"].interface.items_tree[1].default_value = (0.5, 0.5, 1, 1)
+        bpy.data.node_groups["GD_Ambient Occlusion"].interface.items_tree[1].default_value = (0.5, 0.5, 1)
 
 
         group_output = tree.nodes.new('NodeGroupOutput')
