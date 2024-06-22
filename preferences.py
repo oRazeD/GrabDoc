@@ -115,6 +115,13 @@ class GRABDOC_OT_add_preset(AddPresetBase, Operator):
         "gd.emissive",
         "gd.roughness",
         "gd.metallic",
+
+        "gd.use_pack_maps",
+        "gd.pack_name",
+        "gd.channel_R",
+        "gd.channel_G",
+        "gd.channel_B",
+        "gd.channel_A"
     ]
 
     # Where to store the preset

@@ -666,7 +666,7 @@ class GRABDOC_OT_pack_maps(Operator):
 
     remove_maps : BoolProperty (name='Remove packed maps' ,default=False)
 
-    # Poll should check if all required images are correctly present in the export path
+    # Poll to check if all required images are correctly present in the export path
     @classmethod
     def poll(cls, context: Context) -> bool:
         gd = context.scene.gd
@@ -676,13 +676,14 @@ class GRABDOC_OT_pack_maps(Operator):
         BChannel=gd.channel_B
         AChannel=gd.channel_A
 
+
         r=(Return_Channel_Path(context,RChannel))
         g=(Return_Channel_Path(context,GChannel))
         b=(Return_Channel_Path(context,BChannel)) 
         a=(Return_Channel_Path(context,AChannel)) 
 
+        #Alpha requires a edge case as it should be the only option that uses the "none" setting
         if gd.channel_A == 'none':
-
             if os.path.exists(r) & os.path.exists(g) & os.path.exists(b)==True:
                 return True
             else:
@@ -699,11 +700,10 @@ class GRABDOC_OT_pack_maps(Operator):
         gd = context.scene.gd
         Name = f"{gd.export_name}"
 
-        # Will require a property for the suffix
         PackName= (Name+"_"+gd.pack_name)
         Path= gd.export_path
 
-        #Loads all images into blender to avoid using a seperate package to conver to np array
+        #Loads all images into blender to avoid using a seperate python module to convert to np array
         ImageR= bpy.data.images.load(Return_Channel_Path(context,gd.channel_R))
         ImageG=bpy.data.images.load(Return_Channel_Path(context,gd.channel_G))
         ImageB=bpy.data.images.load(Return_Channel_Path(context,gd.channel_B))
@@ -732,6 +732,15 @@ class GRABDOC_OT_pack_maps(Operator):
         dst_image.file_format = gd.format
         dst_image.save()
 
+
+        #Remove images from blend file to keep it clean 
+
+        bpy.data.images.remove(ImageR)
+        bpy.data.images.remove(ImageG)
+        bpy.data.images.remove(ImageB)
+        if gd.channel_A != 'none':
+            bpy.data.images.remove(ImageA)
+        bpy.data.images.remove(dst_image)
 
         #option to delete the extra maps through the operator panel
         if self.remove_maps==True:
