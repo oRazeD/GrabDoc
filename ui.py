@@ -277,41 +277,42 @@ class GRABDOC_PT_view_edit_maps(PanelInfo, Panel):
         baker.draw(context, layout)
 
 
-#class GRABDOC_PT_pack_maps(PanelInfo, Panel):
-#    bl_label = 'Pack Maps'
-#    bl_parent_id = "GRABDOC_PT_grabdoc"
+class GRABDOC_PT_pack_maps(PanelInfo, Panel):
+   bl_label = 'Pack Maps'
+   bl_parent_id = "GRABDOC_PT_grabdoc"
 
-#    @classmethod
-#    def poll(cls, context: Context) -> bool:
-#        return proper_scene_setup() and not context.scene.gd.preview_state
+   @classmethod
+   def poll(cls, context: Context) -> bool:
+       return proper_scene_setup() and not context.scene.gd.preview_state
 
-#    def draw_header_preset(self, _context: Context):
-#        self.layout.operator(
-#            "grab_doc.map_pack_info",
-#            emboss=False,
-#            text="",
-#            icon="HELP"
-#        )
+   def draw_header_preset(self, _context: Context):
+       self.layout.operator(
+           "grab_doc.pack_maps",
+       )
 
-#    def draw_header(self, context: Context):
-#        gd = context.scene.gd
-#
-#        row = self.layout.row(align=True)
-#        row.prop(gd, '_use_pack_maps', text='')
-#        row.separator(factor=.5)
+   def draw_header(self, context: Context):
+       gd = context.scene.gd
 
-#    def draw(self, context: Context):
-#        gd = context.scene.gd
+       row = self.layout.row(align=True)
+    #    row.prop(gd, '_use_pack_maps', text='')
+       row.separator(factor=.5)
 
-#        layout = self.layout
-#        layout.use_property_split = True
-#        layout.use_property_decorate = False
+   def draw(self, context: Context):
+       gd = context.scene.gd
+       
 
-#        col = layout.column(align=True)
-#        col.prop(gd, '_channel_R')
-#        col.prop(gd, '_channel_G')
-#        col.prop(gd, 'channel_B')
-#        col.prop(gd, 'channel_A')
+
+       layout = self.layout
+       layout.use_property_split = True
+       layout.use_property_decorate = False
+
+       col = layout.column(align=True)
+       col.prop(gd, 'use_pack_maps', text="Pack on export")
+       col.prop(gd, 'channel_R', text="channel R")
+       col.prop(gd, 'channel_G', text="channel G")
+       col.prop(gd, 'channel_B', text="channel B")
+       col.prop(gd, 'channel_A', text="channel A")
+       col.prop(gd, 'pack_name', text="Suffix")
 
 
 ################################################
@@ -367,6 +368,7 @@ class GRABDOC_PT_occlusion(BakerPanel, PanelInfo, Panel):
     ID = Global.OCCLUSION_ID
     NAME = Global.OCCLUSION_NAME
 
+
 class GRABDOC_PT_height(BakerPanel, PanelInfo, Panel):
     ID = Global.HEIGHT_ID
     NAME = Global.HEIGHT_NAME
@@ -411,6 +413,7 @@ classes = (
     GRABDOC_PT_grabdoc,
     GRABDOC_PT_export,
     GRABDOC_PT_view_edit_maps,
+    GRABDOC_PT_pack_maps,
     GRABDOC_PT_normals,
     GRABDOC_PT_curvature,
     GRABDOC_PT_occlusion,
@@ -420,9 +423,9 @@ classes = (
     GRABDOC_PT_color,
     GRABDOC_PT_emissive,
     GRABDOC_PT_roughness,
-    GRABDOC_PT_metallic
+    GRABDOC_PT_metallic  
 )
-# GRABDOC_PT_pack_maps
+
 
 def register():
     for cls in classes:

@@ -1,3 +1,4 @@
+
 import os
 
 import bpy
@@ -390,30 +391,36 @@ class GRABDOC_property_group(PropertyGroup):
     # TODO:
     # - Implement core functionality
     # - Add all properties to presets
-    #use_pack_maps: BoolProperty(
-    #    name='Enable Packing on Export',
-    #    default=False
-    #)
-    #channel_R: EnumProperty(
-    #    items=MAP_TYPES,
-    #    default="occlusion",
-    #    name='R'
-    #)
-    #channel_G: EnumProperty(
-    #    items=MAP_TYPES,
-    #    default="roughness",
-    #    name='G'
-    #)
-    #channel_B: EnumProperty(
-    #    items=MAP_TYPES,
-    #    default="metallic",
-    #    name='B'
-    #)
-    #channel_A: EnumProperty(
-    #    items=MAP_TYPES,
-    #    default="alpha",
-    #    name='A'
-    #)
+    use_pack_maps: BoolProperty(
+       name='Enable Packing on Export',
+       default=False
+    )
+
+    pack_name : StringProperty (
+        name= 'Pack map name',
+        default= 'AORM')
+
+    channel_R: EnumProperty(
+       items=MAP_TYPES,
+       default="occlusion",
+       name='R'
+    )
+    channel_G: EnumProperty(
+       items=MAP_TYPES,
+       default="roughness",
+       name='G'
+    )
+    channel_B: EnumProperty(
+       items=MAP_TYPES,
+       default="metallic",
+       name='B'
+    )
+    channel_A: EnumProperty(
+       items=MAP_TYPES,
+       default="none",
+       name='A'
+    )
+    
 
 
 ##################################
