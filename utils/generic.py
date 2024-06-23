@@ -84,7 +84,7 @@ def is_camera_in_3d_view() -> bool:
 def format_bl_label(
         name: str = "GrabDoc",
         # NOTE: MUST BE CHANGED ALONGSIDE BL_INFO
-        bl_version: str = (1, 4, 3)
+        bl_version: str = (1, 4, 4)
     ) -> str:
     tuples_version_pattern = r'\((\d+), (\d+), (\d+)\)'
     match = re.match(tuples_version_pattern, str(bl_version))

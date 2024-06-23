@@ -1,11 +1,7 @@
 import os
 
 import bpy
-from bpy.types import (
-    Context,
-    Panel,
-    UILayout
-)
+from bpy.types import Context, Panel, UILayout
 
 from .constants import Global
 from .preferences import GRABDOC_PT_presets
@@ -192,7 +188,6 @@ class GRABDOC_PT_export(PanelInfo, Panel):
             image_format = "format"
         row.prop(gd, image_format)
 
-        # TODO: This is insane lol
         row2 = row.row()
         if gd.format == "OPEN_EXR":
             row2.prop(gd, "exr_depth", expand=True)
@@ -224,6 +219,9 @@ class GRABDOC_PT_export(PanelInfo, Panel):
             gd, "export_plane",
             text='Export Plane'
         )
+        col.prop(gd, 'use_pack_maps')
+        if gd.use_pack_maps:
+            col.prop(gd, 'remove_original_maps')
         if gd.baker_type == "marmoset":
             col.prop(
                 gd, 'marmo_auto_bake',
@@ -278,41 +276,29 @@ class GRABDOC_PT_view_edit_maps(PanelInfo, Panel):
 
 
 class GRABDOC_PT_pack_maps(PanelInfo, Panel):
-   bl_label = 'Pack Maps'
-   bl_parent_id = "GRABDOC_PT_grabdoc"
+    bl_label = 'Pack Maps'
+    bl_parent_id = "GRABDOC_PT_grabdoc"
 
-   @classmethod
-   def poll(cls, context: Context) -> bool:
-       return proper_scene_setup() and not context.scene.gd.preview_state
+    @classmethod
+    def poll(cls, context: Context) -> bool:
+        return proper_scene_setup() and not context.scene.gd.preview_state
 
-   def draw_header_preset(self, _context: Context):
-       self.layout.operator(
-           "grab_doc.pack_maps",
-       )
+    def draw_header_preset(self, _context: Context):
+        self.layout.operator("grab_doc.pack_maps", icon='IMAGE_DATA')
 
-   def draw_header(self, context: Context):
-       gd = context.scene.gd
+    def draw(self, context: Context):
+        gd = context.scene.gd
 
-       row = self.layout.row(align=True)
-    #    row.prop(gd, '_use_pack_maps', text='')
-       row.separator(factor=.5)
+        layout = self.layout
+        layout.use_property_split = True
+        layout.use_property_decorate = False
 
-   def draw(self, context: Context):
-       gd = context.scene.gd
-       
-
-
-       layout = self.layout
-       layout.use_property_split = True
-       layout.use_property_decorate = False
-
-       col = layout.column(align=True)
-       col.prop(gd, 'use_pack_maps', text="Pack on export")
-       col.prop(gd, 'channel_R', text="channel R")
-       col.prop(gd, 'channel_G', text="channel G")
-       col.prop(gd, 'channel_B', text="channel B")
-       col.prop(gd, 'channel_A', text="channel A")
-       col.prop(gd, 'pack_name', text="Suffix")
+        col = layout.column(align=True)
+        col.prop(gd, 'channel_r')
+        col.prop(gd, 'channel_g')
+        col.prop(gd, 'channel_b')
+        col.prop(gd, 'channel_a')
+        col.prop(gd, 'pack_name', text="Suffix")
 
 
 ################################################
@@ -423,7 +409,7 @@ classes = (
     GRABDOC_PT_color,
     GRABDOC_PT_emissive,
     GRABDOC_PT_roughness,
-    GRABDOC_PT_metallic  
+    GRABDOC_PT_metallic
 )
 
 

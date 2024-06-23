@@ -29,7 +29,7 @@ class Global:
     COLOR_ID     = "color"
     EMISSIVE_ID  = "emissive"
     ROUGHNESS_ID = "roughness"
-    METALLIC_ID = "metallic"
+    METALLIC_ID  = "metallic"
 
     NORMAL_NAME    = NORMAL_ID.capitalize()
     CURVATURE_NAME = CURVATURE_ID.capitalize()
