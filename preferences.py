@@ -1,3 +1,4 @@
+
 import os
 
 import bpy
@@ -114,6 +115,13 @@ class GRABDOC_OT_add_preset(AddPresetBase, Operator):
         "gd.emissive",
         "gd.roughness",
         "gd.metallic",
+
+        "gd.use_pack_maps",
+        "gd.pack_name",
+        "gd.channel_R",
+        "gd.channel_G",
+        "gd.channel_B",
+        "gd.channel_A"
     ]
 
     # Where to store the preset
@@ -390,30 +398,36 @@ class GRABDOC_property_group(PropertyGroup):
     # TODO:
     # - Implement core functionality
     # - Add all properties to presets
-    #use_pack_maps: BoolProperty(
-    #    name='Enable Packing on Export',
-    #    default=False
-    #)
-    #channel_R: EnumProperty(
-    #    items=MAP_TYPES,
-    #    default="occlusion",
-    #    name='R'
-    #)
-    #channel_G: EnumProperty(
-    #    items=MAP_TYPES,
-    #    default="roughness",
-    #    name='G'
-    #)
-    #channel_B: EnumProperty(
-    #    items=MAP_TYPES,
-    #    default="metallic",
-    #    name='B'
-    #)
-    #channel_A: EnumProperty(
-    #    items=MAP_TYPES,
-    #    default="alpha",
-    #    name='A'
-    #)
+    use_pack_maps: BoolProperty(
+       name='Enable Packing on Export',
+       default=False
+    )
+
+    pack_name : StringProperty (
+        name= 'Pack map name',
+        default= 'AORM')
+
+    channel_R: EnumProperty(
+       items=MAP_TYPES[1:],
+       default="occlusion",
+       name='R'
+    )
+    channel_G: EnumProperty(
+       items=MAP_TYPES[1:],
+       default="roughness",
+       name='G'
+    )
+    channel_B: EnumProperty(
+       items=MAP_TYPES[1:],
+       default="metallic",
+       name='B'
+    )
+    channel_A: EnumProperty(
+       items=MAP_TYPES,
+       default="none",
+       name='A'
+    )
+    
 
 
 ##################################

@@ -1,10 +1,15 @@
 import os
 import time
 
+import numpy
+
+
+
+
 import bpy
 import blf
 from bpy.types import SpaceView3D, Event, Context, Operator, UILayout
-from bpy.props import StringProperty
+from bpy.props import StringProperty, BoolProperty
 
 from ..constants import Global, Error
 from ..utils.render import get_rendered_objects
@@ -151,6 +156,7 @@ class GRABDOC_OT_export_maps(OpInfo, Operator, UILayout):
         return path
 
     def execute(self, context: Context):
+        
         report_value, report_string = \
             bad_setup_check(context, active_export=True)
         if report_value:
@@ -227,6 +233,12 @@ class GRABDOC_OT_export_maps(OpInfo, Operator, UILayout):
         )
 
         context.window_manager.progress_end()
+
+        #run the pack maps operator on export if the setting is enabled
+        if gd.use_pack_maps==True:
+            bpy.ops.grab_doc.pack_maps(remove_maps=False)
+
+
         return {'FINISHED'}
 
 
@@ -588,23 +600,166 @@ class GRABDOC_OT_config_maps(Operator):
 # TODO: CHANNEL PACKING
 ################################################
 
+# original code sourced from :
+# https://blender.stackexchange.com/questions/274712/how-to-channel-pack-texture-in-python
 
-#class GRABDOC_OT_map_pack_info(OpInfo, Operator):
-#    """Information about Map Packing and current limitations"""
-#    bl_idname = "grab_doc.map_pack_info"
-#    bl_label = "MAP PACKING INFORMATION"
-#    bl_options = {'INTERNAL'}#
 
-#    def invoke(self, context: Context, _event: Event):
-#        return context.window_manager.invoke_props_dialog(self, width=500)
+def pack_image_channels(pack_order,PackName):
+    dst_array = None
+    has_alpha = False
 
-#    def draw(self, _context: Context):
-#        col = self.layout.column(align=True)
-#        for line in Global.PACK_MAPS_WARNING.split('\n')[1:][:-1]:
-#            col.label(text=line)
-#
-#    def execute(self, context: Context):
-#        return {'FINISHED'}
+    # Build the packed pixel array
+    for pack_item in pack_order:
+        image = pack_item[0]
+        # Initialize arrays on the first iteration
+        if dst_array is None:
+            w, h = image.size
+            src_array = numpy.empty(w * h * 4, dtype=numpy.float32)
+            dst_array = numpy.ones(w * h * 4, dtype=numpy.float32)
+        assert image.size[:] == (w, h), "Images must be same size"
+
+        # Fetch pixels from the source image and copy channels
+        image.pixels.foreach_get(src_array)
+        for src_chan, dst_chan in pack_item[1:]:
+            if dst_chan == 3:
+                has_alpha = True
+            dst_array[dst_chan::4] = src_array[src_chan::4]
+
+    # Create image from the packed pixels
+    dst_image = bpy.data.images.new(PackName, w, h, alpha=has_alpha)
+    dst_image.pixels.foreach_set(dst_array)
+
+    return dst_image
+
+def Return_Channel_Path(context ,Channel):
+    gd = context.scene.gd
+    if Channel == 'none':
+        return ("") 
+    if Channel == 'normals':
+        return ((os.path.join(gd.export_path,gd.export_name+'_'+gd.occlusion[0].suffix+get_format()))) 
+    if Channel == 'curvature':
+        return((os.path.join(gd.export_path,gd.export_name+'_'+gd.curvature[0].suffix+get_format()))) 
+    if Channel == 'occlusion':
+        return((os.path.join(gd.export_path,gd.export_name+'_'+gd.occlusion[0].suffix+get_format())))    
+    if Channel == 'height':
+        return((os.path.join(gd.export_path,gd.export_name+'_'+gd.height[0].suffix+get_format())))    
+    if Channel == 'id':
+        return((os.path.join(gd.export_path,gd.export_name+'_'+gd.id[0].suffix+get_format())))    
+    if Channel == 'alpha':
+        return((os.path.join(gd.export_path,gd.export_name+'_'+gd.alpha[0].suffix+get_format())))    
+    if Channel == 'color':
+        return((os.path.join(gd.export_path,gd.export_name+'_'+gd.color[0].suffix+get_format())))    
+    if Channel == 'emissive':
+        return((os.path.join(gd.export_path,gd.export_name+'_'+gd.emissive[0].suffix+get_format())))    
+    if Channel == 'roughness':
+        return((os.path.join(gd.export_path,gd.export_name+'_'+gd.roughness[0].suffix+get_format())))    
+    if Channel == 'metallic':
+        return((os.path.join(gd.export_path,gd.export_name+'_'+gd.metallic[0].suffix+get_format())))  
+    return False  
+
+
+class GRABDOC_OT_pack_maps(Operator):
+    """Pack bake maps into single texture"""
+    bl_idname = "grab_doc.pack_maps"
+    bl_label = "Pack Maps"
+    bl_options = {'REGISTER', 'UNDO'}
+
+    remove_maps : BoolProperty (name='Remove packed maps' ,default=False)
+
+    # Poll to check if all required images are correctly present in the export path
+    @classmethod
+    def poll(cls, context: Context) -> bool:
+        gd = context.scene.gd
+
+        RChannel=gd.channel_R
+        GChannel=gd.channel_G
+        BChannel=gd.channel_B
+        AChannel=gd.channel_A
+
+
+        r=(Return_Channel_Path(context,RChannel))
+        g=(Return_Channel_Path(context,GChannel))
+        b=(Return_Channel_Path(context,BChannel)) 
+        a=(Return_Channel_Path(context,AChannel)) 
+
+        #Alpha requires a edge case as it should be the only option that uses the "none" setting
+        if gd.channel_A == 'none':
+            if os.path.exists(r) & os.path.exists(g) & os.path.exists(b)==True:
+                return True
+            else:
+                return False
+        else:
+            if os.path.exists(r) & os.path.exists(g) & os.path.exists(b) & os.path.exists(a)==True:
+                return True
+            else:
+                return False
+            
+
+    def execute(self, context):
+
+        gd = context.scene.gd
+        Name = f"{gd.export_name}"
+
+        PackName= (Name+"_"+gd.pack_name)
+        Path= gd.export_path
+
+        #Loads all images into blender to avoid using a seperate python module to convert to np array
+        ImageR= bpy.data.images.load(Return_Channel_Path(context,gd.channel_R))
+        ImageG=bpy.data.images.load(Return_Channel_Path(context,gd.channel_G))
+        ImageB=bpy.data.images.load(Return_Channel_Path(context,gd.channel_B))
+        if gd.channel_A != 'none':
+            ImageA=bpy.data.images.load(Return_Channel_Path(context,gd.channel_A))
+
+
+        if gd.channel_A == 'none':
+            pack_order = [
+                (ImageR, (0, 0))
+                ,(ImageG, (0, 1))
+                ,(ImageB, (0, 2))
+            ]
+
+        else:
+            pack_order = [
+                (ImageR, (0, 0))
+                ,(ImageG, (0, 1))
+                ,(ImageB, (0, 2))
+                ,(ImageA, (0, 3))
+            ]
+
+        dst_image=pack_image_channels(pack_order,PackName)
+
+        dst_image.filepath_raw = Path+"//"+PackName+get_format()
+        dst_image.file_format = gd.format
+        dst_image.save()
+
+
+        #Remove images from blend file to keep it clean 
+
+        bpy.data.images.remove(ImageR)
+        bpy.data.images.remove(ImageG)
+        bpy.data.images.remove(ImageB)
+        if gd.channel_A != 'none':
+            bpy.data.images.remove(ImageA)
+        bpy.data.images.remove(dst_image)
+
+        #option to delete the extra maps through the operator panel
+        if self.remove_maps==True:
+            if gd.channel_A != 'none':
+                os.remove(Return_Channel_Path(context,gd.channel_R))
+                os.remove(Return_Channel_Path(context,gd.channel_G))
+                os.remove(Return_Channel_Path(context,gd.channel_B))
+                os.remove(Return_Channel_Path(context,gd.channel_A)) 
+            else:
+                os.remove(Return_Channel_Path(context,gd.channel_R))
+                os.remove(Return_Channel_Path(context,gd.channel_G))
+                os.remove(Return_Channel_Path(context,gd.channel_B))  
+
+        #reset value as this would be best a manual opt in on a final pack to prevent re exporting     
+        self.remove_maps=False
+
+        return {'FINISHED'}
+
+
 
 
 ################################################
@@ -626,6 +781,7 @@ classes = (
     GRABDOC_OT_export_current_preview,
     GRABDOC_OT_config_maps,
     #GRABDOC_OT_map_pack_info
+    GRABDOC_OT_pack_maps
 )
 
 def register():

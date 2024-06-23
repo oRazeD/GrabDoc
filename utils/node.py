@@ -189,10 +189,26 @@ def node_init() -> None:
 
         # Create sockets
         generate_shader_interface(tree, inputs)
+        tree.interface.new_socket(
+            name='Normal',
+            socket_type='NodeSocketVector',
+            in_out='INPUT'
+        )
 
-        # Create nodes
+        # Create nodes        
+        group_input = tree.nodes.new('NodeGroupInput')
+        group_input.name = "Group Input"
+        group_input.location = (-1000,0)
+        
+        bpy.data.node_groups["GD_Ambient Occlusion"].interface.items_tree[1].default_value = (0.5, 0.5, 1)
+
+
         group_output = tree.nodes.new('NodeGroupOutput')
         group_output.name = "Group Output"
+
+        normal_map = tree.nodes.new('ShaderNodeNormalMap')
+        normal_map.name= "Normal Map"
+        normal_map.location = (-800,0)
 
         ao = tree.nodes.new('ShaderNodeAmbientOcclusion')
         ao.name = "Ambient Occlusion"
@@ -210,6 +226,9 @@ def node_init() -> None:
 
         # Link nodes
         links = tree.links
+        links.new(normal_map.inputs["Color"],group_input.outputs["Normal"])
+        links.new(ao.inputs["Normal"],normal_map.outputs["Normal"])
+
         links.new(gamma.inputs["Color"], ao.outputs["Color"])
         links.new(emission.inputs["Color"], gamma.outputs["Color"])
         links.new(group_output.inputs["Shader"], emission.outputs["Emission"])
