@@ -189,26 +189,25 @@ def node_init() -> None:
 
         # Create sockets
         generate_shader_interface(tree, inputs)
-        tree.interface.new_socket(
+        alpha = tree.interface.new_socket(
+            name='Alpha',
+            socket_type='NodeSocketFloat'
+        )
+        alpha.default_value = 1
+        normal=tree.interface.new_socket(
             name='Normal',
             socket_type='NodeSocketVector',
             in_out='INPUT'
         )
+        normal.default_value= (0.5, 0.5, 1)
 
         # Create nodes        
         group_input = tree.nodes.new('NodeGroupInput')
         group_input.name = "Group Input"
         group_input.location = (-1000,0)
         
-        bpy.data.node_groups["GD_Ambient Occlusion"].interface.items_tree[1].default_value = (0.5, 0.5, 1)
-
-
         group_output = tree.nodes.new('NodeGroupOutput')
         group_output.name = "Group Output"
-
-        normal_map = tree.nodes.new('ShaderNodeNormalMap')
-        normal_map.name= "Normal Map"
-        normal_map.location = (-800,0)
 
         ao = tree.nodes.new('ShaderNodeAmbientOcclusion')
         ao.name = "Ambient Occlusion"
@@ -226,8 +225,7 @@ def node_init() -> None:
 
         # Link nodes
         links = tree.links
-        links.new(normal_map.inputs["Color"],group_input.outputs["Normal"])
-        links.new(ao.inputs["Normal"],normal_map.outputs["Normal"])
+        links.new(ao.inputs["Normal"],group_input.outputs["Normal"])
 
         links.new(gamma.inputs["Color"], ao.outputs["Color"])
         links.new(emission.inputs["Color"], gamma.outputs["Color"])
@@ -673,6 +671,15 @@ def apply_node_to_objects(name: str, objects: Iterable[Object]) -> bool:
                                 and material.blend_method == 'OPAQUE' \
                                 and len(original_input.links):
                                     material.blend_method = 'CLIP'
+                                    
+                            elif name == Global.OCCLUSION_NODE \
+                            and original_input.name == "Normal":
+                                node_found = create_node_links(
+                                    input_name=original_input.name,
+                                    node_group=passthrough,
+                                    original_input=original_input,
+                                    material=material
+                                )                       
                             elif node_found:
                                 break
                         if not node_found \
