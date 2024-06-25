@@ -740,11 +740,18 @@ class GRABDOC_OT_pack_maps(OpInfo, Operator):
 
         # Option to delete the extra maps through the operator panel
         if gd.remove_original_maps is True:
-            os.remove(get_channel_path(gd.channel_r))
-            os.remove(get_channel_path(gd.channel_g))
-            os.remove(get_channel_path(gd.channel_b))
+            if os.path.exists(get_channel_path(gd.channel_r)):
+                os.remove(get_channel_path(gd.channel_r))
+
+            if os.path.exists(get_channel_path(gd.channel_g)):
+                os.remove(get_channel_path(gd.channel_g))
+
+            if os.path.exists(get_channel_path(gd.channel_b)):
+                os.remove(get_channel_path(gd.channel_b))
+                
             if gd.channel_a != 'none':
-                os.remove(get_channel_path(gd.channel_a))
+                if os.path.exists(get_channel_path(gd.channel_a)):
+                    os.remove(get_channel_path(gd.channel_a))
         return {'FINISHED'}
 
 
