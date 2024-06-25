@@ -15,13 +15,6 @@ from .generic import get_format
 from .render import set_guide_height, get_rendered_objects
 from .scene import scene_setup
 
-def BlenderVersionEevee ()-> str:
-    #print (str(bpy.app.version))
-    if bpy.app.version > (4, 1, 0) :
-        return ("blender_eevee_next")
-    else:
-        return ("blender_eevee")
-
 
 ################################################
 # BAKERS
@@ -38,7 +31,7 @@ class Baker():
     VIEW_TRANSFORM = 'Standard'
     MARMOSET_COMPATIBLE = True
     SUPPORTED_ENGINES = (
-        (BlenderVersionEevee(),     "Eevee",     ""),
+        ('blender_eevee',     "Eevee",     ""),
         ('cycles',            "Cycles",    ""),
         ('blender_workbench', "Workbench", "")
     )
@@ -104,7 +97,7 @@ class Baker():
         col = box.column()
         if gd.baker_type == 'blender':
             col.prop(self, 'reimport', text="Re-import")
-            if self.engine == BlenderVersionEevee():
+            if self.engine == 'blender_eevee':
                 prop = 'samples'
             elif self.engine == 'blender_workbench':
                 prop = 'samples_workbench'
@@ -187,7 +180,7 @@ class Normals(Baker, PropertyGroup):
     VIEW_TRANSFORM = "Raw"
     MARMOSET_COMPATIBLE = True
     SUPPORTED_ENGINES = (
-        (BlenderVersionEevee(), "Eevee",  ""),
+        ('blender_eevee', "Eevee",  ""),
         ('cycles',        "Cycles", "")
     )
 
@@ -406,7 +399,7 @@ class Occlusion(Baker, PropertyGroup):
     VIEW_TRANSFORM = "Raw"
     MARMOSET_COMPATIBLE = True
     SUPPORTED_ENGINES = (
-        (BlenderVersionEevee(), "Eevee",  ""),
+        ('blender_eevee', "Eevee",  ""),
         ('cycles',        "Cycles", "")
     )
 
@@ -417,7 +410,7 @@ class Occlusion(Baker, PropertyGroup):
         eevee = scene.eevee
         self.savedUseOverscan = eevee.use_overscan
         self.savedOverscanSize = eevee.overscan_size
-        if scene.render.engine == BlenderVersionEevee().capitalize():
+        if scene.render.engine == "BLENDER_EEVEE":
             eevee.use_gtao = True
             # NOTE: Overscan helps with screenspace effects
             eevee.use_overscan = True
@@ -482,7 +475,7 @@ class Height(Baker, PropertyGroup):
     VIEW_TRANSFORM = "Raw"
     MARMOSET_COMPATIBLE = True
     SUPPORTED_ENGINES = (
-        (BlenderVersionEevee(), "Eevee",  ""),
+        ('blender_eevee', "Eevee",  ""),
         ('cycles',        "Cycles", "")
     )
 
@@ -646,7 +639,7 @@ class Alpha(Baker, PropertyGroup):
     VIEW_TRANSFORM = "Standard"
     MARMOSET_COMPATIBLE = False
     SUPPORTED_ENGINES = (
-        (BlenderVersionEevee(), "Eevee",  ""),
+        ('blender_eevee', "Eevee",  ""),
         ('cycles',        "Cycles", "")
     )
 
@@ -690,7 +683,7 @@ class Color(Baker, PropertyGroup):
     VIEW_TRANSFORM = "Standard"
     MARMOSET_COMPATIBLE = False
     SUPPORTED_ENGINES = (
-        (BlenderVersionEevee(), "Eevee",  ""),
+        ('blender_eevee', "Eevee",  ""),
         ('cycles',        "Cycles", "")
     )
 
@@ -709,7 +702,7 @@ class Emissive(Baker, PropertyGroup):
     VIEW_TRANSFORM = "Standard"
     MARMOSET_COMPATIBLE = False
     SUPPORTED_ENGINES = (
-        (BlenderVersionEevee(), "Eevee",  ""),
+        ('blender_eevee', "Eevee",  ""),
         ('cycles',        "Cycles", "")
     )
 
@@ -728,7 +721,7 @@ class Roughness(Baker, PropertyGroup):
     VIEW_TRANSFORM = "Raw"
     MARMOSET_COMPATIBLE = False
     SUPPORTED_ENGINES = (
-        (BlenderVersionEevee(), "Eevee",  ""),
+        ('blender_eevee', "Eevee",  ""),
         ('cycles',        "Cycles", "")
     )
 
@@ -760,7 +753,7 @@ class Metallic(Baker, PropertyGroup):
     VIEW_TRANSFORM = "Raw"
     MARMOSET_COMPATIBLE = False
     SUPPORTED_ENGINES = (
-        (BlenderVersionEevee(), "Eevee",  ""),
+        ('blender_eevee', "Eevee",  ""),
         ('cycles',        "Cycles", "")
     )
 
