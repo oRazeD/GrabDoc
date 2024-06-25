@@ -49,7 +49,7 @@ class Baker():
         scene.render.engine = str(self.engine).upper()
 
         # NOTE: Allow use of custom engines but leave default
-        if scene.render.engine == 'BLENDER_EEVEE'
+        if scene.render.engine == 'BLENDER_EEVEE':
             scene.eevee.taa_render_samples = \
             scene.eevee.taa_samples = self.samples
         elif scene.render.engine == 'CYCLES':
