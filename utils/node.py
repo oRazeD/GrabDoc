@@ -609,13 +609,10 @@ def apply_node_to_objects(name: str, objects: Iterable[Object]) -> bool:
                             pass
 
 
-                        ### This lines are commeted out as the cause for preventing Material AO due to the 
-                        ### baker node name not matching the node type required for AO
-
-                        # Link dependencies from any BSDF node
-                        # if name not in Global.SHADER_MAP_NAMES \
-                        # or "BSDF" not in source_node.type:
-                        #     continue
+                        #Link dependencies from any BSDF node
+                        if name not in Global.SHADER_MAP_NAMES \
+                        or "BSDF" not in source_node.type:
+                            continue
                         
                         node_found = False
                         for original_input in source_node.inputs:

@@ -85,7 +85,8 @@ class Global:
         COLOR_NODE,
         EMISSIVE_NODE,
         ROUGHNESS_NODE,
-        METALLIC_NODE
+        METALLIC_NODE,
+        OCCLUSION_NODE
     )
 
     INVALID_BAKE_TYPES = (
