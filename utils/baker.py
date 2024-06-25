@@ -15,6 +15,7 @@ from .generic import get_format
 from .render import set_guide_height, get_rendered_objects
 from .scene import scene_setup
 
+<<<<<<< HEAD
 def BlenderVersionEevee ()-> str:
     #print (str(bpy.app.version))
     if bpy.app.version > (4, 1, 0) :
@@ -22,6 +23,8 @@ def BlenderVersionEevee ()-> str:
     else:
         return ("blender_eevee")
 
+=======
+>>>>>>> parent of 8755782 (changed "blender_eevee" references to "blender_eevee_next" using function to update for blender 4.2)
 
 ################################################
 # BAKERS
@@ -38,7 +41,11 @@ class Baker():
     VIEW_TRANSFORM = 'Standard'
     MARMOSET_COMPATIBLE = True
     SUPPORTED_ENGINES = (
+<<<<<<< HEAD
         (BlenderVersionEevee(),     "Eevee",     ""),
+=======
+        ('blender_eevee',     "Eevee",     ""),
+>>>>>>> parent of 8755782 (changed "blender_eevee" references to "blender_eevee_next" using function to update for blender 4.2)
         ('cycles',            "Cycles",    ""),
         ('blender_workbench', "Workbench", "")
     )
@@ -56,7 +63,11 @@ class Baker():
         scene.render.engine = str(self.engine).upper()
 
         # NOTE: Allow use of custom engines but leave default
+<<<<<<< HEAD
         if scene.render.engine == BlenderVersionEevee().capitalize():
+=======
+        if scene.render.engine == 'BLENDER_EEVEE':
+>>>>>>> parent of 8755782 (changed "blender_eevee" references to "blender_eevee_next" using function to update for blender 4.2)
             scene.eevee.taa_render_samples = \
             scene.eevee.taa_samples = self.samples
         elif scene.render.engine == 'CYCLES':
@@ -104,7 +115,11 @@ class Baker():
         col = box.column()
         if gd.baker_type == 'blender':
             col.prop(self, 'reimport', text="Re-import")
+<<<<<<< HEAD
             if self.engine == BlenderVersionEevee():
+=======
+            if self.engine == 'blender_eevee':
+>>>>>>> parent of 8755782 (changed "blender_eevee" references to "blender_eevee_next" using function to update for blender 4.2)
                 prop = 'samples'
             elif self.engine == 'blender_workbench':
                 prop = 'samples_workbench'
@@ -187,7 +202,11 @@ class Normals(Baker, PropertyGroup):
     VIEW_TRANSFORM = "Raw"
     MARMOSET_COMPATIBLE = True
     SUPPORTED_ENGINES = (
+<<<<<<< HEAD
         (BlenderVersionEevee(), "Eevee",  ""),
+=======
+        ('blender_eevee', "Eevee",  ""),
+>>>>>>> parent of 8755782 (changed "blender_eevee" references to "blender_eevee_next" using function to update for blender 4.2)
         ('cycles',        "Cycles", "")
     )
 
@@ -406,7 +425,11 @@ class Occlusion(Baker, PropertyGroup):
     VIEW_TRANSFORM = "Raw"
     MARMOSET_COMPATIBLE = True
     SUPPORTED_ENGINES = (
+<<<<<<< HEAD
         (BlenderVersionEevee(), "Eevee",  ""),
+=======
+        ('blender_eevee', "Eevee",  ""),
+>>>>>>> parent of 8755782 (changed "blender_eevee" references to "blender_eevee_next" using function to update for blender 4.2)
         ('cycles',        "Cycles", "")
     )
 
@@ -417,7 +440,11 @@ class Occlusion(Baker, PropertyGroup):
         eevee = scene.eevee
         self.savedUseOverscan = eevee.use_overscan
         self.savedOverscanSize = eevee.overscan_size
+<<<<<<< HEAD
         if scene.render.engine == BlenderVersionEevee().capitalize():
+=======
+        if scene.render.engine == "BLENDER_EEVEE":
+>>>>>>> parent of 8755782 (changed "blender_eevee" references to "blender_eevee_next" using function to update for blender 4.2)
             eevee.use_gtao = True
             # NOTE: Overscan helps with screenspace effects
             eevee.use_overscan = True
@@ -482,7 +509,11 @@ class Height(Baker, PropertyGroup):
     VIEW_TRANSFORM = "Raw"
     MARMOSET_COMPATIBLE = True
     SUPPORTED_ENGINES = (
+<<<<<<< HEAD
         (BlenderVersionEevee(), "Eevee",  ""),
+=======
+        ('blender_eevee', "Eevee",  ""),
+>>>>>>> parent of 8755782 (changed "blender_eevee" references to "blender_eevee_next" using function to update for blender 4.2)
         ('cycles',        "Cycles", "")
     )
 
@@ -646,7 +677,11 @@ class Alpha(Baker, PropertyGroup):
     VIEW_TRANSFORM = "Standard"
     MARMOSET_COMPATIBLE = False
     SUPPORTED_ENGINES = (
+<<<<<<< HEAD
         (BlenderVersionEevee(), "Eevee",  ""),
+=======
+        ('blender_eevee', "Eevee",  ""),
+>>>>>>> parent of 8755782 (changed "blender_eevee" references to "blender_eevee_next" using function to update for blender 4.2)
         ('cycles',        "Cycles", "")
     )
 
@@ -690,7 +725,11 @@ class Color(Baker, PropertyGroup):
     VIEW_TRANSFORM = "Standard"
     MARMOSET_COMPATIBLE = False
     SUPPORTED_ENGINES = (
+<<<<<<< HEAD
         (BlenderVersionEevee(), "Eevee",  ""),
+=======
+        ('blender_eevee', "Eevee",  ""),
+>>>>>>> parent of 8755782 (changed "blender_eevee" references to "blender_eevee_next" using function to update for blender 4.2)
         ('cycles',        "Cycles", "")
     )
 
@@ -709,7 +748,11 @@ class Emissive(Baker, PropertyGroup):
     VIEW_TRANSFORM = "Standard"
     MARMOSET_COMPATIBLE = False
     SUPPORTED_ENGINES = (
+<<<<<<< HEAD
         (BlenderVersionEevee(), "Eevee",  ""),
+=======
+        ('blender_eevee', "Eevee",  ""),
+>>>>>>> parent of 8755782 (changed "blender_eevee" references to "blender_eevee_next" using function to update for blender 4.2)
         ('cycles',        "Cycles", "")
     )
 
@@ -728,7 +771,11 @@ class Roughness(Baker, PropertyGroup):
     VIEW_TRANSFORM = "Raw"
     MARMOSET_COMPATIBLE = False
     SUPPORTED_ENGINES = (
+<<<<<<< HEAD
         (BlenderVersionEevee(), "Eevee",  ""),
+=======
+        ('blender_eevee', "Eevee",  ""),
+>>>>>>> parent of 8755782 (changed "blender_eevee" references to "blender_eevee_next" using function to update for blender 4.2)
         ('cycles',        "Cycles", "")
     )
 
@@ -760,7 +807,11 @@ class Metallic(Baker, PropertyGroup):
     VIEW_TRANSFORM = "Raw"
     MARMOSET_COMPATIBLE = False
     SUPPORTED_ENGINES = (
+<<<<<<< HEAD
         (BlenderVersionEevee(), "Eevee",  ""),
+=======
+        ('blender_eevee', "Eevee",  ""),
+>>>>>>> parent of 8755782 (changed "blender_eevee" references to "blender_eevee_next" using function to update for blender 4.2)
         ('cycles',        "Cycles", "")
     )
 
