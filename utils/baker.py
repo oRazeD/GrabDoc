@@ -260,7 +260,7 @@ class Normals(Baker, PropertyGroup):
 
     flip_y: BoolProperty(
         name="Flip Y (-Y)",
-        description="Flip the normal map Y direction",
+        description="Flip the normal map Y direction (DirectX format)",
         options={'SKIP_SAVE'},
         update=update_flip_y
     )
