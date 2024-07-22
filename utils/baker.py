@@ -17,7 +17,7 @@ from .scene import scene_setup
 
 def BlenderVersionEevee ()-> str:
     #print (str(bpy.app.version))
-    if bpy.app.version > (4, 1, 0) :
+    if bpy.app.version >= (4, 2, 0) :
         return ("blender_eevee_next")
     else:
         return ("blender_eevee")
