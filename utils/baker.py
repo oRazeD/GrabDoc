@@ -293,7 +293,7 @@ class Curvature(Baker, PropertyGroup):
     def setup(self) -> None:
         super().setup()
         scene = bpy.context.scene
-        scene_shading = bpy.data.scenes[str(scene.name)].display.shading
+        scene_shading = scene.display.shading
         self.savedCavityType = scene_shading.cavity_type
         self.savedCavityRidgeFactor = scene_shading.cavity_ridge_factor
         self.savedCurveRidgeFactor = scene_shading.curvature_ridge_factor
@@ -348,8 +348,7 @@ class Curvature(Baker, PropertyGroup):
     def update_curvature(self, context: Context):
         if not context.scene.gd.preview_state:
             return
-        scene_shading = \
-            bpy.data.scenes[str(context.scene.name)].display.shading
+        scene_shading = context.scene.display.shading
         scene_shading.cavity_ridge_factor = \
             scene_shading.curvature_ridge_factor = self.ridge
         scene_shading.curvature_valley_factor = self.valley
@@ -1004,7 +1003,7 @@ def baker_init(self, context: Context):
     render.dither_intensity = 0
 
     # Viewport shading
-    scene_shading = bpy.data.scenes[str(scene.name)].display.shading
+    scene_shading = scene.display.shading
     self.savedLight = scene_shading.light
     self.savedColorType = scene_shading.color_type
     self.savedBackface = scene_shading.show_backface_culling
@@ -1099,7 +1098,7 @@ def baker_cleanup(self, context: Context) -> None:
 
     render.dither_intensity = self.savedDitherIntensity
 
-    scene_shading = bpy.data.scenes[str(scene.name)].display.shading
+    scene_shading = scene.display.shading
 
     # Refresh
     scene_shading.show_cavity = self.savedCavity

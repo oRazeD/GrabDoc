@@ -93,16 +93,16 @@ def format_bl_label(
     return formatted
 
 
-def get_create_addon_temp_dir(
-        dir_name: str="temp",
-        create_dir: bool=True
-    ) -> tuple[str, str]:
+def get_create_addon_temp_dir() -> tuple[str, str]:
     """Creates a temporary files directory
     for automatically handled I/O"""
     addon_path = os.path.dirname(Path(__file__).parent)
     addon_path = Path(__file__).parents[1]
-    temp_path = os.path.join(addon_path, dir_name)
-    if create_dir and not os.path.exists(temp_path):
+    # TODO: Extensions change
+    #package = __package__.split('.', maxsplit=1)[0]
+    #temp_path = bpy.utils.extension_path_user(package)
+    temp_path = os.path.join(addon_path, "temp")
+    if not os.path.exists(temp_path):
         os.mkdir(temp_path)
     return addon_path, temp_path
 
