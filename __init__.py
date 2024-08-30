@@ -3,8 +3,8 @@ bl_info = {
     "author": "Ethan Simon-Law",
     "location": "3D View > Sidebar > GrabDoc",
     # NOTE: Also change update check in preferences.py
-    "version": (1, 4, 4),
-    "blender": (4, 1, 0),
+    "version": (1, 4, 5),
+    "blender": (4, 2, 0),
     "tracker_url": "https://discord.com/invite/wHAyVZG",
     "category": "3D View"
 }

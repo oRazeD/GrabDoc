@@ -4,6 +4,7 @@ import bpy
 from bpy.types import Context, Panel, UILayout
 
 from .constants import Global
+from .operators.operators import GRABDOC_OT_export_maps
 from .preferences import GRABDOC_PT_presets
 from .utils.generic import (
     PanelInfo,
@@ -65,7 +66,6 @@ class GRABDOC_PT_grabdoc(Panel, PanelInfo):
 
         col = box.column(align=True)
         row = col.row(align=True)
-        row.enabled = not gd.preview_state
         row.scale_x = 1.25
         row.scale_y = 1.25
         row.operator(
@@ -281,7 +281,7 @@ class GRABDOC_PT_pack_maps(PanelInfo, Panel):
 
     @classmethod
     def poll(cls, context: Context) -> bool:
-        return proper_scene_setup() and not context.scene.gd.preview_state
+        return proper_scene_setup() and not GRABDOC_OT_export_maps.poll(context)
 
     def draw_header_preset(self, _context: Context):
         self.layout.operator("grab_doc.pack_maps", icon='IMAGE_DATA')
@@ -318,12 +318,18 @@ class BakerPanel():
         baker = getattr(context.scene.gd, cls.ID)[0]
         return not context.scene.gd.preview_state and baker.visibility
 
-    def draw_header(self, context: Context):
-        baker = getattr(context.scene.gd, self.ID)[0]
+    def __init__(self):
+        self.baker = getattr(bpy.context.scene.gd, self.ID)
+        if self.baker is None:
+            # TODO: Handle this in the future; usually
+            # only happens in manually "broken" blend files
+            return
+        self.baker = self.baker[0]
 
+    def draw_header(self, _context: Context):
         row = self.layout.row(align=True)
         row.separator(factor=.5)
-        row.prop(baker, 'enabled', text="")
+        row.prop(self.baker, 'enabled', text="")
         row.operator(
             "grab_doc.preview_map",
             text=f"{self.NAME} Preview"
@@ -336,8 +342,8 @@ class BakerPanel():
         row.separator(factor=1.3)
 
     def draw(self, context: Context):
-        baker = getattr(context.scene.gd, self.ID)[0]
-        baker.draw(context, self.layout)
+        self.baker.draw(context, self.layout)
+
 
 class GRABDOC_PT_color(BakerPanel, PanelInfo, Panel):
     ID = Global.COLOR_ID
@@ -354,7 +360,7 @@ class GRABDOC_PT_roughness(BakerPanel, PanelInfo, Panel):
 class GRABDOC_PT_metallic(BakerPanel, PanelInfo, Panel):
     ID = Global.METALLIC_ID
     NAME = Global.METALLIC_NAME
-    
+
 class GRABDOC_PT_height(BakerPanel, PanelInfo, Panel):
     ID = Global.HEIGHT_ID
     NAME = Global.HEIGHT_NAME
@@ -379,6 +385,7 @@ class GRABDOC_PT_alpha(BakerPanel, PanelInfo, Panel):
     ID = Global.ALPHA_ID
     NAME = Global.ALPHA_NAME
 
+
 ################################################
 # REGISTRATION
 ################################################
@@ -400,7 +407,6 @@ classes = (
     GRABDOC_PT_id,
     GRABDOC_PT_alpha,
 )
-
 
 def register():
     for cls in classes:

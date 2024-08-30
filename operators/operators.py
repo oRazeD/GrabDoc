@@ -18,7 +18,6 @@ from ..utils.generic import (
     bad_setup_check,
     export_plane,
     is_camera_in_3d_view,
-    poll_message_error,
     get_create_addon_temp_dir
 )
 from ..utils.baker import (
@@ -100,6 +99,10 @@ know how to properly revert"""
     bl_idname = "grab_doc.setup_scene"
     bl_label = "Setup / Refresh GrabDoc Scene"
 
+    @classmethod
+    def poll(cls, context: Context) -> bool:
+        return GRABDOC_OT_export_maps.poll(context)
+
     def execute(self, context: Context):
         scene_setup(self, context)
         return {'FINISHED'}
@@ -110,6 +113,10 @@ class GRABDOC_OT_remove_setup(OpInfo, Operator):
 scene, not including images reimported after bakes"""
     bl_idname = "grab_doc.remove_setup"
     bl_label = "Remove Setup"
+
+    @classmethod
+    def poll(cls, context: Context) -> bool:
+        return GRABDOC_OT_export_maps.poll(context)
 
     def execute(self, context: Context):
         remove_setup(context)
@@ -131,7 +138,12 @@ class GRABDOC_OT_export_maps(OpInfo, Operator, UILayout):
 
     @classmethod
     def poll(cls, context: Context) -> bool:
-        return not context.scene.gd.preview_state
+        if context.scene.gd.preview_state:
+            cls.poll_message_set(
+                "Cannot perform this operation while in Preview Mode"
+            )
+            return False
+        return True
 
     @staticmethod
     def export(context: Context, suffix: str, path: str = None) -> str:
@@ -249,9 +261,7 @@ class GRABDOC_OT_single_render(OpInfo, Operator):
 
     @classmethod
     def poll(cls, context: Context) -> bool:
-        return True if not context.scene.gd.preview_state else poll_message_error(
-            cls, "Cannot render, in a Modal State"
-        )
+        return GRABDOC_OT_export_maps.poll(context)
 
     def open_render_image(self, filepath: str):
         new_image = bpy.data.images.load(filepath, check_existing=True)
@@ -521,7 +531,7 @@ class GRABDOC_OT_export_current_preview(OpInfo, Operator):
 
     @classmethod
     def poll(cls, context: Context) -> bool:
-        return context.scene.gd.preview_state
+        return not GRABDOC_OT_export_maps.poll(context)
 
     def execute(self, context: Context):
         gd = context.scene.gd
@@ -567,6 +577,10 @@ class GRABDOC_OT_config_maps(Operator):
     bl_idname = "grab_doc.config_maps"
     bl_label = "Configure Map Visibility"
     bl_options = {'REGISTER'}
+
+    @classmethod
+    def poll(cls, context: Context) -> bool:
+        return GRABDOC_OT_export_maps.poll(context)
 
     def execute(self, _context):
         return {'FINISHED'}
@@ -629,31 +643,13 @@ def get_channel_path(channel: str) -> str | None:
     """Get the channel path of the given channel name.
 
     If the channel path is not found returns `None`."""
-    gd = bpy.context.scene.gd
-    fmt = get_format()
-    filename = ""
-    if channel == 'normals':
-        filename = gd.export_name + '_' + gd.occlusion[0].suffix + fmt
-    elif channel == 'curvature':
-        filename = gd.export_name + '_' + gd.curvature[0].suffix + fmt
-    elif channel == 'occlusion':
-        filename = gd.export_name + '_' + gd.occlusion[0].suffix + fmt
-    elif channel == 'height':
-        filename = gd.export_name + '_' + gd.height[0].suffix + fmt
-    elif channel == 'id':
-        filename = gd.export_name + '_' + gd.id[0].suffix + fmt
-    elif channel == 'alpha':
-        filename = gd.export_name + '_' + gd.alpha[0].suffix + fmt
-    elif channel == 'color':
-        filename = gd.export_name + '_' + gd.color[0].suffix + fmt
-    elif channel == 'emissive':
-        filename = gd.export_name + '_' + gd.emissive[0].suffix + fmt
-    elif channel == 'roughness':
-        filename = gd.export_name + '_' + gd.roughness[0].suffix + fmt
-    elif channel == 'metallic':
-        filename = gd.export_name + '_' + gd.metallic[0].suffix + fmt
-    if filename == "":
+    if channel == "none":
         return None
+    gd = bpy.context.scene.gd
+    suffix = getattr(gd, channel)[0].suffix
+    if suffix is None:
+        return None
+    filename = gd.export_name + '_' + suffix + get_format()
     filepath = os.path.join(gd.export_path, filename)
     if not os.path.exists(filepath):
         return None
@@ -666,9 +662,8 @@ def is_pack_maps_enabled() -> bool:
 
     This function also returns True if a required
     bake map is not enabled but the texture exists."""
-    bake_maps = get_bake_maps()
     bake_map_names = ['none']
-    for bake_map in bake_maps:
+    for bake_map in get_bake_maps():
         bake_map_names.append(bake_map.ID)
 
     gd = bpy.context.scene.gd
@@ -748,7 +743,7 @@ class GRABDOC_OT_pack_maps(OpInfo, Operator):
 
             if os.path.exists(get_channel_path(gd.channel_b)):
                 os.remove(get_channel_path(gd.channel_b))
-                
+
             if gd.channel_a != 'none':
                 if os.path.exists(get_channel_path(gd.channel_a)):
                     os.remove(get_channel_path(gd.channel_a))
