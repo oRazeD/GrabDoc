@@ -2,7 +2,7 @@ bl_info = {
     "name": "GrabDoc",
     "author": "Ethan Simon-Law",
     "location": "3D View > Sidebar > GrabDoc",
-    # NOTE: Also change update check in preferences.py
+    # NOTE: Must be updated in generic.py as well
     "version": (1, 4, 5),
     "blender": (4, 2, 0),
     "tracker_url": "https://discord.com/invite/wHAyVZG",
