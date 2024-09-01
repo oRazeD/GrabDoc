@@ -9,8 +9,8 @@ from .preferences import GRABDOC_PT_presets
 from .utils.generic import (
     PanelInfo,
     proper_scene_setup,
-    is_camera_in_3d_view,
-    format_bl_label
+    camera_in_3d_view,
+    get_version
 )
 
 
@@ -20,7 +20,7 @@ from .utils.generic import (
 
 
 class GRABDOC_PT_grabdoc(Panel, PanelInfo):
-    bl_label = format_bl_label()
+    bl_label = "GrabDoc " + get_version()
 
     def draw_header_preset(self, _context: Context):
         if proper_scene_setup():
@@ -39,7 +39,7 @@ class GRABDOC_PT_grabdoc(Panel, PanelInfo):
         split.label(text="Scene Settings", icon="SCENE_DATA")
         if scene_setup:
             col = split.column(align=True)
-            in_trim_cam = is_camera_in_3d_view()
+            in_trim_cam = camera_in_3d_view()
             col.operator(
                 "grab_doc.view_cam",
                 text="Leave" if in_trim_cam else "View",
@@ -281,7 +281,7 @@ class GRABDOC_PT_pack_maps(PanelInfo, Panel):
 
     @classmethod
     def poll(cls, context: Context) -> bool:
-        return proper_scene_setup() and not GRABDOC_OT_export_maps.poll(context)
+        return proper_scene_setup() and GRABDOC_OT_export_maps.poll(context)
 
     def draw_header_preset(self, _context: Context):
         self.layout.operator("grab_doc.pack_maps", icon='IMAGE_DATA')
