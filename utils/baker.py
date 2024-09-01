@@ -91,7 +91,7 @@ class Baker():
             box = col.box()
             col2 = box.column(align=True)
             col2.label(text="\u2022 Requires Shader Manipulation", icon='INFO')
-            col2.label(text="\u2022 No Marmoset Support", icon='BLANK1')
+            #col2.label(text="\u2022 No Marmoset Support", icon='BLANK1')
 
         box = col.box()
         box.label(text="Properties", icon="PROPERTIES")
