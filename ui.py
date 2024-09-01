@@ -157,10 +157,10 @@ class GRABDOC_PT_export(PanelInfo, Panel):
         box.label(text="Output Settings", icon="OUTPUT")
 
         col2 = box.column()
-        row = col2.row()
-        row.enabled = not gd.preview_state
-        row.prop(gd, 'baker_type', text="Baker")
-        col2.separator(factor=.5)
+        #row = col2.row()
+        #row.enabled = not gd.preview_state
+        #row.prop(gd, 'baker_type', text="Baker")
+        #col2.separator(factor=.5)
 
         row = col2.row()
         row.alert = not self.export_path_exists
