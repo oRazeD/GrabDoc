@@ -1,5 +1,6 @@
 import os
 import re
+import tomllib
 from pathlib import Path
 from inspect import getframeinfo, stack
 
@@ -73,7 +74,7 @@ def proper_scene_setup() -> bool:
     return True in object_checks
 
 
-def is_camera_in_3d_view() -> bool:
+def camera_in_3d_view() -> bool:
     """Check if we are actively viewing
     through the camera in the 3D View"""
     return [
@@ -81,30 +82,22 @@ def is_camera_in_3d_view() -> bool:
     ] == ['CAMERA']
 
 
-def format_bl_label(
-        name: str = "GrabDoc",
-        # NOTE: MUST BE CHANGED ALONGSIDE BL_INFO
-        bl_version: str = (1, 4, 5)
-    ) -> str:
-    tuples_version_pattern = r'\((\d+), (\d+), (\d+)\)'
-    match = re.match(tuples_version_pattern, str(bl_version))
-    result = '.'.join(match.groups()) if match else None
-    formatted = f"{name} {result}"
-    return formatted
+def get_version(version: tuple[int, int, int] | None = None) -> str | None:
+    if version is None:
+        with open("blender_manifest.toml", "rb") as f:
+            data = tomllib.load(f)
+            return data.get("version", None)
+    # NOTE: Since 4.2 this pattern is deprecated
+    version_pattern = r'\((\d+), (\d+), (\d+)\)'
+    match = re.match(version_pattern, str(version))
+    return '.'.join(match.groups()) if match else None
 
 
-def get_create_addon_temp_dir() -> tuple[str, str]:
-    """Creates a temporary files directory
-    for automatically handled I/O"""
-    addon_path = os.path.dirname(Path(__file__).parent)
-    addon_path = Path(__file__).parents[1]
-    # TODO: Extensions change
-    #package = __package__.split('.', maxsplit=1)[0]
-    #temp_path = bpy.utils.extension_path_user(package)
-    temp_path = os.path.join(addon_path, "temp")
-    if not os.path.exists(temp_path):
-        os.mkdir(temp_path)
-    return addon_path, temp_path
+def get_temp_path() -> str:
+    """Gets or creates a temporary directory based on the extensions system."""
+    return bpy.utils.extension_path_user(
+        __package__.rsplit(".", maxsplit=1)[0], path="temp", create=True
+    )
 
 
 def get_debug_line_no() -> str:
