@@ -73,8 +73,7 @@ class GRABDOC_OT_add_preset(AddPresetBase, Operator):
     ]
 
     # Properties to store
-    # TODO: Create a function
-    # to generate list
+    # TODO: Create a function to generate this list
     preset_values = [
         "gd.coll_selectable",
         "gd.coll_visible",
@@ -222,7 +221,7 @@ class GRABDOC_property_group(PropertyGroup):
             "Background plane & camera scale, also applies to exported plane",
         update=update_scale
     )
-    filter: BoolProperty(  # TODO: add to cycles
+    filter: BoolProperty(
         name='Use Filtering',
         default=True,
         description=\

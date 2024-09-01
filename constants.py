@@ -1,4 +1,5 @@
 
+
 class Global:
     """A collection of constants used for global variable standardization"""
     PREFIX      = "GD_"
@@ -115,21 +116,20 @@ do anyways it shouldn't be overwritten by GrabDoc
 until the node group is removed from file, which
 only happens when you use the `Remove Setup` operator."""
 
+    # TODO: Currently unused
     PACK_MAPS_WARNING = \
-"""Map Packing is a new feature in GrabDoc for optimizing textures being
-exported (usually directly to engine) by cramming grayscale baked maps into
-each RGBA channel of a single texture reducing the amount of texture samples
-used and by extension the memory footprint. This is meant to be a simple
-alternative to pit-stopping over to compositing software to finish the job
-but its usability is limited.
+"""Map Packing is a feature for optimizing textures being exported
+(usually directly to engine) by cramming grayscale baked maps into
+each RGBA channel of a single texture reducing the amount of texture
+samples used and by extension the memory footprint. This is meant to
+be a simple alternative to pit-stopping over to compositing software
+to finish the job but its usability is limited.
 
-Map Packing in GrabDoc is new, so here's a few things to keep note of:
-\u2022 Only grayscale maps can currently be packed
+Here's a few things to keep note of:
+\u2022 Only grayscale bake maps can be packed
 \u2022 Map packing isn't supported for Marmoset bakes
-\u2022 Any successfully packed maps will not also be exported as their
-own maps and will also ignore `Import as Material` option
-\u2022 The default selected packed channels don't represent the default enabled
-bake maps, meaning without intervention G, B, and A channels will be empty."""
+\u2022 The default packed channels don't represent the default bake
+maps. Without intervention, the G, B, and A channels will be empty."""
 
     PREVIEW_WARNING = \
 """Material Preview allows you to visualize your bake maps in real-time!

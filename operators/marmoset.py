@@ -2,6 +2,7 @@
 import os
 import subprocess
 import json
+from pathlib import Path
 
 import bpy
 from bpy.types import Context, Operator, Object
@@ -11,7 +12,7 @@ from ..utils.generic import (
     OpInfo,
     bad_setup_check,
     export_plane,
-    get_create_addon_temp_dir
+    get_temp_path
 )
 from ..utils.render import set_guide_height, get_rendered_objects
 
@@ -128,8 +129,6 @@ class GrabDoc_OT_send_to_marmo(OpInfo, Operator):
             self.report({'ERROR'}, report_string)
             return {'CANCELLED'}
 
-        addon_path, temp_path = get_create_addon_temp_dir()
-
         saved_selected = context.view_layer.objects.selected.keys()
 
         if bpy.ops.object.mode_set.poll():
@@ -169,6 +168,7 @@ class GrabDoc_OT_send_to_marmo(OpInfo, Operator):
                 bpy.data.materials.get(Global.REFERENCE_NAME)
             )
 
+        temp_path = get_temp_path()
         bpy.ops.export_scene.fbx(
             filepath=os.path.join(temp_path, "mesh_export.fbx"),
             use_selection=True, path_mode='ABSOLUTE'
@@ -191,6 +191,8 @@ class GrabDoc_OT_send_to_marmo(OpInfo, Operator):
             ob = context.scene.objects.get(ob_name)
             ob.select_set(True)
 
+        addon_path = os.path.dirname(Path(__file__).parent)
+        addon_path = Path(__file__).parents[1]
         self.open_marmoset(context, temp_path, addon_path)
         return {'FINISHED'}
 

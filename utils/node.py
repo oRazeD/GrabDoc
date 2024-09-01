@@ -201,11 +201,11 @@ def node_init() -> None:
         )
         normal.default_value= (0.5, 0.5, 1)
 
-        # Create nodes        
+        # Create nodes
         group_input = tree.nodes.new('NodeGroupInput')
         group_input.name = "Group Input"
         group_input.location = (-1000,0)
-        
+
         group_output = tree.nodes.new('NodeGroupOutput')
         group_output.name = "Group Output"
 
@@ -584,8 +584,7 @@ def apply_node_to_objects(name: str, objects: Iterable[Object]) -> bool:
                 GD_frame.height = 150
 
                 # Link nodes
-                # TODO: This section needs to
-                # be seriously reconsidered
+                # TODO: This section needs to be seriously reconsidered
                 # inputs = get_material_output_inputs()
                 # if node_input.name in inputs:
                 #    for connection_name in inputs:
@@ -613,7 +612,7 @@ def apply_node_to_objects(name: str, objects: Iterable[Object]) -> bool:
                         if name not in Global.SHADER_MAP_NAMES \
                         or "BSDF" not in source_node.type:
                             continue
-                        
+
                         node_found = False
                         for original_input in source_node.inputs:
                             if name == Global.COLOR_NODE \
@@ -673,7 +672,7 @@ def apply_node_to_objects(name: str, objects: Iterable[Object]) -> bool:
                                 and material.blend_method == 'OPAQUE' \
                                 and len(original_input.links):
                                     material.blend_method = 'CLIP'
-                                    
+
                             elif name == Global.OCCLUSION_NODE \
                             and original_input.name == "Normal":
                                 node_found = create_node_links(
@@ -681,7 +680,7 @@ def apply_node_to_objects(name: str, objects: Iterable[Object]) -> bool:
                                     node_group=passthrough,
                                     original_input=original_input,
                                     material=material
-                                )   
+                                )
                             elif node_found:
                                 break
                         if not node_found \

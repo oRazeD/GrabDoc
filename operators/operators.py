@@ -1,6 +1,6 @@
 import os
 import time
-import numpy
+import numpy # type: ignore
 
 import bpy
 import blf
@@ -17,8 +17,8 @@ from ..utils.generic import (
     proper_scene_setup,
     bad_setup_check,
     export_plane,
-    is_camera_in_3d_view,
-    get_create_addon_temp_dir
+    camera_in_3d_view,
+    get_temp_path
 )
 from ..utils.baker import (
     baker_init,
@@ -71,19 +71,12 @@ class GRABDOC_OT_open_folder(OpInfo, Operator):
 
 
 class GRABDOC_OT_view_cam(OpInfo, Operator):
-    """View the GrabDoc camera"""
+    """View or leave the GrabDoc camera"""
     bl_idname = "grab_doc.view_cam"
-
-    from_modal: bpy.props.BoolProperty(default=False, options={'HIDDEN'})
 
     def execute(self, context: Context):
         context.scene.camera = bpy.data.objects[Global.TRIM_CAMERA_NAME]
-        # TODO: I don't know what the intention was here
-        if self.from_modal and is_camera_in_3d_view():
-            bpy.ops.view3d.view_camera()
-        else:
-            bpy.ops.view3d.view_camera()
-        self.from_modal = False
+        bpy.ops.view3d.view_camera()
         return {'FINISHED'}
 
 
@@ -254,8 +247,6 @@ class GRABDOC_OT_single_render(OpInfo, Operator):
     map_name: StringProperty()
 
     # TODO:
-    # - Might be able to have this uniquely
-    #   utilize compositing for mixing maps?
     # - Support Reimport as Materials
     # - Support correct default color spaces
 
@@ -302,7 +293,7 @@ class GRABDOC_OT_single_render(OpInfo, Operator):
             if result is False:
                 self.report({'INFO'}, Error.MAT_SLOTS_WITHOUT_LINKS)
         path = GRABDOC_OT_export_maps.export(
-            context, self.baker.suffix, path=get_create_addon_temp_dir()[1]
+            context, self.baker.suffix, path=get_temp_path()
         )
         self.open_render_image(path)
         self.baker.cleanup()
@@ -451,7 +442,9 @@ class GRABDOC_OT_map_preview(OpInfo, Operator):
         gd = context.scene.gd
         gd.preview_state = False
 
-        SpaceView3D.draw_handler_remove(self._handle, 'WINDOW')
+        SpaceView3D.draw_handler_remove( # pylint: disable=E1120
+            self._handle, 'WINDOW'
+        )
 
         self.baker.cleanup()
         node_cleanup(self.baker.NODE)
@@ -480,7 +473,7 @@ class GRABDOC_OT_map_preview(OpInfo, Operator):
         # Check for auto exit camera option, keep this
         # at the end of the stack to avoid pop in
         if not proper_scene_setup():
-            bpy.ops.grab_doc.view_cam(from_modal=True)
+            bpy.ops.grab_doc.view_cam()
 
     def execute(self, context: Context):
         report_value, report_string = \
@@ -505,7 +498,7 @@ class GRABDOC_OT_map_preview(OpInfo, Operator):
                     self.saved_render_view = space.shading.type
                     space.shading.type = 'RENDERED'
                     break
-        if not is_camera_in_3d_view():
+        if not camera_in_3d_view():
             bpy.ops.view3d.view_camera()
 
         baker_init(self, context)
@@ -517,7 +510,7 @@ class GRABDOC_OT_map_preview(OpInfo, Operator):
             result = apply_node_to_objects(self.baker.NODE, rendered_objects)
             if result is False:
                 self.report({'INFO'}, Error.MAT_SLOTS_WITHOUT_LINKS)
-        self._handle = SpaceView3D.draw_handler_add(
+        self._handle = SpaceView3D.draw_handler_add(  # pylint: disable=E1120
             draw_callback_px, (self, context), 'WINDOW', 'POST_PIXEL'
         )
         context.window_manager.modal_handler_add(self)

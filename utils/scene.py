@@ -3,7 +3,7 @@ import bmesh
 from bpy.types import Context, Object
 
 from ..constants import Global
-from ..utils.generic import is_camera_in_3d_view
+from ..utils.generic import camera_in_3d_view
 from ..utils.node import node_init
 
 
@@ -93,7 +93,7 @@ def remove_setup(context: Context, hard_reset: bool=True) -> None | list:
     # Forcibly exit the camera before deleting it so
     # the original users camera position is retained
     update_camera = False
-    if is_camera_in_3d_view():
+    if camera_in_3d_view():
         update_camera = True
         bpy.ops.view3d.view_camera()
 

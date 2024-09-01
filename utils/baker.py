@@ -122,7 +122,7 @@ class Baker():
     enabled: BoolProperty(
         name="Export Enabled",
         default=True # TODO: Could set this based on marmoset compat
-        )
+    )
     reimport: BoolProperty(
         name="Reimport Texture",
         description="Reimport bake map texture into a Blender material"
@@ -963,8 +963,7 @@ def baker_init(self, context: Context):
     self.savedFilterSize = render.filter_size
     self.savedFilterSizeCycles = context.scene.cycles.filter_width
     self.savedFilterSizeTypeCycles = context.scene.cycles.pixel_filter_type
-    render.filter_size = \
-    context.scene.cycles.filter_width = gd.filter_width
+    render.filter_size = context.scene.cycles.filter_width = gd.filter_width
     context.scene.cycles.pixel_filter_type = 'BLACKMAN_HARRIS'
 
     # Dimensions (NOTE: don't bother saving these)

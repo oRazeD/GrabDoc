@@ -75,7 +75,7 @@ def get_rendered_objects() -> set | None:
             objects.update(
                 [ob for ob in coll.all_objects if is_valid_gd_object(ob)]
             )
-            # TODO: Old method, maybe time it?
+            # TODO: Old method; profile it
             #for ob in coll.all_objects:
             #    if is_valid_grabdoc_object(ob):
             #        rendered_obs.add(ob.name)
