@@ -18,9 +18,9 @@ type = "add-on"
 tags = ["3D View", "Camera", "Bake", "Compositing", "Render"]
 
 blender_version_min = "4.2.0"
-# # Optional: Blender version that the extension does not support, earlier versions are supported.
-# # This can be omitted and defined later on the extensions platform if an issue is found.
-# blender_version_max = "4.7.0"
+# Optional: Blender version that the extension does not support, earlier versions are supported.
+# This can be omitted and defined later on the extensions platform if an issue is found.
+blender_version_max = "4.7.0"
 
 # License conforming to https://spdx.org/licenses/ (use "SPDX: prefix)
 # https://docs.blender.org/manual/en/dev/advanced/extensions/licenses.html
@@ -65,9 +65,11 @@ license = [
 
 # Optional: build settings.
 # https://docs.blender.org/manual/en/dev/advanced/extensions/command_line_arguments.html#command-line-args-extension-build
-# [build]
-# paths_exclude_pattern = [
-#   "__pycache__/",
-#   "/.git/",
-#   "/*.zip",
-# ]
+[build]
+paths_exclude_pattern = [
+  "__pycache__/",
+  "/.git/",
+  ".*",
+  "*.log",
+  "/*.zip",
+]
