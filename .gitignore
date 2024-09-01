@@ -14,3 +14,7 @@ grabdocgit_updater/
 utils/temp/
 
 temp/
+
+*.log
+
+*.zip
