@@ -84,11 +84,9 @@ def camera_in_3d_view() -> bool:
 
 def get_version(version: tuple[int, int, int] | None = None) -> str | None:
     if version is None:
-        import os
-        
-        file_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "blender_manifest.toml")
-        print(file_path)
-        with open(file_path, "rb") as f:
+        addon_path = Path(os.path.abspath(__file__)).parents[1]
+        toml_path = addon_path / "blender_manifest.toml"
+        with open(toml_path, "rb") as f:
             data = tomllib.load(f)
             return data.get("version", None)
     # NOTE: Since 4.2 this pattern is deprecated
