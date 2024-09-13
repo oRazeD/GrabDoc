@@ -4,7 +4,6 @@ import importlib
 module_names = (
     "operators.operators",
     "operators.material",
-    "operators.marmoset",
     "preferences",
     "ui"
 )
