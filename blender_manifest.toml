@@ -9,7 +9,7 @@ type = "add-on"
 
 website = "https://github.com/oRazeD/GrabDoc"
 
-tags = ["3D View", "Camera", "Bake", "Compositing", "Render", "Import-Export"]
+tags = ["3D View", "Material", "Bake", "Compositing", "Render", "Import-Export"]
 
 blender_version_min = "4.2.0"
 blender_version_max = "4.7.0"
@@ -20,4 +20,3 @@ license = [
 
 # [permissions]
 files = "Read/Write Images"
-
