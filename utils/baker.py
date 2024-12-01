@@ -15,12 +15,11 @@ from .generic import get_format
 from .render import set_guide_height, get_rendered_objects
 from .scene import scene_setup
 
-def BlenderVersionEevee ()-> str:
-    #print (str(bpy.app.version))
-    if bpy.app.version >= (4, 2, 0) :
-        return ("blender_eevee_next")
-    else:
-        return ("blender_eevee")
+
+def get_render_engine() -> str:
+    if bpy.app.version >= (4, 2, 0):
+        return "blender_eevee_next"
+    return "blender_eevee"
 
 
 ################################################
@@ -38,7 +37,7 @@ class Baker():
     VIEW_TRANSFORM = 'Standard'
     MARMOSET_COMPATIBLE = True
     SUPPORTED_ENGINES = (
-        (BlenderVersionEevee(),     "Eevee",     ""),
+        (get_render_engine(), "Eevee",     ""),
         ('cycles',            "Cycles",    ""),
         ('blender_workbench', "Workbench", "")
     )
@@ -56,7 +55,7 @@ class Baker():
         scene.render.engine = str(self.engine).upper()
 
         # NOTE: Allow use of custom engines but leave default
-        if scene.render.engine == BlenderVersionEevee().capitalize():
+        if scene.render.engine == get_render_engine().capitalize():
             scene.eevee.taa_render_samples = \
             scene.eevee.taa_samples = self.samples
         elif scene.render.engine == 'CYCLES':
@@ -104,7 +103,7 @@ class Baker():
         col = box.column()
         if gd.baker_type == 'blender':
             col.prop(self, 'reimport', text="Re-import")
-            if self.engine == BlenderVersionEevee():
+            if self.engine == get_render_engine():
                 prop = 'samples'
             elif self.engine == 'blender_workbench':
                 prop = 'samples_workbench'
@@ -187,8 +186,8 @@ class Normals(Baker, PropertyGroup):
     VIEW_TRANSFORM = "Raw"
     MARMOSET_COMPATIBLE = True
     SUPPORTED_ENGINES = (
-        (BlenderVersionEevee(), "Eevee",  ""),
-        ('cycles',        "Cycles", "")
+        (get_render_engine(), "Eevee",  ""),
+        ('cycles',            "Cycles", "")
     )
 
     def setup(self) -> None:
@@ -405,8 +404,8 @@ class Occlusion(Baker, PropertyGroup):
     VIEW_TRANSFORM = "Raw"
     MARMOSET_COMPATIBLE = True
     SUPPORTED_ENGINES = (
-        (BlenderVersionEevee(), "Eevee",  ""),
-        ('cycles',        "Cycles", "")
+        (get_render_engine(), "Eevee",  ""),
+        ('cycles',            "Cycles", "")
     )
 
     def setup(self) -> None:
@@ -416,11 +415,11 @@ class Occlusion(Baker, PropertyGroup):
         eevee = scene.eevee
         self.savedUseOverscan = eevee.use_overscan
         self.savedOverscanSize = eevee.overscan_size
-        if scene.render.engine == BlenderVersionEevee().capitalize():
+        if scene.render.engine == get_render_engine().capitalize():
             eevee.use_gtao = True
             # NOTE: Overscan helps with screenspace effects
             eevee.use_overscan = True
-            eevee.overscan_size = 10
+            eevee.overscan_size = 25
 
     def cleanup(self) -> None:
         eevee = bpy.context.scene.eevee
@@ -481,8 +480,8 @@ class Height(Baker, PropertyGroup):
     VIEW_TRANSFORM = "Raw"
     MARMOSET_COMPATIBLE = True
     SUPPORTED_ENGINES = (
-        (BlenderVersionEevee(), "Eevee",  ""),
-        ('cycles',        "Cycles", "")
+        (get_render_engine(), "Eevee",  ""),
+        ('cycles',            "Cycles", "")
     )
 
     def setup(self) -> None:
@@ -643,10 +642,10 @@ class Alpha(Baker, PropertyGroup):
     COLOR_SPACE = "sRGB"
     VIEW_TRANSFORM = "Raw"
     VIEW_TRANSFORM = "Standard"
-    MARMOSET_COMPATIBLE = False
+    MARMOSET_COMPATIBLE = True
     SUPPORTED_ENGINES = (
-        (BlenderVersionEevee(), "Eevee",  ""),
-        ('cycles',        "Cycles", "")
+        (get_render_engine(), "Eevee",  ""),
+        ('cycles',            "Cycles", "")
     )
 
     def draw_properties(self, context: Context, layout: UILayout):
@@ -689,8 +688,8 @@ class Color(Baker, PropertyGroup):
     VIEW_TRANSFORM = "Standard"
     MARMOSET_COMPATIBLE = False
     SUPPORTED_ENGINES = (
-        (BlenderVersionEevee(), "Eevee",  ""),
-        ('cycles',        "Cycles", "")
+        (get_render_engine(), "Eevee",  ""),
+        ('cycles',            "Cycles", "")
     )
 
     engine: EnumProperty(
@@ -708,8 +707,8 @@ class Emissive(Baker, PropertyGroup):
     VIEW_TRANSFORM = "Standard"
     MARMOSET_COMPATIBLE = False
     SUPPORTED_ENGINES = (
-        (BlenderVersionEevee(), "Eevee",  ""),
-        ('cycles',        "Cycles", "")
+        (get_render_engine(), "Eevee",  ""),
+        ('cycles',            "Cycles", "")
     )
 
     engine: EnumProperty(
@@ -727,8 +726,8 @@ class Roughness(Baker, PropertyGroup):
     VIEW_TRANSFORM = "Raw"
     MARMOSET_COMPATIBLE = False
     SUPPORTED_ENGINES = (
-        (BlenderVersionEevee(), "Eevee",  ""),
-        ('cycles',        "Cycles", "")
+        (get_render_engine(), "Eevee",  ""),
+        ('cycles',            "Cycles", "")
     )
 
     def draw_properties(self, context: Context, layout: UILayout):
@@ -759,8 +758,8 @@ class Metallic(Baker, PropertyGroup):
     VIEW_TRANSFORM = "Raw"
     MARMOSET_COMPATIBLE = False
     SUPPORTED_ENGINES = (
-        (BlenderVersionEevee(), "Eevee",  ""),
-        ('cycles',        "Cycles", "")
+        (get_render_engine(), "Eevee",  ""),
+        ('cycles',            "Cycles", "")
     )
 
     engine: EnumProperty(
@@ -931,10 +930,6 @@ def baker_init(self, context: Context):
     self.savedCyclesSampling = context.scene.cycles.preview_samples
     self.savedCyclesRenderSampling = context.scene.cycles.samples
 
-    # Bloom
-    self.savedUseBloom = eevee.use_bloom
-    eevee.use_bloom = False
-
     # Ambient Occlusion
     self.savedUseAO = eevee.use_gtao
     self.savedAODistance = eevee.gtao_distance
@@ -1053,9 +1048,6 @@ def baker_cleanup(self, context: Context) -> None:
 
     self.savedCyclesSampling = context.scene.cycles.preview_samples
     self.savedCyclesRenderSampling = context.scene.cycles.samples
-
-    # Bloom
-    scene.eevee.use_bloom = self.savedUseBloom
 
     # Ambient Occlusion
     scene.eevee.use_gtao = self.savedUseAO

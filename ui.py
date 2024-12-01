@@ -344,14 +344,37 @@ class BakerPanel():
     def draw(self, context: Context):
         self.baker.draw(context, self.layout)
 
+class GRABDOC_PT_normals(BakerPanel, PanelInfo, Panel):
+    ID = Global.NORMAL_ID
+    NAME = Global.NORMAL_NAME
+
+class GRABDOC_PT_height(BakerPanel, PanelInfo, Panel):
+    ID = Global.HEIGHT_ID
+    NAME = Global.HEIGHT_NAME
+
+class GRABDOC_PT_alpha(BakerPanel, PanelInfo, Panel):
+    ID = Global.ALPHA_ID
+    NAME = Global.ALPHA_NAME
+
+class GRABDOC_PT_occlusion(BakerPanel, PanelInfo, Panel):
+    ID = Global.OCCLUSION_ID
+    NAME = Global.OCCLUSION_NAME
+
+class GRABDOC_PT_curvature(BakerPanel, PanelInfo, Panel):
+    ID = Global.CURVATURE_ID
+    NAME = Global.CURVATURE_NAME
+
+class GRABDOC_PT_emissive(BakerPanel, PanelInfo, Panel):
+    ID = Global.EMISSIVE_ID
+    NAME = Global.EMISSIVE_NAME
+
+class GRABDOC_PT_id(BakerPanel, PanelInfo, Panel):
+    ID = Global.MATERIAL_ID
+    NAME = Global.MATERIAL_NAME
 
 class GRABDOC_PT_color(BakerPanel, PanelInfo, Panel):
     ID = Global.COLOR_ID
     NAME = Global.COLOR_NAME
-
-class GRABDOC_PT_normals(BakerPanel, PanelInfo, Panel):
-    ID = Global.NORMAL_ID
-    NAME = Global.NORMAL_NAME
 
 class GRABDOC_PT_roughness(BakerPanel, PanelInfo, Panel):
     ID = Global.ROUGHNESS_ID
@@ -360,30 +383,6 @@ class GRABDOC_PT_roughness(BakerPanel, PanelInfo, Panel):
 class GRABDOC_PT_metallic(BakerPanel, PanelInfo, Panel):
     ID = Global.METALLIC_ID
     NAME = Global.METALLIC_NAME
-
-class GRABDOC_PT_height(BakerPanel, PanelInfo, Panel):
-    ID = Global.HEIGHT_ID
-    NAME = Global.HEIGHT_NAME
-
-class GRABDOC_PT_occlusion(BakerPanel, PanelInfo, Panel):
-    ID = Global.OCCLUSION_ID
-    NAME = Global.OCCLUSION_NAME
-
-class GRABDOC_PT_emissive(BakerPanel, PanelInfo, Panel):
-    ID = Global.EMISSIVE_ID
-    NAME = Global.EMISSIVE_NAME
-
-class GRABDOC_PT_curvature(BakerPanel, PanelInfo, Panel):
-    ID = Global.CURVATURE_ID
-    NAME = Global.CURVATURE_NAME
-
-class GRABDOC_PT_id(BakerPanel, PanelInfo, Panel):
-    ID = Global.MATERIAL_ID
-    NAME = Global.MATERIAL_NAME
-
-class GRABDOC_PT_alpha(BakerPanel, PanelInfo, Panel):
-    ID = Global.ALPHA_ID
-    NAME = Global.ALPHA_NAME
 
 
 ################################################
@@ -396,16 +395,16 @@ classes = (
     GRABDOC_PT_export,
     GRABDOC_PT_view_edit_maps,
     GRABDOC_PT_pack_maps,
-    GRABDOC_PT_color,
     GRABDOC_PT_normals,
-    GRABDOC_PT_roughness,
-    GRABDOC_PT_metallic,
     GRABDOC_PT_height,
+    GRABDOC_PT_alpha,
     GRABDOC_PT_occlusion,
     GRABDOC_PT_curvature,
     GRABDOC_PT_emissive,
     GRABDOC_PT_id,
-    GRABDOC_PT_alpha,
+    GRABDOC_PT_color,
+    GRABDOC_PT_roughness,
+    GRABDOC_PT_metallic
 )
 
 def register():
