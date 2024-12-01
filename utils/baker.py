@@ -37,7 +37,7 @@ class Baker():
     VIEW_TRANSFORM = 'Standard'
     MARMOSET_COMPATIBLE = True
     SUPPORTED_ENGINES = (
-        (get_render_engine(), "Eevee",     ""),
+        (get_render_engine(), "EEVEE",     ""),
         ('cycles',            "Cycles",    ""),
         ('blender_workbench', "Workbench", "")
     )
@@ -135,7 +135,7 @@ class Baker():
     )
     visibility: BoolProperty(default=True)
     samples: IntProperty(
-        name="Eevee Samples", default=128, min=1, soft_max=512,
+        name="EEVEE Samples", default=128, min=1, soft_max=512,
         update=apply_render_settings
     )
     samples_cycles: IntProperty(
@@ -186,7 +186,7 @@ class Normals(Baker, PropertyGroup):
     VIEW_TRANSFORM = "Raw"
     MARMOSET_COMPATIBLE = True
     SUPPORTED_ENGINES = (
-        (get_render_engine(), "Eevee",  ""),
+        (get_render_engine(), "EEVEE",  ""),
         ('cycles',            "Cycles", "")
     )
 
@@ -404,7 +404,7 @@ class Occlusion(Baker, PropertyGroup):
     VIEW_TRANSFORM = "Raw"
     MARMOSET_COMPATIBLE = True
     SUPPORTED_ENGINES = (
-        (get_render_engine(), "Eevee",  ""),
+        (get_render_engine(), "EEVEE",  ""),
         ('cycles',            "Cycles", "")
     )
 
@@ -480,7 +480,7 @@ class Height(Baker, PropertyGroup):
     VIEW_TRANSFORM = "Raw"
     MARMOSET_COMPATIBLE = True
     SUPPORTED_ENGINES = (
-        (get_render_engine(), "Eevee",  ""),
+        (get_render_engine(), "EEVEE",  ""),
         ('cycles',            "Cycles", "")
     )
 
@@ -644,7 +644,7 @@ class Alpha(Baker, PropertyGroup):
     VIEW_TRANSFORM = "Standard"
     MARMOSET_COMPATIBLE = True
     SUPPORTED_ENGINES = (
-        (get_render_engine(), "Eevee",  ""),
+        (get_render_engine(), "EEVEE",  ""),
         ('cycles',            "Cycles", "")
     )
 
@@ -688,7 +688,7 @@ class Color(Baker, PropertyGroup):
     VIEW_TRANSFORM = "Standard"
     MARMOSET_COMPATIBLE = False
     SUPPORTED_ENGINES = (
-        (get_render_engine(), "Eevee",  ""),
+        (get_render_engine(), "EEVEE",  ""),
         ('cycles',            "Cycles", "")
     )
 
@@ -707,7 +707,7 @@ class Emissive(Baker, PropertyGroup):
     VIEW_TRANSFORM = "Standard"
     MARMOSET_COMPATIBLE = False
     SUPPORTED_ENGINES = (
-        (get_render_engine(), "Eevee",  ""),
+        (get_render_engine(), "EEVEE",  ""),
         ('cycles',            "Cycles", "")
     )
 
@@ -726,7 +726,7 @@ class Roughness(Baker, PropertyGroup):
     VIEW_TRANSFORM = "Raw"
     MARMOSET_COMPATIBLE = False
     SUPPORTED_ENGINES = (
-        (get_render_engine(), "Eevee",  ""),
+        (get_render_engine(), "EEVEE",  ""),
         ('cycles',            "Cycles", "")
     )
 
@@ -758,7 +758,7 @@ class Metallic(Baker, PropertyGroup):
     VIEW_TRANSFORM = "Raw"
     MARMOSET_COMPATIBLE = False
     SUPPORTED_ENGINES = (
-        (get_render_engine(), "Eevee",  ""),
+        (get_render_engine(), "EEVEE",  ""),
         ('cycles',            "Cycles", "")
     )
 

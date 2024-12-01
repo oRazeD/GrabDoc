@@ -730,16 +730,13 @@ class GRABDOC_OT_pack_maps(OpInfo, Operator):
         if gd.remove_original_maps is True:
             if os.path.exists(get_channel_path(gd.channel_r)):
                 os.remove(get_channel_path(gd.channel_r))
-
             if os.path.exists(get_channel_path(gd.channel_g)):
                 os.remove(get_channel_path(gd.channel_g))
-
             if os.path.exists(get_channel_path(gd.channel_b)):
                 os.remove(get_channel_path(gd.channel_b))
-
-            if gd.channel_a != 'none':
-                if os.path.exists(get_channel_path(gd.channel_a)):
-                    os.remove(get_channel_path(gd.channel_a))
+            if gd.channel_a != 'none' and \
+            os.path.exists(get_channel_path(gd.channel_a)):
+                os.remove(get_channel_path(gd.channel_a))
         return {'FINISHED'}
 
 
