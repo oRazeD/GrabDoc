@@ -408,8 +408,8 @@ class GRABDOC_property_group(PropertyGroup):
     pack_name: StringProperty(name="Packed Map Name", default="AORM")
     channel_r: EnumProperty(items=MAP_TYPES[1:], default="occlusion", name='R')
     channel_g: EnumProperty(items=MAP_TYPES[1:], default="roughness", name='G')
-    channel_b: EnumProperty(items=MAP_TYPES[1:], default="metallic", name='B')
-    channel_a: EnumProperty(items=MAP_TYPES, default="none", name='A')
+    channel_b: EnumProperty(items=MAP_TYPES[1:], default="metallic",  name='B')
+    channel_a: EnumProperty(items=MAP_TYPES,     default="none",      name='A')
 
 
 ##################################
