@@ -56,7 +56,7 @@ class GRABDOC_MT_presets(Menu):
 
 
 class GRABDOC_PT_presets(PresetPanel, Panel):
-    bl_label = 'GrabDoc Presets'
+    bl_label = 'Bake Presets'
     preset_subdir = 'grab_doc'
     preset_operator = 'script.execute_preset'
     preset_add_operator = 'grab_doc.preset_add'
@@ -136,27 +136,37 @@ class GRABDOC_AP_preferences(AddonPreferences):
     bl_idname = __package__
 
     marmo_executable: StringProperty(
-        name="",
         description="Path to Marmoset Toolbag 3 or 4 executable",
-        default="",
-        subtype="FILE_PATH"
+        name="Marmoset EXE Path", default="", subtype="FILE_PATH"
     )
+
+    render_within_frustrum: BoolProperty(
+        name="Render Within Frustrum",
+        description="""Only render objects within the camera viewing frustrum.
+
+Improves render speed but it may apply materials incorrectly (void objects).""",
+        default=False
+    )
+
+    def draw(self, _context):
+        layout = self.layout
+        col = layout.column()
+        col.prop(self, 'marmo_executable')
+        col.prop(self, 'render_within_frustrum')
 
 
 class GRABDOC_property_group(PropertyGroup):
-    MAP_TYPES = (
-        ('none',      "None",              ""),
-        ('normals',   "Normals",           ""),
-        ('curvature', "Curvature",         ""),
-        ('occlusion', "Ambient Occlusion", ""),
-        ('height',    "Height",            ""),
-        ('id',        "Material ID",       ""),
-        ('alpha',     "Alpha",             ""),
-        ('color',     "Base Color",        ""),
-        ('emissive',  "Emissive",          ""),
-        ('roughness', "Roughness",         ""),
-        ('metallic',  "Metallic",          "")
-    )
+    MAP_TYPES = (('none',      "None",              ""),
+                 ('normals',   "Normals",           ""),
+                 ('curvature', "Curvature",         ""),
+                 ('occlusion', "Ambient Occlusion", ""),
+                 ('height',    "Height",            ""),
+                 ('id',        "Material ID",       ""),
+                 ('alpha',     "Alpha",             ""),
+                 ('color',     "Base Color",        ""),
+                 ('emissive',  "Emissive",          ""),
+                 ('roughness', "Roughness",         ""),
+                 ('metallic',  "Metallic",          ""))
 
     def update_export_name(self, _context: Context):
         if not self.export_name:
@@ -188,7 +198,7 @@ class GRABDOC_property_group(PropertyGroup):
 
         map_range = height_ng.nodes.get('Map Range')
         map_range.inputs[1].default_value = \
-            - self.height[0].distance + gd_camera_ob_z
+            -self.height[0].distance + gd_camera_ob_z
         map_range.inputs[2].default_value = gd_camera_ob_z
 
         map_range_alpha = \
