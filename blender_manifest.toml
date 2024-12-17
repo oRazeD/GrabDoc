@@ -1,7 +1,7 @@
 schema_version = "1.0.0"
 
 id = "GrabDoc"
-version = "1.4.6"
+version = "1.4.7"
 name = "GrabDoc"
 tagline = "A trim & tileable baker for Blender"
 maintainer = "Ethan Simon-Law <ethan.simon.3d@gmail.com>"
