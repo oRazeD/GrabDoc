@@ -29,93 +29,6 @@ class GRABDOC_PT_grabdoc(Panel, PanelInfo):
             # pylint: disable=no-value-for-parameter
             GRABDOC_PT_presets.draw_panel_header(self.layout)
 
-    def draw(self, context: Context):
-        gd = context.scene.gd
-
-        layout = self.layout
-        box = layout.box()
-        scene_setup = proper_scene_setup()
-        split = box.split(factor=.65 if scene_setup else .9)
-        split.label(text="Scene Settings", icon="SCENE_DATA")
-        if scene_setup:
-            col = split.column(align=True)
-            in_trim_cam = camera_in_3d_view()
-            col.operator(
-                "grab_doc.view_cam",
-                text="Leave" if in_trim_cam else "View",
-                icon="OUTLINER_OB_CAMERA"
-            )
-            col = box.column(align=True)
-            col.label(text="Camera Restrictions")
-            row = col.row(align=True)
-            row.prop(
-                gd, "coll_selectable", text="Select",
-                icon='RESTRICT_SELECT_OFF' if gd.coll_selectable else 'RESTRICT_SELECT_ON'
-            )
-            row.prop(
-                gd, "coll_visible", text="Visible",
-                icon='RESTRICT_VIEW_OFF' if gd.coll_visible else 'RESTRICT_VIEW_ON'
-            )
-            row.prop(
-                gd, "coll_rendered", text="Render",
-                icon='RESTRICT_RENDER_OFF' if gd.coll_rendered else 'RESTRICT_RENDER_ON'
-            )
-
-        box.use_property_split = True
-        box.use_property_decorate = False
-
-        col = box.column(align=True)
-        row = col.row(align=True)
-        row.scale_x = 1.25
-        row.scale_y = 1.25
-        row.operator(
-            "grab_doc.setup_scene",
-            text="Rebuild Scene" if scene_setup else "Setup Scene",
-            icon="FILE_REFRESH"
-        )
-        if not scene_setup:
-            return
-
-        row.operator("grab_doc.remove_setup", text="", icon="CANCEL")
-
-        col = box.column()
-        col.prop(gd, "scale", text='Scaling', expand=True)
-        row = col.row()
-        row.prop(gd, "filter_width", text="Filtering")
-        row.separator() # NOTE: Odd spacing without these
-        row.prop(gd, "filter", text="")
-        row = col.row()
-        row.prop(gd, "grid_subdivs", text="Grid")
-        row.separator()
-        row.prop(gd, "use_grid", text="")
-        row = col.row()
-        row.enabled = not gd.preview_state
-        row.prop(gd, "reference", text='Reference')
-        row.operator("grab_doc.load_reference", text="", icon='FILE_FOLDER')
-
-
-class GRABDOC_PT_export(PanelInfo, Panel):
-    bl_label = 'Export Maps'
-    bl_parent_id = "GRABDOC_PT_grabdoc"
-
-    @classmethod
-    def poll(cls, _context: Context) -> bool:
-        return proper_scene_setup()
-
-    def draw_header_preset(self, context: Context):
-        gd = context.scene.gd
-        preferences = bpy.context.preferences.addons[__package__].preferences
-        marmo_executable = preferences.marmo_executable
-
-        layout = self.layout
-        if gd.baker_type == 'marmoset' \
-        and not os.path.exists(marmo_executable):
-            layout.enabled = False
-        layout.operator(
-            "grab_doc.export_maps",
-            text="Export", icon="EXPORT"
-        )
-
     def marmo_header_layout(self, layout: UILayout):
         preferences = bpy.context.preferences.addons[__package__].preferences
         marmo_executable = preferences.marmo_executable
@@ -142,6 +55,68 @@ class GRABDOC_PT_export(PanelInfo, Panel):
 
     def draw(self, context: Context):
         gd = context.scene.gd
+        layout = self.layout
+
+        # Scene
+        box = layout.box()
+        scene_setup = proper_scene_setup()
+        split = box.split(factor=.5 if scene_setup else .9)
+        split.label(text="Scene", icon="SCENE_DATA")
+        if scene_setup:
+            col = split.column(align=True)
+            in_trim_cam = camera_in_3d_view()
+            col.operator(
+                "grab_doc.view_cam",
+                text="Leave" if in_trim_cam else "View",
+                icon="OUTLINER_OB_CAMERA"
+            )
+
+        col = box.column(align=True)
+        row = col.row(align=True)
+        row.scale_x = row.scale_y = 1.25
+        row.operator(
+            "grab_doc.setup_scene",
+            text="Rebuild Scene" if scene_setup else "Setup Scene",
+            icon="FILE_REFRESH"
+        )
+        if not scene_setup:
+            return
+        row.operator("grab_doc.remove_setup", text="", icon="CANCEL")
+
+        col.label(text="Camera Restrictions")
+        row = col.row(align=True)
+        row.prop(
+            gd, "coll_selectable", text="Select",
+            icon='RESTRICT_SELECT_OFF' if gd.coll_selectable else 'RESTRICT_SELECT_ON'
+        )
+        row.prop(
+            gd, "coll_visible", text="Visible",
+            icon='RESTRICT_VIEW_OFF' if gd.coll_visible else 'RESTRICT_VIEW_ON'
+        )
+        row.prop(
+            gd, "coll_rendered", text="Render",
+            icon='RESTRICT_RENDER_OFF' if gd.coll_rendered else 'RESTRICT_RENDER_ON'
+        )
+
+        box.use_property_split = True
+        box.use_property_decorate = False
+
+        col = box.column()
+        col.prop(gd, "scale", text='Scaling', expand=True)
+        row = col.row()
+        row.prop(gd, "filter_width", text="Filtering")
+        row.separator() # NOTE: Odd spacing without these
+        row.prop(gd, "filter", text="")
+        row = col.row()
+        row.prop(gd, "grid_subdivs", text="Grid")
+        row.separator()
+        row.prop(gd, "use_grid", text="")
+        row = col.row()
+        row.enabled = not gd.preview_state
+        row.prop(gd, "reference", text='Reference')
+        row.operator("grab_doc.load_reference", text="", icon='FILE_FOLDER')
+
+        # Output
         self.export_path_exists = \
             os.path.exists(bpy.path.abspath(gd.export_path))
 
@@ -150,11 +125,24 @@ class GRABDOC_PT_export(PanelInfo, Panel):
         layout.use_property_split = True
         layout.use_property_decorate = False
 
-        if gd.baker_type == 'marmoset':
-            self.marmo_header_layout(layout)
-
         box = layout.box()
-        box.label(text="Output Settings", icon="OUTPUT")
+
+        split = box.split(factor=.5)
+        split.label(text="Output", icon="OUTPUT")
+
+        gd = context.scene.gd
+        preferences = bpy.context.preferences.addons[__package__].preferences
+        marmo_executable = preferences.marmo_executable
+
+        row = split.row(align=True)
+        if gd.baker_type == 'marmoset' \
+        and not os.path.exists(marmo_executable):
+            row.enabled = False
+        row.operator("grab_doc.export_maps",
+                     text="Export", icon="EXPORT")
+
+        if gd.baker_type == 'marmoset':
+            self.marmo_header_layout(box)
 
         col2 = box.column()
         #row = col2.row()
@@ -203,7 +191,7 @@ class GRABDOC_PT_export(PanelInfo, Panel):
                 row.prop(gd, "png_compression", text="Compression")
             elif gd.format == "OPEN_EXR":
                 row.prop(image_settings, "exr_codec", text="Codec")
-            else: # TIFF
+            else:  # TIFF
                 row.prop(image_settings, "tiff_codec", text="Codec")
 
         if gd.baker_type == "marmoset":
@@ -236,7 +224,7 @@ class GRABDOC_PT_export(PanelInfo, Panel):
 
 
 class GRABDOC_PT_view_edit_maps(PanelInfo, Panel):
-    bl_label = 'Edit Maps'
+    bl_label = 'Bake Maps'
     bl_parent_id = "GRABDOC_PT_grabdoc"
 
     @classmethod
@@ -244,12 +232,11 @@ class GRABDOC_PT_view_edit_maps(PanelInfo, Panel):
         return proper_scene_setup()
 
     def draw_header_preset(self, _context: Context):
-        self.layout.operator(
-            "grab_doc.config_maps",
-            emboss=False,
-            text="",
-            icon="SETTINGS"
-        )
+        layout = self.layout
+
+        row = layout.row(align=True)
+        row.operator("grab_doc.config_maps",
+                     emboss=False, text="", icon="SETTINGS")
 
     def draw(self, context: Context):
         gd = context.scene.gd
@@ -392,7 +379,6 @@ class GRABDOC_PT_metallic(BakerPanel, PanelInfo, Panel):
 
 classes = (
     GRABDOC_PT_grabdoc,
-    GRABDOC_PT_export,
     GRABDOC_PT_view_edit_maps,
     GRABDOC_PT_pack_maps,
     GRABDOC_PT_normals,
