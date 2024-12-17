@@ -23,9 +23,7 @@ from ..utils.render import set_guide_height, get_rendered_objects
 
 
 class GrabDoc_OT_send_to_marmo(OpInfo, Operator):
-    """Export your models, open & bake (if turned on) in
-    Marmoset Toolbag utilizing the settings set within
-    the 'View / Edit Maps' tab"""
+    """Export your models, open & bake the enabled maps in Marmoset Toolbag"""
     bl_idname = "grab_doc.bake_marmoset"
     bl_label = "Open / Refresh in Marmoset"
 
@@ -39,13 +37,13 @@ class GrabDoc_OT_send_to_marmo(OpInfo, Operator):
 
     @classmethod
     def poll(cls, context: Context) -> bool:
-        package = __package__.split('.', maxsplit=1)[0]
+        package = __package__.rsplit(".", maxsplit=1)[0]
         return os.path.exists(
             context.preferences.addons[package].preferences.marmo_executable
         )
 
     def open_marmoset(self, context: Context, temp_path, addon_path):
-        package = __package__.split('.', maxsplit=1)[0]
+        package = __package__.rsplit(".", maxsplit=1)[0]
         preferences = context.preferences.addons[package].preferences
         executable = preferences.marmo_executable
 

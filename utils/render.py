@@ -7,7 +7,7 @@ from bpy.types import Object
 from ..constants import Global
 
 
-def is_valid_gd_object(
+def is_object_gd_valid(
         ob: Object,
         has_prefix: bool=False,
         render_visible: bool=True,
@@ -37,29 +37,18 @@ def in_viewing_frustrum(vector: Vector) -> bool:
     within the cameras viewing frustrum"""
     bg_plane = bpy.data.objects[Global.BG_PLANE_NAME]
     viewing_frustrum = (
-        Vector
-        (
-            (
-                bg_plane.dimensions.x * -1.25 + bg_plane.location[0],
+        Vector((bg_plane.dimensions.x * -1.25 + bg_plane.location[0],
                 bg_plane.dimensions.y * -1.25 + bg_plane.location[1],
-                -100
-            )
-        ),
-        Vector(
-            (
-                bg_plane.dimensions.x * 1.25 + bg_plane.location[0],
+                -100)),
+        Vector((bg_plane.dimensions.x * 1.25 + bg_plane.location[0],
                 bg_plane.dimensions.y * 1.25 + bg_plane.location[1],
-                100
-            )
-        )
+                100))
     )
     for i in range(0, 3):
-        if (
-            vector[i]     < viewing_frustrum[0][i] \
-            and vector[i] < viewing_frustrum[1][i] \
-            or vector[i]  > viewing_frustrum[0][i] \
-            and vector[i] > viewing_frustrum[1][i]
-        ):
+        if (vector[i] < viewing_frustrum[0][i] \
+        and vector[i] < viewing_frustrum[1][i] \
+        or  vector[i] > viewing_frustrum[0][i] \
+        and vector[i] > viewing_frustrum[1][i]):
             return False
     return True
 
@@ -73,7 +62,7 @@ def get_rendered_objects() -> set | None:
             if coll.gd_bake_collection is False:
                 continue
             objects.update(
-                [ob for ob in coll.all_objects if is_valid_gd_object(ob)]
+                [ob for ob in coll.all_objects if is_object_gd_valid(ob)]
             )
             # TODO: Old method; profile it
             #for ob in coll.all_objects:
@@ -81,10 +70,15 @@ def get_rendered_objects() -> set | None:
             #        rendered_obs.add(ob.name)
         return objects
 
+    package = __package__.rsplit(".", maxsplit=1)[0]
+    preferences = bpy.context.preferences.addons[package].preferences
     for ob in bpy.context.view_layer.objects:
-        if not is_valid_gd_object(ob):
+        if not is_object_gd_valid(ob):
             continue
-
+        if not preferences.render_within_frustrum:
+            objects.add(ob)
+            continue
+        # Distance based filter; preference locked
         local_bbox_center = .125 * sum(
             (Vector(ob) for ob in ob.bound_box), Vector()
         )
