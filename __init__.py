@@ -2,7 +2,7 @@ import importlib
 
 
 module_names = (
-    "operators.operators",
+    "operators.core",
     "operators.material",
     "operators.marmoset",
     "preferences",

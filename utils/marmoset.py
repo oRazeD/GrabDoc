@@ -11,7 +11,7 @@ import mset
 
 def run_auto_baker(baker, properties: dict) -> None:
     baker.bake()
-    os.startfile(properties['export_path'])
+    os.startfile(properties['filepath'])
 
     # TODO: Implement alpha mask
     # NOTE: There is no alpha support in Marmoset so we use
@@ -113,7 +113,7 @@ def shader_setup(properties: dict) -> None:
 def main():
     plugin_path = Path(mset.getPluginPath()).parents[1]
     temp_path = os.path.join(plugin_path, "temp")
-    properties_path = os.path.join(temp_path, "marmo_vars.json")
+    properties_path = os.path.join(temp_path, "mt_vars.json")
 
     # Check if file location has been repopulated
     if not os.path.exists(properties_path):

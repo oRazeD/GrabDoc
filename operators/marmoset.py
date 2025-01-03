@@ -6,82 +6,69 @@ from pathlib import Path
 
 import bpy
 from bpy.types import Context, Operator, Object
+from ..utils.io import export_plane, get_temp_path
 
 from ..constants import Global, Error
-from ..utils.generic import (
-    OpInfo,
-    bad_setup_check,
-    export_plane,
-    get_temp_path
-)
+from ..utils.generic import get_user_preferences
+from ..utils.baker import get_bakers
+from ..utils.scene import validate_scene
 from ..utils.render import set_guide_height, get_rendered_objects
 
 
-################################################
-# MARMOSET EXPORTER
-################################################
+class GrabDoc_OT_send_to_marmo(Operator):
+    """Export your models, open and bake the enabled maps in Marmoset Toolbag"""
+    bl_idname  = "grab_doc.bake_marmoset"
+    bl_label   = "Open / Refresh in Marmoset"
+    bl_options = {'REGISTER', 'INTERNAL'}
 
-
-class GrabDoc_OT_send_to_marmo(OpInfo, Operator):
-    """Export your models, open & bake the enabled maps in Marmoset Toolbag"""
-    bl_idname = "grab_doc.bake_marmoset"
-    bl_label = "Open / Refresh in Marmoset"
-
-    send_type: bpy.props.EnumProperty(
-        items=(
-            ('open',"Open",""),
-            ('refresh', "Refresh", "")
-        ),
-        options={'HIDDEN'}
-    )
+    send_type: bpy.props.EnumProperty(items=(('open',    "Open",    ""),
+                                             ('refresh', "Refresh", "")),
+                                      options={'HIDDEN'})
 
     @classmethod
-    def poll(cls, context: Context) -> bool:
-        package = __package__.rsplit(".", maxsplit=1)[0]
-        return os.path.exists(
-            context.preferences.addons[package].preferences.marmo_executable
-        )
+    def poll(cls, _context: Context) -> bool:
+        return os.path.exists(get_user_preferences().mt_executable)
 
     def open_marmoset(self, context: Context, temp_path, addon_path):
-        package = __package__.rsplit(".", maxsplit=1)[0]
-        preferences = context.preferences.addons[package].preferences
-        executable = preferences.marmo_executable
+        executable = get_user_preferences().mt_executable
 
         # Create a dictionary of variables to transfer into Marmoset
         gd = context.scene.gd
         properties = {
-            'file_path': f'{bpy.path.abspath(gd.export_path)}{gd.export_name}.{gd.marmo_format.lower()}',
-            'format': gd.marmo_format.lower(),
-            'export_path': bpy.path.abspath(gd.export_path),
-            'hdri_path': f'{os.path.dirname(executable)}\\data\\sky\\Evening Clouds.tbsky',
+            'file_path': \
+            f'{gd.filepath}{gd.filename}.{gd.mt_format.lower()}',
+            'format': gd.mt_format.lower(),
+            'filepath': bpy.path.abspath(gd.filepath),
+            'hdri_path': \
+            f'{os.path.dirname(executable)}\\data\\sky\\Evening Clouds.tbsky',
 
-            'resolution_x': gd.resolution_x,
-            'resolution_y': gd.resolution_y,
+            'resolution_x':     gd.resolution_x,
+            'resolution_y':     gd.resolution_y,
             'bits_per_channel': int(gd.depth),
-            'samples': int(gd.marmo_samples),
+            'samples':          int(gd.mt_samples),
 
-            'auto_bake': gd.marmo_auto_bake,
-            'close_after_bake': gd.marmo_auto_close,
+            'auto_bake':        gd.mt_auto_bake,
+            'close_after_bake': gd.mt_auto_close,
 
-            'export_normal': gd.normals[0].enabled & gd.normals[0].visibility,
-            'flipy_normal': gd.normals[0].flip_y,
+            'export_normal': gd.normals[0].enabled and gd.normals[0].visibility,
+            'flipy_normal':  gd.normals[0].flip_y,
             'suffix_normal': gd.normals[0].suffix,
 
-            'export_curvature': gd.curvature[0].enabled & gd.curvature[0].visibility,
+            'export_curvature': gd.curvature[0].enabled and gd.curvature[0].visibility,
             'suffix_curvature': gd.curvature[0].suffix,
 
-            'export_occlusion': gd.occlusion[0].enabled & gd.occlusion[0].visibility,
-            'ray_count_occlusion': gd.marmo_occlusion_ray_count,
+            'export_occlusion': gd.occlusion[0].enabled and gd.occlusion[0].visibility,
+            'ray_count_occlusion': gd.mt_occlusion_samples,
             'suffix_occlusion': gd.occlusion[0].suffix,
 
-            'export_height': gd.height[0].enabled & gd.height[0].visibility,
+            'export_height': gd.height[0].enabled and gd.height[0].visibility,
             'cage_height': gd.height[0].distance * 100 * 2,
             'suffix_height': gd.height[0].suffix,
 
-            'export_alpha': gd.alpha[0].enabled & gd.alpha[0].visibility,
+            'export_alpha': gd.alpha[0].enabled and gd.alpha[0].visibility,
             'suffix_alpha': gd.alpha[0].suffix,
 
-            'export_matid': gd.id[0].enabled & gd.id[0].visibility,
+            'export_matid': gd.id[0].enabled and gd.id[0].visibility,
             'suffix_id': gd.id[0].suffix
         }
 
@@ -93,7 +80,7 @@ class GrabDoc_OT_send_to_marmo(OpInfo, Operator):
             break
 
         json_properties = json.dumps(properties, indent=4)
-        json_path = os.path.join(temp_path, "marmo_vars.json")
+        json_path = os.path.join(temp_path, "mt_vars.json")
         with open(json_path, "w", encoding='utf-8') as file:
             file.write(json_properties)
 
@@ -121,10 +108,12 @@ class GrabDoc_OT_send_to_marmo(OpInfo, Operator):
         return {'FINISHED'}
 
     def execute(self, context: Context):
-        report_value, report_string = \
-            bad_setup_check(context, active_export=True)
+        report_value, report_string = validate_scene(context)
         if report_value:
             self.report({'ERROR'}, report_string)
+            return {'CANCELLED'}
+        if not get_bakers(filter_enabled=True):
+            self.report({'ERROR'}, Error.ALL_MAPS_DISABLED)
             return {'CANCELLED'}
 
         saved_selected = context.view_layer.objects.selected.keys()
@@ -151,7 +140,7 @@ class GrabDoc_OT_send_to_marmo(OpInfo, Operator):
         # Get background plane low and high poly
         plane_low: Object = bpy.data.objects.get(Global.BG_PLANE_NAME)
         plane_low.name = Global.BG_PLANE_NAME + Global.LOW_SUFFIX
-        bpy.data.collections[Global.COLL_NAME].hide_select = \
+        bpy.data.collections[Global.COLL_CORE_NAME].hide_select = \
             plane_low.hide_select = False
         plane_low.select_set(True)
         plane_high: Object = plane_low.copy()
@@ -183,7 +172,7 @@ class GrabDoc_OT_send_to_marmo(OpInfo, Operator):
         bpy.data.objects.remove(plane_high)
 
         if not gd.coll_selectable:
-            bpy.data.collections[Global.COLL_NAME].hide_select = True
+            bpy.data.collections[Global.COLL_CORE_NAME].hide_select = True
 
         for ob_name in saved_selected:
             ob = context.scene.objects.get(ob_name)
