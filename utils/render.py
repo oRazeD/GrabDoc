@@ -1,10 +1,9 @@
-
-from mathutils import Vector
-
 import bpy
+from mathutils import Vector
 from bpy.types import Object
 
 from ..constants import Global
+from .generic import get_user_preferences
 
 
 def is_object_gd_valid(
@@ -33,8 +32,7 @@ def is_object_gd_valid(
 
 
 def in_viewing_frustrum(vector: Vector) -> bool:
-    """Decide whether a given object is
-    within the cameras viewing frustrum"""
+    """Decide whether a given object is within the cameras viewing frustrum."""
     bg_plane = bpy.data.objects[Global.BG_PLANE_NAME]
     viewing_frustrum = (
         Vector((bg_plane.dimensions.x * -1.25 + bg_plane.location[0],
@@ -57,9 +55,9 @@ def get_rendered_objects() -> set | None:
     """Generate a list of all objects that will be rendered
     based on its origin position in world space"""
     objects = set()
-    if bpy.context.scene.gd.use_bake_collections:
+    if bpy.context.scene.gd.use_bake_collection:
         for coll in bpy.data.collections:
-            if coll.gd_bake_collection is False:
+            if coll.gd_collection is False:
                 continue
             objects.update(
                 [ob for ob in coll.all_objects if is_object_gd_valid(ob)]
@@ -70,22 +68,22 @@ def get_rendered_objects() -> set | None:
             #        rendered_obs.add(ob.name)
         return objects
 
-    package = __package__.rsplit(".", maxsplit=1)[0]
-    preferences = bpy.context.preferences.addons[package].preferences
-    for ob in bpy.context.view_layer.objects:
-        if not is_object_gd_valid(ob):
-            continue
-        if not preferences.render_within_frustrum:
-            objects.add(ob)
-            continue
-        # Distance based filter; preference locked
+    objects = bpy.context.view_layer.objects
+    objects = [ob for ob in objects if is_object_gd_valid(ob)]
+
+    if not get_user_preferences().render_within_frustrum:
+        return objects
+
+    # Distance based filter
+    filtered_objects = set()
+    for ob in objects:
         local_bbox_center = .125 * sum(
             (Vector(ob) for ob in ob.bound_box), Vector()
         )
         global_bbox_center = ob.matrix_world @ local_bbox_center
         if in_viewing_frustrum(global_bbox_center):
-            objects.add(ob)
-    return objects
+            filtered_objects.add(ob)
+    return filtered_objects
 
 
 def set_guide_height(objects: list[Object]=None) -> None:
@@ -93,8 +91,7 @@ def set_guide_height(objects: list[Object]=None) -> None:
     based on a given list of objects"""
     tallest_vert = find_tallest_object(objects)
     bg_plane = bpy.data.objects.get(Global.BG_PLANE_NAME)
-    bpy.context.scene.gd.height[0].distance = \
-        tallest_vert - bg_plane.location[2]
+    bpy.context.scene.gd.height[0].distance = tallest_vert-bg_plane.location[2]
 
 
 def find_tallest_object(objects: list[Object]=None) -> float:
@@ -131,3 +128,21 @@ def find_tallest_object(objects: list[Object]=None) -> float:
         # NOTE: Fallback to manual height value
         return bpy.context.scene.gd.height[0].distance
     return max(tallest_verts)
+
+
+def set_color_management(
+        view_transform: str = 'Standard',
+        look:           str = 'None',
+        display_device: str = 'sRGB'
+    ) -> None:
+    """Helper function for supporting custom color management
+     profiles. Ignores anything that isn't compatible"""
+    display_settings = bpy.context.scene.display_settings
+    display_settings.display_device = display_device
+    view_settings = bpy.context.scene.view_settings
+    view_settings.view_transform    = view_transform
+    view_settings.look              = look
+    view_settings.exposure          = 0
+    view_settings.gamma             = 1
+    view_settings.use_curve_mapping = False
+    view_settings.use_hdr_view      = False

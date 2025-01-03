@@ -9,3 +9,9 @@ After installation, run the one-click scene setup and then start modeling! GrabD
 # Features
 
 Head to the [Gumroad](https://gumroad.com/l/grabdoc) page for a full feature list!
+
+# Support
+
+GrabDoc is a FOSS (Free and Open Source Software) project, which means I see very little return on my time spent developing and maintaining it.
+
+If you would like to support me, consider buying this add-on on [Gumroad](https://gumroad.com/l/grabdoc), or if you've already done that, send me a tip on [Ko-fi](https://ko-fi.com/razed)!
