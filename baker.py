@@ -38,7 +38,10 @@ class Baker(PropertyGroup):
         """Called when `bpy.ops.grab_doc.scene_setup` operator is ran.
 
         This method is NOT called when created via `CollectionProperty`."""
-        self.index = self.get_unique_index(getattr(bpy.context.scene.gd, self.ID))
+        gd = bpy.context.scene.gd
+        self.index       = self.get_unique_index(getattr(gd, self.ID))
+        self.node_input  = None
+        self.node_output = None
 
         # NOTE: For properties using constants as defaults
         self.__class__.suffix = StringProperty(
@@ -87,13 +90,18 @@ class Baker(PropertyGroup):
             self.node_name = self.get_node_name(self.NAME)
         self.node_tree = bpy.data.node_groups.get(self.node_name)
         if self.node_tree is None:
-            self.node_tree = bpy.data.node_groups.new(self.node_name, 'ShaderNodeTree')
+            self.node_tree = \
+                bpy.data.node_groups.new(self.node_name, 'ShaderNodeTree')
             # NOTE: Optional alpha socket for pre-built bake map types
             alpha = self.node_tree.interface.new_socket(
                 name='Alpha', socket_type='NodeSocketFloat'
             )
             alpha.default_value = 1
+
         self.node_tree.use_fake_user = True
+        self.node_input = self.node_tree.nodes.new('NodeGroupInput')
+        self.node_input.location = (-1500, 0)
+        self.node_output = self.node_tree.nodes.new('NodeGroupOutput')
         generate_shader_interface(self.node_tree, get_material_output_sockets())
 
     def reimport_setup(self, material, image):
@@ -255,14 +263,9 @@ class Normals(Baker):
 
     def node_setup(self):
         super().node_setup()
-
         self.node_tree.interface.new_socket(
             name='Normal', socket_type='NodeSocketVector'
         )
-
-        group_output = self.node_tree.nodes.new('NodeGroupOutput')
-        group_input  = self.node_tree.nodes.new('NodeGroupInput')
-        group_input.location = (-1200, 0)
 
         bevel = self.node_tree.nodes.new('ShaderNodeBevel')
         bevel.inputs[0].default_value = 0
@@ -302,29 +305,30 @@ class Normals(Baker):
         mix_shader.location = (-200, -300)
 
         links = self.node_tree.links
-        links.new(bevel.inputs["Normal"], group_input.outputs["Normal"])
+        links.new(bevel.inputs["Normal"], self.node_input.outputs["Normal"])
         links.new(vec_transform.inputs["Vector"], bevel.outputs["Normal"])
         links.new(vec_mult.inputs["Vector"], vec_transform.outputs["Vector"])
         links.new(vec_add.inputs["Vector"], vec_mult.outputs["Vector"])
 
-        links.new(invert.inputs['Color'], group_input.outputs['Alpha'])
+        links.new(invert.inputs['Color'], self.node_input.outputs['Alpha'])
         links.new(subtract.inputs['Color2'], invert.outputs['Color'])
         links.new(mix_shader.inputs['Fac'], subtract.outputs['Color'])
         links.new(mix_shader.inputs[1], transp_shader.outputs['BSDF'])
         links.new(mix_shader.inputs[2], vec_add.outputs['Vector'])
 
         # NOTE: Update if use_texture default changes
-        links.new(group_output.inputs["Shader"], mix_shader.outputs["Shader"])
+        links.new(self.node_output.inputs["Shader"],
+                  mix_shader.outputs["Shader"])
 
     def reimport_setup(self, material, image):
-        links  = material.node_tree.links
         bsdf   = material.node_tree.nodes['Principled BSDF']
         normal = material.node_tree.nodes['Normal Map']
         if normal is None:
             normal = material.node_tree.nodes.new('ShaderNodeNormalMap')
         normal.hide = True
         normal.location = (image.location[0] + 100, image.location[1])
-        image.location = (image.location[0] - 200, image.location[1])
+        image.location  = (image.location[0] - 200, image.location[1])
+        links = material.node_tree.links
         links.new(normal.inputs["Color"], image.outputs["Color"])
         links.new(bsdf.inputs["Normal"], normal.outputs["Normal"])
 
@@ -344,7 +348,6 @@ class Normals(Baker):
         if not context.scene.gd.preview_state:
             return
         group_output = self.node_tree.nodes['Group Output']
-
         links = self.node_tree.links
         if self.use_texture:
             links.new(group_output.inputs["Shader"],
@@ -403,8 +406,6 @@ class Curvature(Baker):
     def node_setup(self):
         super().node_setup()
 
-        group_output = self.node_tree.nodes.new('NodeGroupOutput')
-
         geometry = self.node_tree.nodes.new('ShaderNodeNewGeometry')
         geometry.location = (-800, 0)
 
@@ -420,7 +421,8 @@ class Curvature(Baker):
         links = self.node_tree.links
         links.new(color_ramp.inputs["Fac"], geometry.outputs["Pointiness"])
         links.new(emission.inputs["Color"], color_ramp.outputs["Color"])
-        links.new(group_output.inputs["Shader"], emission.outputs["Emission"])
+        links.new(self.node_output.inputs["Shader"],
+                  emission.outputs["Emission"])
 
     def apply_render_settings(self, requires_preview: bool=True):
         super().apply_render_settings(requires_preview)
@@ -476,26 +478,18 @@ class Occlusion(Baker):
     def setup(self) -> None:
         super().setup()
         scene = bpy.context.scene
-
         eevee = scene.eevee
         if scene.render.engine == "blender_eevee_next".upper():
-            eevee.use_gtao = True
-            # NOTE: Overscan helps with screenspace effects
-            eevee.use_overscan = True
+            eevee.use_gtao      = True
+            eevee.use_overscan  = True
             eevee.overscan_size = 25
 
     def node_setup(self):
         super().node_setup()
-
         normal = self.node_tree.interface.new_socket(
             name='Normal', socket_type='NodeSocketVector'
         )
         normal.default_value = (0.5, 0.5, 1)
-
-        group_input = self.node_tree.nodes.new('NodeGroupInput')
-        group_input.location = (-1000, 0)
-
-        group_output = self.node_tree.nodes.new('NodeGroupOutput')
 
         ao = self.node_tree.nodes.new('ShaderNodeAmbientOcclusion')
         ao.samples = 32
@@ -509,10 +503,11 @@ class Occlusion(Baker):
         emission.location = (-200, 0)
 
         links = self.node_tree.links
-        links.new(ao.inputs["Normal"], group_input.outputs["Normal"])
+        links.new(ao.inputs["Normal"], self.node_input.outputs["Normal"])
         links.new(gamma.inputs["Color"], ao.outputs["Color"])
         links.new(emission.inputs["Color"], gamma.outputs["Color"])
-        links.new(group_output.inputs["Shader"], emission.outputs["Emission"])
+        links.new(self.node_output.inputs["Shader"],
+                  emission.outputs["Emission"])
 
     def draw_properties(self, context: Context, layout: UILayout):
         gd = context.scene.gd
@@ -559,8 +554,6 @@ class Height(Baker):
     def node_setup(self):
         super().node_setup()
 
-        group_output = self.node_tree.nodes.new('NodeGroupOutput')
-
         camera = self.node_tree.nodes.new('ShaderNodeCameraData')
         camera.location = (-800, 0)
 
@@ -576,7 +569,7 @@ class Height(Baker):
         links = self.node_tree.links
         links.new(map_range.inputs["Value"], camera.outputs["View Z Depth"])
         links.new(ramp.inputs["Fac"], map_range.outputs["Result"])
-        links.new(group_output.inputs["Shader"], ramp.outputs["Color"])
+        links.new(self.node_output.inputs["Shader"], ramp.outputs["Color"])
 
     def draw_properties(self, context: Context, layout: UILayout):
         col = layout.column()
@@ -702,10 +695,6 @@ class Alpha(Baker):
     def node_setup(self):
         super().node_setup()
 
-        group_output = self.node_tree.nodes.new('NodeGroupOutput')
-        group_input = self.node_tree.nodes.new('NodeGroupInput')
-        group_input.location = (-1000, 200)
-
         camera = self.node_tree.nodes.new('ShaderNodeCameraData')
         camera.location = (-1000, 0)
 
@@ -733,7 +722,7 @@ class Alpha(Baker):
         emission.location = (-200, 0)
 
         links = self.node_tree.links
-        links.new(invert_mask.inputs["Color"], group_input.outputs["Alpha"])
+        links.new(invert_mask.inputs["Color"], self.node_input.outputs["Alpha"])
         links.new(mix.inputs["Factor"], invert_mask.outputs["Color"])
 
         links.new(map_range.inputs["Value"], camera.outputs["View Z Depth"])
@@ -741,7 +730,8 @@ class Alpha(Baker):
         links.new(mix.inputs["A"], invert_depth.outputs["Color"])
 
         links.new(emission.inputs["Color"], mix.outputs["Result"])
-        links.new(group_output.inputs["Shader"], emission.outputs["Emission"])
+        links.new(self.node_output.inputs["Shader"],
+                  emission.outputs["Emission"])
 
     def draw_properties(self, context: Context, layout: UILayout):
         if context.scene.gd.engine != 'grabdoc':
@@ -777,14 +767,9 @@ class Roughness(Baker):
 
     def node_setup(self):
         super().node_setup()
-
         self.node_tree.interface.new_socket(
             name=self.NAME, socket_type='NodeSocketFloat'
         )
-
-        group_output = self.node_tree.nodes.new('NodeGroupOutput')
-        group_input = self.node_tree.nodes.new('NodeGroupInput')
-        group_input.location = (-600, 0)
 
         invert = self.node_tree.nodes.new('ShaderNodeInvert')
         invert.location = (-400, 0)
@@ -794,9 +779,10 @@ class Roughness(Baker):
         emission.location = (-200, 0)
 
         links = self.node_tree.links
-        links.new(invert.inputs["Color"], group_input.outputs["Roughness"])
+        links.new(invert.inputs["Color"], self.node_input.outputs["Roughness"])
         links.new(emission.inputs["Color"], invert.outputs["Color"])
-        links.new(group_output.inputs["Shader"], emission.outputs["Emission"])
+        links.new(self.node_output.inputs["Shader"],
+                  emission.outputs["Emission"])
 
     def draw_properties(self, context: Context, layout: UILayout):
         col = layout.column()
@@ -820,21 +806,18 @@ class Color(Baker):
 
     def node_setup(self):
         super().node_setup()
-
         self.node_tree.interface.new_socket(
             name=self.NAME, socket_type='NodeSocketColor'
         )
-
-        group_output = self.node_tree.nodes.new('NodeGroupOutput')
-        group_input = self.node_tree.nodes.new('NodeGroupInput')
-        group_input.location = (-400, 0)
 
         emission = self.node_tree.nodes.new('ShaderNodeEmission')
         emission.location = (-200, 0)
 
         links = self.node_tree.links
-        links.new(emission.inputs["Color"], group_input.outputs["Base Color"])
-        links.new(group_output.inputs["Shader"], emission.outputs["Emission"])
+        links.new(emission.inputs["Color"],
+                  self.node_input.outputs["Base Color"])
+        links.new(self.node_output.inputs["Shader"],
+                  emission.outputs["Emission"])
 
     def reimport_setup(self, material, image):
         image.image.colorspace_settings.name = 'Non-Color'
@@ -852,7 +835,6 @@ class Emissive(Baker):
 
     def node_setup(self):
         super().node_setup()
-
         emit_color = self.node_tree.interface.new_socket(
             name="Emission Color", socket_type='NodeSocketColor'
         )
@@ -862,16 +844,14 @@ class Emissive(Baker):
         )
         emit_strength.default_value = 1
 
-        group_output = self.node_tree.nodes.new('NodeGroupOutput')
-        group_input = self.node_tree.nodes.new('NodeGroupInput')
-        group_input.location = (-600, 0)
-
         emission = self.node_tree.nodes.new('ShaderNodeEmission')
         emission.location = (-200, 0)
 
         links = self.node_tree.links
-        links.new(emission.inputs["Color"], group_input.outputs["Emission Color"])
-        links.new(group_output.inputs["Shader"], emission.outputs["Emission"])
+        links.new(emission.inputs["Color"],
+                  self.node_input.outputs["Emission Color"])
+        links.new(self.node_output.inputs["Shader"],
+                  emission.outputs["Emission"])
 
     def reimport_setup(self, material, image):
         image.image.colorspace_settings.name = 'Non-Color'
@@ -889,21 +869,17 @@ class Metallic(Baker):
 
     def node_setup(self):
         super().node_setup()
-
         self.node_tree.interface.new_socket(
             name=self.NAME, socket_type='NodeSocketFloat'
         )
-
-        group_output = self.node_tree.nodes.new('NodeGroupOutput')
-        group_input = self.node_tree.nodes.new('NodeGroupInput')
-        group_input.location = (-400, 0)
 
         emission = self.node_tree.nodes.new('ShaderNodeEmission')
         emission.location = (-200, 0)
 
         links = self.node_tree.links
-        links.new(emission.inputs["Color"], group_input.outputs["Metallic"])
-        links.new(group_output.inputs["Shader"], emission.outputs["Emission"])
+        links.new(emission.inputs["Color"], self.node_input.outputs["Metallic"])
+        links.new(self.node_output.inputs["Shader"],
+                  emission.outputs["Emission"])
 
     def reimport_setup(self, material, image):
         bsdf  = material.node_tree.nodes['Principled BSDF']
