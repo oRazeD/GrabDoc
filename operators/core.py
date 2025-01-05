@@ -229,12 +229,14 @@ class GRABDOC_OT_baker_export(Operator, UILayout):
             if not baker.node_tree:
                 continue
             for ob in rendered_objects:
-                unlinked = link_group_to_object(ob, baker.node_tree)
-                if unlinked:
-                    self.report(
-                        {'WARNING'},
-                        f"{ob.name}: {Error.MISSING_SLOT_LINKS}"
-                    )
+                sockets = link_group_to_object(ob, baker.node_tree)
+                sockets = baker.filter_required_sockets(sockets)
+                if not sockets:
+                    continue
+                self.report(
+                    {'WARNING'},
+                    f"{ob.name}: {sockets} {Error.MISSING_SLOT_LINKS}"
+                )
 
             self.export(context, baker.suffix)
             baker.cleanup()
@@ -324,11 +326,13 @@ Rendering a second time will overwrite the internal image"""
         self.baker.setup()
         if self.baker.node_tree:
             for ob in get_rendered_objects():
-                unlinked = link_group_to_object(ob, self.baker.node_tree)
-                if not unlinked:
+                sockets = link_group_to_object(ob, self.baker.node_tree)
+                sockets = self.baker.filter_required_sockets(sockets)
+                if not sockets:
                     continue
                 self.report(
-                    {'WARNING'}, f"{ob.name}: {Error.MISSING_SLOT_LINKS}"
+                    {'WARNING'},
+                    f"{ob.name}: {sockets} {Error.MISSING_SLOT_LINKS}"
                 )
         path = GRABDOC_OT_baker_export.export(
             context, self.baker.suffix, path=get_temp_path()
@@ -454,8 +458,7 @@ class GRABDOC_OT_baker_preview(Operator):
         return {'PASS_THROUGH'}
 
     def cleanup(self, context: Context) -> None:
-        gd = context.scene.gd
-        gd.preview_state = False
+        context.scene.gd.preview_state = False
 
         SpaceView3D.draw_handler_remove(self._handle, 'WINDOW')
 
@@ -515,15 +518,6 @@ class GRABDOC_OT_baker_preview(Operator):
         baker_prop = getattr(gd, self.map_type)
         self.baker = get_baker_by_index(baker_prop, self.baker_index)
         self.baker.setup()
-        if self.baker.node_tree:
-            rendered_objects = get_rendered_objects()
-            for ob in rendered_objects:
-                unlinked = link_group_to_object(ob, self.baker.node_tree)
-                if not unlinked:
-                    continue
-                self.report(
-                    {'WARNING'}, f"{ob.name}: {Error.MISSING_SLOT_LINKS}"
-                )
 
         self.preview_name = self.map_type
         if self.baker.ID == 'custom':
@@ -532,6 +526,17 @@ class GRABDOC_OT_baker_preview(Operator):
             draw_callback_px, (self, context), 'WINDOW', 'POST_PIXEL'
         )
         context.window_manager.modal_handler_add(self)
+
+        if self.baker.node_tree:
+            for ob in get_rendered_objects():
+                sockets = link_group_to_object(ob, self.baker.node_tree)
+                sockets = self.baker.filter_required_sockets(sockets)
+                if not sockets:
+                    continue
+                self.report(
+                    {'WARNING'},
+                    f"{ob.name}: {sockets} {Error.MISSING_SLOT_LINKS}"
+                )
         return {'RUNNING_MODAL'}
 
 

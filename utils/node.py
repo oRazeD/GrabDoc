@@ -74,7 +74,7 @@ def get_material_output_sockets() -> dict:
 
 def get_group_inputs(
         node_tree: NodeTree, remove_cache: bool=True
-    ) -> list[NodeTreeInterfaceItem] | None:
+    ) -> list[NodeTreeInterfaceItem]:
     """Get the interface inputs of a given `NodeTree`."""
     inputs = []
     for item in node_tree.interface.items_tree:
@@ -87,12 +87,12 @@ def get_group_inputs(
     return inputs
 
 
-def link_group_to_object(ob: Object, node_tree: NodeTree) -> dict[str, list]:
+def link_group_to_object(ob: Object, node_tree: NodeTree) -> list[str]:
     """Add given `NodeTree` to the objects' material slots.
 
     Handles cases with empty or no material slots.
 
-    Returns count of material with potentially poor render results."""
+    Returns list of socket names without links."""
     if not ob.material_slots or "" in ob.material_slots:
         if Global.GD_MATERIAL_NAME in bpy.data.materials:
             mat = bpy.data.materials[Global.GD_MATERIAL_NAME]
@@ -124,28 +124,27 @@ def link_group_to_object(ob: Object, node_tree: NodeTree) -> dict[str, list]:
         if not output_nodes:
             output_nodes.append(nodes.new('ShaderNodeOutputMaterial'))
         for output in output_nodes:
-            passthrough           = nodes.new('ShaderNodeGroup')
-            passthrough.node_tree = node_tree
-            passthrough.name      = node_tree.name
-            passthrough.hide      = True
-            passthrough.location  = (output.location[0], output.location[1]-160)
-            passthrough.gd_spawn  = True
+            node_group           = nodes.new('ShaderNodeGroup')
+            node_group.hide      = True
+            node_group.gd_spawn  = True
+            node_group.node_tree = node_tree
+            node_group.name      = node_tree.name
+            node_group.location  = (output.location[0], output.location[1]-160)
 
             if Global.GD_MATERIAL_NAME not in material.name:
                 unlinked_inputs[material.name] = inputs
 
             frame          = nodes.new('NodeFrame')
             frame.name     = node_tree.name
+            frame.width    = 750
+            frame.height   = 200
+            frame.gd_spawn = True
+            frame.location = (output.location[0], output.location[1]-200)
             warning_text = bpy.data.texts.get(Global.NODE_GROUP_WARN_NAME)
             if warning_text is None:
                 warning_text = bpy.data.texts.new(Global.NODE_GROUP_WARN_NAME)
-            warning_text.clear()
-            warning_text.write(Global.NODE_GROUP_WARN)
+                warning_text.write(Global.NODE_GROUP_WARN)
             frame.text     = warning_text
-            frame.width    = 750
-            frame.height   = 200
-            frame.location = (output.location[0], output.location[1]-200)
-            frame.gd_spawn = True
 
             # Link identical sockets from output connected node
             from_output_node = output.inputs[0].links[0].from_node
@@ -155,15 +154,15 @@ def link_group_to_object(ob: Object, node_tree: NodeTree) -> dict[str, list]:
                     continue
                 link = node_input.links[0]
                 material.node_tree.links.new(
-                    passthrough.inputs[node_input.name],
+                    node_group.inputs[node_input.name],
                     link.from_node.outputs[link.from_socket.name]
                 )
 
-                unlinked = unlinked_inputs.get(material.name)
-                if unlinked is None:
+                sockets = unlinked_inputs.get(material.name)
+                if sockets is None:
                     continue
                 try:
-                    unlinked.remove(node_input.name)
+                    sockets.remove(node_input.name)
                 except ValueError:
                     continue
 
@@ -171,24 +170,20 @@ def link_group_to_object(ob: Object, node_tree: NodeTree) -> dict[str, list]:
             for node_input in output.inputs:
                 for link in node_input.links:
                     material.node_tree.links.new(
-                        passthrough.inputs[node_input.name],
+                        node_group.inputs[node_input.name],
                         link.from_node.outputs[link.from_socket.name]
                     )
                     material.node_tree.links.remove(link)
 
-            material.node_tree.links.new(output.inputs["Surface"],
-                                         passthrough.outputs["Shader"])
+            material.node_tree.links.new(output.inputs["Surface"], node_group.outputs["Shader"])
 
-    optional_sockets = ('Alpha',)
-    for unlinked in unlinked_inputs.values():
-        for socket in optional_sockets:
-            try:
-                unlinked.remove(socket)
-            except ValueError:
+    socket_names = []
+    for sockets in unlinked_inputs.values():
+        for socket in sockets:
+            if socket.name in socket_names:
                 continue
-    # NOTE: Rebuild list without empty entries
-    unlinked_inputs = {k: v for k, v in unlinked_inputs.items() if v}
-    return unlinked_inputs
+            socket_names.append(socket.name)
+    return socket_names
 
 
 def generate_shader_interface(

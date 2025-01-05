@@ -56,4 +56,4 @@ class Error:
     CAMERA_NOT_FOUND          = \
         "GrabDoc camera not found, please run the Refresh Scene operator"
     MISSING_SLOT_LINKS        = \
-        "Material slots missing necessary node links, using default values"
+        "socket(s) found without links, bake results may appear incorrect"

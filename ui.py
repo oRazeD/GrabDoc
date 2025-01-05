@@ -266,7 +266,7 @@ class GRABDOC_PT_pack_maps(GDPanel):
 
 class BakerPanel(GDPanel):
     bl_parent_id = "GRABDOC_PT_bake_maps"
-    bl_options   = {'HEADER_LAYOUT_EXPAND', 'DEFAULT_CLOSED'}
+    bl_options   = {'DEFAULT_CLOSED', 'HEADER_LAYOUT_EXPAND'}
 
     baker = None
 
@@ -276,29 +276,37 @@ class BakerPanel(GDPanel):
             return False
         return not context.scene.gd.preview_state and cls.baker.visibility
 
-    def draw_header(self, _context: Context):
+    def draw_header(self, context: Context):
         row = self.layout.row(align=True)
 
         baker_name = self.baker.NAME
         if self.baker.ID == 'custom':
             baker_name = self.baker.suffix.capitalize()
-            if not isinstance(self.baker.node_tree, NodeTree):
-                row.enabled = False
 
         index = self.baker.index
         if index > 0 and not self.baker.ID == 'custom':
             baker_name = f"{self.baker.NAME} {index+1}"
         text = f"{baker_name} Preview".replace("_", " ")
 
-        row.separator(factor=.5)
-        row.prop(self.baker, 'enabled', text="")
-        preview = row.operator("grab_doc.baker_preview", text=text)
+        row2 = row.row(align=True)
+        if self.baker.ID == 'custom' \
+        and not isinstance(self.baker.node_tree, NodeTree):
+            row2.enabled = False
+        row2.separator(factor=.5)
+        row2.prop(self.baker, 'enabled', text="")
+        preview = row2.operator("grab_doc.baker_preview", text=text)
         preview.map_type    = self.baker.ID
         preview.baker_index = index
+        row2.operator("grab_doc.baker_export_single",
+                      text="", icon='RENDER_STILL').map_type = self.baker.ID
 
-        row.operator("grab_doc.baker_export_single", text="",
-                     icon='RENDER_STILL').map_type = self.baker.ID
-        row.separator(factor=1.3)
+        if self.baker == getattr(context.scene.gd, self.baker.ID)[0]:
+            row.operator("grab_doc.baker_add",
+                         text="", icon='ADD').map_type = self.baker.ID
+            return
+        remove = row.operator("grab_doc.baker_remove", text="", icon='TRASH')
+        remove.map_type    = self.baker.ID
+        remove.baker_index = index
 
     def draw(self, context: Context):
         self.baker.draw(context, self.layout)
