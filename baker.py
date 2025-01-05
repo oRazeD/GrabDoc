@@ -24,15 +24,17 @@ class Baker(PropertyGroup):
     bake map types with minimal unique implementation.
 
     The most minimal examples of subclasses require the following:
-    - Basic shader properties outlined (e.g. ID, Supported Engines, etc)
+    - Core shader properties (e.g. ID, Name, etc.)
     - BPY code for re-creating the desired shader / node group"""
-    ID                  = ''
-    NAME                = ID.capitalize()
-    VIEW_TRANSFORM      = 'Standard'
-    MARMOSET_COMPATIBLE = True
-    SUPPORTED_ENGINES   = (('blender_eevee_next', "EEVEE",     ""),
-                           ('cycles',             "Cycles",    ""),
-                           ('blender_workbench',  "Workbench", ""))
+    ID:                         str = ''
+    NAME:                       str = ID.capitalize()
+    VIEW_TRANSFORM:             str = 'Standard'
+    MARMOSET_COMPATIBLE:       bool = True
+    REQUIRED_SOCKETS:    tuple[str] = ()
+    OPTIONAL_SOCKETS:    tuple[str] = ('Alpha',)
+    SUPPORTED_ENGINES               = (('blender_eevee_next', "EEVEE",     ""),
+                                       ('cycles',             "Cycles",    ""),
+                                       ('blender_workbench',  "Workbench", ""))
 
     def __init__(self):
         """Called when `bpy.ops.grab_doc.scene_setup` operator is ran.
@@ -85,18 +87,20 @@ class Baker(PropertyGroup):
         self.apply_render_settings(requires_preview=False)
 
     def node_setup(self):
-        """Shader logic to generate a node group."""
+        """Shader logic to generate a node group.
+
+        Base method logic gets/creates a new group with
+        valid sockets and adds I/O nodes to the tree."""
         if not self.node_name:
             self.node_name = self.get_node_name(self.NAME)
         self.node_tree = bpy.data.node_groups.get(self.node_name)
         if self.node_tree is None:
             self.node_tree = \
                 bpy.data.node_groups.new(self.node_name, 'ShaderNodeTree')
-            # NOTE: Optional alpha socket for pre-built bake map types
-            alpha = self.node_tree.interface.new_socket(
+            # NOTE: Default alpha socket for pre-built bakers
+            self.node_tree.interface.new_socket(
                 name='Alpha', socket_type='NodeSocketFloat'
-            )
-            alpha.default_value = 1
+            ).default_value = 1
 
         self.node_tree.use_fake_user = True
         self.node_input = self.node_tree.nodes.new('NodeGroupInput')
@@ -142,6 +146,14 @@ class Baker(PropertyGroup):
         set_color_management(self.VIEW_TRANSFORM,
                              self.contrast.replace('_', ' '))
 
+    def filter_required_sockets(self, sockets: list[str]) -> str:
+        """Filter out optional sockets from a list of socket names."""
+        required_sockets = []
+        for socket in sockets:
+            if socket in self.REQUIRED_SOCKETS:
+                required_sockets.append(socket)
+        return ", ".join(required_sockets)
+
     def draw_properties(self, context: Context, layout: UILayout):
         """Dedicated layout for specific bake map properties."""
 
@@ -160,10 +172,6 @@ class Baker(PropertyGroup):
 
         self.draw_properties(context, box)
 
-        # TODO: Generated node group inputs
-        #box = col.box()
-        #box.label(text="Inputs", icon="MATSHADERBALL")
-
         box = col.box()
         box.label(text="Settings", icon="SETTINGS")
         col_set = box.column()
@@ -180,35 +188,26 @@ class Baker(PropertyGroup):
             col_set.prop(self, 'contrast')
         col_set.prop(self, 'suffix')
 
-        socket_req = "Supports"
-        icon       = 'INFO'
+        col_info = col.column(align=True)
+        col_info.scale_y = .9
         if not self.MARMOSET_COMPATIBLE:
-            info_box = col.box()
-            col2 = info_box.column(align=True)
-            col2.label(text="\u2022 Marmoset not supported", icon=icon)
-            socket_req = "Requires"
-            icon       = 'BLANK1'
-        if self.node_tree:
-            inputs = get_group_inputs(self.node_tree)
-            if self.node_tree and inputs:
-                if 'info_box' not in locals():
-                    info_box = col.box()
-                    col2 = info_box.column(align=True)
-                col2.label(text=f"\u2022 {socket_req} sockets:", icon=icon)
-                row = col2.row(align=True)
-                inputs_fmt = ", ".join([socket.name for socket in inputs])
-                row.label(text=f"    {inputs_fmt}", icon='BLANK1')
-
-        col.separator(factor=.5)
-        row = col.row(align=True)
-        if not gd.preview_state:
-            row.operator("grab_doc.baker_add", text=f"Add {self.NAME} Map",
-                         icon='ADD').map_type = self.ID
-        if self == getattr(gd, self.ID)[0]:
-            return
-        remove = row.operator("grab_doc.baker_remove", text="", icon='TRASH')
-        remove.map_type    = self.ID
-        remove.baker_index = self.index
+            box = col_info.box()
+            col2 = box.column(align=True)
+            col2.label(text="Marmoset not supported", icon='INFO')
+        if self.node_tree and self.REQUIRED_SOCKETS:
+            box = col_info.box()
+            col2 = box.column(align=True)
+            col2.label(text="Requires socket(s):", icon='WARNING_LARGE')
+            row = col2.row(align=True)
+            inputs_fmt = ", ".join(self.REQUIRED_SOCKETS)
+            row.label(text=f"  {inputs_fmt}", icon='BLANK1')
+        if self.node_tree and self.OPTIONAL_SOCKETS:
+            box = col_info.box()
+            col2 = box.column(align=True)
+            col2.label(text="Supports socket(s):", icon='INFO')
+            row = col2.row(align=True)
+            inputs_fmt = ", ".join(self.OPTIONAL_SOCKETS)
+            row.label(text=f"  {inputs_fmt}", icon='BLANK1')
 
     # NOTE: Internal properties
     index:     IntProperty(default=-1)
@@ -259,6 +258,8 @@ class Normals(Baker):
     NAME                = ID.capitalize()
     VIEW_TRANSFORM      = "Raw"
     MARMOSET_COMPATIBLE = True
+    REQUIRED_SOCKETS    = ()
+    OPTIONAL_SOCKETS    = ('Alpha', 'Normal')
     SUPPORTED_ENGINES   = Baker.SUPPORTED_ENGINES[:-1]
 
     def node_setup(self):
@@ -337,8 +338,8 @@ class Normals(Baker):
         col.prop(self, 'flip_y')
         if context.scene.gd.engine == 'grabdoc':
             col.prop(self, 'use_texture')
-        if self.engine == 'cycles':
-            col.prop(self, 'bevel_weight')
+            if self.engine == 'cycles':
+                col.prop(self, 'bevel_weight')
 
     def update_flip_y(self, _context: Context):
         vec_multiply = self.node_tree.nodes['Vector Math']
@@ -381,6 +382,8 @@ class Curvature(Baker):
     NAME                = ID.capitalize()
     VIEW_TRANSFORM      = "Standard"
     MARMOSET_COMPATIBLE = True
+    REQUIRED_SOCKETS    = ()
+    OPTIONAL_SOCKETS    = Baker.OPTIONAL_SOCKETS
     SUPPORTED_ENGINES   = Baker.SUPPORTED_ENGINES[1:]
 
     def __init__(self):
@@ -473,6 +476,8 @@ class Occlusion(Baker):
     NAME                = ID.capitalize()
     VIEW_TRANSFORM      = "Raw"
     MARMOSET_COMPATIBLE = True
+    REQUIRED_SOCKETS    = ()
+    OPTIONAL_SOCKETS    = ('Alpha', 'Normal')
     SUPPORTED_ENGINES   = Baker.SUPPORTED_ENGINES[:-1]
 
     def setup(self) -> None:
@@ -492,19 +497,24 @@ class Occlusion(Baker):
         normal.default_value = (0.5, 0.5, 1)
 
         ao = self.node_tree.nodes.new('ShaderNodeAmbientOcclusion')
-        ao.samples = 32
-        ao.location = (-600, 0)
+        ao.samples  = 32
+        ao.location = (-800, 0)
 
         gamma = self.node_tree.nodes.new('ShaderNodeGamma')
         gamma.inputs[1].default_value = 1
-        gamma.location = (-400, 0)
+        gamma.location = (-600, 0)
+
+        invert = self.node_tree.nodes.new('ShaderNodeInvert')
+        invert.inputs[0].default_value = 0
+        invert.location = (-400, 0)
 
         emission = self.node_tree.nodes.new('ShaderNodeEmission')
         emission.location = (-200, 0)
 
         links = self.node_tree.links
         links.new(ao.inputs["Normal"], self.node_input.outputs["Normal"])
-        links.new(gamma.inputs["Color"], ao.outputs["Color"])
+        links.new(invert.inputs["Color"], ao.outputs["Color"])
+        links.new(gamma.inputs["Color"], invert.outputs["Color"])
         links.new(emission.inputs["Color"], gamma.outputs["Color"])
         links.new(self.node_output.inputs["Shader"],
                   emission.outputs["Emission"])
@@ -515,8 +525,9 @@ class Occlusion(Baker):
         if gd.engine == 'marmoset':
             col.prop(gd, "mt_occlusion_samples", text="Ray Count")
             return
-        col.prop(self, 'gamma', text="Intensity")
-        col.prop(self, 'distance', text="Distance")
+        col.prop(self, 'invert')
+        col.prop(self, 'gamma')
+        col.prop(self, 'distance')
 
     def update_gamma(self, _context: Context):
         gamma = self.node_tree.nodes['Gamma']
@@ -526,15 +537,22 @@ class Occlusion(Baker):
         ao = self.node_tree.nodes['Ambient Occlusion']
         ao.inputs[1].default_value = self.distance
 
+    def update_invert(self, _context: Context):
+        invert = self.node_tree.nodes['Invert Color']
+        invert.inputs[0].default_value = 1 if self.invert else 0
+
     gamma: FloatProperty(
         description="Intensity of AO (calculated with gamma)",
         default=1, min=.001, soft_max=10, step=.17,
-        name="", update=update_gamma
+        name="Intensity", update=update_gamma
     )
     distance: FloatProperty(
         description="The distance AO rays travel",
         default=1, min=0, soft_max=100, step=.03, subtype='DISTANCE',
-        name="", update=update_distance
+        name="Distance", update=update_distance
+    )
+    invert: BoolProperty(
+        name="Invert", description="Invert the mask", update=update_invert
     )
 
 
@@ -543,6 +561,8 @@ class Height(Baker):
     NAME                = ID.capitalize()
     VIEW_TRANSFORM      = "Raw"
     MARMOSET_COMPATIBLE = True
+    REQUIRED_SOCKETS    = ()
+    OPTIONAL_SOCKETS    = Baker.OPTIONAL_SOCKETS
     SUPPORTED_ENGINES   = Baker.SUPPORTED_ENGINES[:-1]
 
     def setup(self) -> None:
@@ -625,7 +645,13 @@ class Id(Baker):
     NAME                = "Material ID"
     VIEW_TRANSFORM      = "Standard"
     MARMOSET_COMPATIBLE = True
+    REQUIRED_SOCKETS    = ()
+    OPTIONAL_SOCKETS    = ()
     SUPPORTED_ENGINES   = (Baker.SUPPORTED_ENGINES[-1],)
+
+    def __init__(self):
+        super().__init__()
+        self.disable_filtering = True
 
     def setup(self) -> None:
         super().setup()
@@ -690,6 +716,8 @@ class Alpha(Baker):
     NAME                = ID.capitalize()
     VIEW_TRANSFORM      = "Raw"
     MARMOSET_COMPATIBLE = True
+    REQUIRED_SOCKETS    = ()
+    OPTIONAL_SOCKETS    = Baker.OPTIONAL_SOCKETS
     SUPPORTED_ENGINES   = Baker.SUPPORTED_ENGINES[:-1]
 
     def node_setup(self):
@@ -763,6 +791,8 @@ class Roughness(Baker):
     NAME                = ID.capitalize()
     VIEW_TRANSFORM      = "Raw"
     MARMOSET_COMPATIBLE = False
+    REQUIRED_SOCKETS    = (NAME,)
+    OPTIONAL_SOCKETS    = Baker.OPTIONAL_SOCKETS
     SUPPORTED_ENGINES   = Baker.SUPPORTED_ENGINES[:-1]
 
     def node_setup(self):
@@ -784,17 +814,16 @@ class Roughness(Baker):
         links.new(self.node_output.inputs["Shader"],
                   emission.outputs["Emission"])
 
-    def draw_properties(self, context: Context, layout: UILayout):
+    def draw_properties(self, _context: Context, layout: UILayout):
         col = layout.column()
-        if context.scene.gd.engine == 'grabdoc':
-            col.prop(self, 'invert', text="Invert")
+        col.prop(self, 'invert', text="Invert")
 
-    def update_roughness(self, _context: Context):
+    def update_invert(self, _context: Context):
         invert = self.node_tree.nodes['Invert Color']
         invert.inputs[0].default_value = 1 if self.invert else 0
 
     invert: BoolProperty(description="Invert the Roughness (AKA Glossiness)",
-                         update=update_roughness)
+                         update=update_invert)
 
 
 class Color(Baker):
@@ -802,6 +831,8 @@ class Color(Baker):
     NAME                = "Base Color"
     VIEW_TRANSFORM      = "Standard"
     MARMOSET_COMPATIBLE = False
+    REQUIRED_SOCKETS    = (NAME,)
+    OPTIONAL_SOCKETS    = Baker.OPTIONAL_SOCKETS
     SUPPORTED_ENGINES   = Baker.SUPPORTED_ENGINES[:-1]
 
     def node_setup(self):
@@ -831,6 +862,8 @@ class Emissive(Baker):
     NAME                = ID.capitalize()
     VIEW_TRANSFORM      = "Standard"
     MARMOSET_COMPATIBLE = False
+    REQUIRED_SOCKETS    = ("Emission Color", "Emission Strength")
+    OPTIONAL_SOCKETS    = Baker.OPTIONAL_SOCKETS
     SUPPORTED_ENGINES   = Baker.SUPPORTED_ENGINES[:-1]
 
     def node_setup(self):
@@ -865,6 +898,8 @@ class Metallic(Baker):
     NAME                = ID.capitalize()
     VIEW_TRANSFORM      = "Raw"
     MARMOSET_COMPATIBLE = False
+    REQUIRED_SOCKETS    = (NAME,)
+    OPTIONAL_SOCKETS    = Baker.OPTIONAL_SOCKETS
     SUPPORTED_ENGINES   = Baker.SUPPORTED_ENGINES[:-1]
 
     def node_setup(self):
@@ -872,6 +907,10 @@ class Metallic(Baker):
         self.node_tree.interface.new_socket(
             name=self.NAME, socket_type='NodeSocketFloat'
         )
+
+        invert = self.node_tree.nodes.new('ShaderNodeInvert')
+        invert.location = (-400, 0)
+        invert.inputs[0].default_value = 0
 
         emission = self.node_tree.nodes.new('ShaderNodeEmission')
         emission.location = (-200, 0)
@@ -886,12 +925,24 @@ class Metallic(Baker):
         links = material.node_tree.links
         links.new(bsdf.inputs["Metallic"], image.outputs["Color"])
 
+    def draw_properties(self, _context: Context, layout: UILayout):
+        col = layout.column()
+        col.prop(self, 'invert', text="Invert")
+
+    def update_invert(self, _context: Context):
+        invert = self.node_tree.nodes['Invert Color']
+        invert.inputs[0].default_value = 1 if self.invert else 0
+
+    invert: BoolProperty(description="Invert the mask", update=update_invert)
+
 
 class Custom(Baker):
     ID                  = 'custom'
     NAME                = ID.capitalize()
     VIEW_TRANSFORM      = "Raw"
     MARMOSET_COMPATIBLE = False
+    REQUIRED_SOCKETS    = ()
+    OPTIONAL_SOCKETS    = ()
     SUPPORTED_ENGINES   = Baker.SUPPORTED_ENGINES[:-1]
 
     def update_view_transform(self, _context: Context):
@@ -913,6 +964,8 @@ class Custom(Baker):
             self.node_name = ""
             return
         self.node_name = self.node_tree.name
+        self.__class__.REQUIRED_SOCKETS = \
+            tuple(socket.name for socket in get_group_inputs(self.node_tree))
         generate_shader_interface(self.node_tree, get_material_output_sockets())
 
     # NOTE: Subclassed property - implement as user-facing
@@ -922,6 +975,5 @@ class Custom(Baker):
     )
     view_transform: EnumProperty(items=(('raw',      "Raw",      ""),
                                         ('standard', "Standard", "")),
-                                 name="View",
-                                 default=VIEW_TRANSFORM.lower(),
+                                 name="View", default=VIEW_TRANSFORM.lower(),
                                  update=update_view_transform)

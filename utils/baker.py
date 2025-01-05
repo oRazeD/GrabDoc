@@ -175,7 +175,7 @@ def load_properties(properties: dict) -> None:
             pass
 
 
-def reimport_baker_textures(bakers: list) -> None:
+def reimport_baker_textures(bakers: list[Baker]) -> None:
     """Reimport baked textures as a material for use inside of Blender"""
     gd = bpy.context.scene.gd
     if not bakers:
