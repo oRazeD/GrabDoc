@@ -7,6 +7,7 @@ from bpy.props import CollectionProperty
 from ..baker import Baker
 from ..constants import Global
 from .io import get_format
+from .generic import load_properties, save_properties
 
 
 def baker_setup(context: Context) -> dict:
@@ -131,68 +132,19 @@ def get_baker_collections() -> list[CollectionProperty]:
     return bakers
 
 
-def save_properties(properties: list) -> dict:
-    """Store all given iterable properties."""
-    saved_properties = {}
-    for data in properties:
-        for attr in dir(data):
-            if data not in saved_properties:
-                saved_properties[data] = {}
-            saved_properties[data][attr] = getattr(data, attr)
-    return saved_properties
-
-
-def load_properties(properties: dict) -> None:
-    """Set all given properties to their assigned value."""
-    custom_properties = {}
-    for key, values in properties.items():
-        if not isinstance(values, dict):
-            custom_properties[key] = values
-            continue
-        for name, value in values.items():
-            try:
-                setattr(key, name, value)
-            except (AttributeError, TypeError):  # Read only attribute
-                pass
-    # NOTE: Extra entries added after running `save_properties`
-    for key, value in custom_properties.items():
-        name = key.rsplit('.', maxsplit=1)[-1]
-        components = key.split('.')[:-1]
-        root = globals()[components[0]]
-        components = components[1:]
-        # Reconstruct attribute chain
-        obj = root
-        for part in components:
-            next_attr = getattr(obj, part)
-            if next_attr is None:
-                break
-            obj = next_attr
-        if obj == root:
-            continue
-        try:
-            setattr(obj, name, value)
-        except ReferenceError:
-            pass
-
-
-def reimport_baker_textures(bakers: list[Baker]) -> None:
-    """Reimport baked textures as a material for use inside of Blender"""
-    gd = bpy.context.scene.gd
-    if not bakers:
-        return
-
-    # Create material
+def import_baker_textures(bakers: list[Baker]) -> None:
+    """Import last exported textures as a material for use inside of Blender."""
     mat = bpy.data.materials.get(Global.REIMPORT_MAT_NAME)
     if mat is None:
         mat = bpy.data.materials.new(Global.REIMPORT_MAT_NAME)
     mat.use_nodes = True
 
     bsdf = mat.node_tree.nodes['Principled BSDF']
-    bsdf.inputs["Emission Color"].default_value = (0,0,0,1)
+    bsdf.inputs["Emission Color"].default_value    = (0,0,0,1)
     bsdf.inputs["Emission Strength"].default_value = 1
 
-    # Import and link image textures
     y_offset = 256
+    gd = bpy.context.scene.gd
     for baker in bakers:
         image = mat.node_tree.nodes.get(baker.ID)
         if image is None:
