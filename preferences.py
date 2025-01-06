@@ -219,7 +219,7 @@ When disabled, pixel filtering is reduced to .01px""",
         description="Remove the original unpacked maps after exporting",
         name="Remove Original Maps", default=False
     )
-    pack_name: StringProperty(name="Packed Map Name", default="AORM")
+    pack_name: StringProperty(name="Packed Map Name", default="ORM")
     channel_r: EnumProperty(items=MAP_TYPES[1:], default="occlusion", name='R')
     channel_g: EnumProperty(items=MAP_TYPES[1:], default="roughness", name='G')
     channel_b: EnumProperty(items=MAP_TYPES[1:], default="metallic",  name='B')
