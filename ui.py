@@ -21,22 +21,21 @@ class GRABDOC_PT_grabdoc(GDPanel):
     documentation = "https://github.com/oRazeD/GrabDoc/wiki"
 
     def draw_header_preset(self, _context: Context):
-        row = self.layout.row(align=True)
+        row = self.layout.row()
         if is_scene_valid():
             GRABDOC_PT_presets.draw_menu(row, text="Presets")
-        row.operator("wm.url_open", text="", icon='HELP').url = \
-            self.documentation
-        row.separator()
+        row.operator(
+            "wm.url_open", text="", icon='HELP'
+        ).url = self.documentation
+        row.separator(factor=.2)
 
     def draw(self, _context: Context):
+        if is_scene_valid():
+            return
         row = self.layout.row(align=True)
-        row.scale_x = row.scale_y = 1.25
-        scene_setup = is_scene_valid()
+        row.scale_y = 1.5
         row.operator("grab_doc.scene_setup",
-                     icon="FILE_REFRESH" if scene_setup else "TOOL_SETTINGS",
-                     text="Rebuild Scene" if scene_setup else "Setup Scene")
-        if scene_setup:
-            row.operator("grab_doc.scene_cleanup", text="", icon="CANCEL")
+                     text="Setup Scene", icon='TOOL_SETTINGS')
 
 
 class GRABDOC_PT_scene(GDPanel):
@@ -50,18 +49,8 @@ class GRABDOC_PT_scene(GDPanel):
     def draw_header(self, _context: Context):
         self.layout.label(icon='SCENE_DATA')
 
-    def draw_header_preset(self, context: Context):
-        gd = context.scene.gd
-        row = self.layout.row(align=True)
-        row.scale_x = .95
-        row.prop(gd, "coll_selectable", text="", emboss=False,
-    icon='RESTRICT_SELECT_OFF' if gd.coll_selectable else 'RESTRICT_SELECT_ON')
-        row.prop(gd, "coll_visible", text="", emboss=False,
-    icon='RESTRICT_VIEW_OFF' if gd.coll_visible else 'RESTRICT_VIEW_ON')
-        row.prop(gd, "coll_rendered", text="", emboss=False,
-    icon='RESTRICT_RENDER_OFF' if gd.coll_rendered else 'RESTRICT_RENDER_ON')
-        row2 = row.row()
-        row2.scale_x = 1.15
+    def draw_header_preset(self, _context: Context):
+        row2 = self.layout.row(align=True)
         row2.operator("grab_doc.toggle_camera_view",
                       text="Leave" if camera_in_3d_view() else "View",
                       icon="OUTLINER_OB_CAMERA")
@@ -70,14 +59,27 @@ class GRABDOC_PT_scene(GDPanel):
         gd = context.scene.gd
         layout = self.layout
 
+        row = self.layout.row(align=True)
+        row.scale_x = row.scale_y = 1.25
+        row.operator("grab_doc.scene_setup",
+                     text="Rebuild Scene", icon='FILE_REFRESH')
+        row.operator("grab_doc.scene_cleanup", text="", icon="CANCEL")
+
+        box = layout.box()
+        row = box.row(align=True)
+        row.scale_y = .9
+        row.label(text="Camera Restrictions")
+        row.prop(gd, "coll_selectable", text="", emboss=False,
+    icon='RESTRICT_SELECT_OFF' if gd.coll_selectable else 'RESTRICT_SELECT_ON')
+        row.prop(gd, "coll_visible", text="", emboss=False,
+    icon='RESTRICT_VIEW_OFF' if gd.coll_visible else 'RESTRICT_VIEW_ON')
+        row.prop(gd, "coll_rendered", text="", emboss=False,
+    icon='RESTRICT_RENDER_OFF' if gd.coll_rendered else 'RESTRICT_RENDER_ON')
+
         col = layout.column(align=True)
         col.use_property_split = True
         col.use_property_decorate = False
         col.prop(gd, "scale", text='Scaling', expand=True)
-        row = col.row()
-        row.prop(gd, "filter_width", text="Filtering")
-        row.separator() # NOTE: Odd spacing without these
-        row.prop(gd, "use_filtering", text="")
         row = col.row()
         row.prop(gd, "grid_subdivs", text="Grid")
         row.separator()
@@ -177,6 +179,11 @@ class GRABDOC_PT_output(GDPanel):
                 row.prop(image_settings, "exr_codec", text="Codec")
             else:  # TIFF
                 row.prop(image_settings, "tiff_codec", text="Codec")
+
+        row = col2.row()
+        row.prop(gd, "filter_width", text="Filtering")
+        row.separator()  # NOTE: Odd spacing without these
+        row.prop(gd, "use_filtering", text="")
 
         if gd.engine == "marmoset":
             row = col2.row(align=True)
