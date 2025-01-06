@@ -1,4 +1,4 @@
-![productlogoidea10](https://user-images.githubusercontent.com/31065180/167503346-8db3d020-8ca3-439a-b2a9-7f8b98077c28.png)
+![NewLogo](https://github.com/user-attachments/assets/75604c21-2477-4c0b-bf34-e9c9cca689e5)
 
 # Introduction
 
