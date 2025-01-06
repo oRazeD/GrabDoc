@@ -34,6 +34,50 @@ def get_user_preferences():
     return bpy.context.preferences.addons[package].preferences
 
 
+def save_properties(properties: list) -> dict:
+    """Store all given iterable properties."""
+    saved_properties = {}
+    for data in properties:
+        for attr in dir(data):
+            if data not in saved_properties:
+                saved_properties[data] = {}
+            saved_properties[data][attr] = getattr(data, attr)
+    return saved_properties
+
+
+def load_properties(properties: dict) -> None:
+    """Set all given properties to their assigned value."""
+    custom_properties = {}
+    for key, values in properties.items():
+        if not isinstance(values, dict):
+            custom_properties[key] = values
+            continue
+        for name, value in values.items():
+            try:
+                setattr(key, name, value)
+            except (AttributeError, TypeError):  # Read only attribute
+                pass
+    # NOTE: Extra entries added after running `save_properties`
+    for key, value in custom_properties.items():
+        name = key.rsplit('.', maxsplit=1)[-1]
+        components = key.split('.')[:-1]
+        root = globals()[components[0]]
+        components = components[1:]
+        # Reconstruct attribute chain
+        obj = root
+        for part in components:
+            next_attr = getattr(obj, part)
+            if next_attr is None:
+                break
+            obj = next_attr
+        if obj == root:
+            continue
+        try:
+            setattr(obj, name, value)
+        except ReferenceError:
+            pass
+
+
 def enum_members_from_type(rna_type, prop_str):
     prop = rna_type.bl_rna.properties[prop_str]
     return [e.identifier for e in prop.enum_items]

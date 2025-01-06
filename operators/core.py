@@ -16,7 +16,7 @@ from ..utils.scene import (
     camera_in_3d_view, is_scene_valid, scene_setup, scene_cleanup, validate_scene
 )
 from ..utils.baker import (
-    get_baker_collections, reimport_baker_textures, baker_setup,
+    get_baker_collections, import_baker_textures, baker_setup,
     baker_cleanup, get_bakers, get_baker_by_index
 )
 from ..utils.pack import (
@@ -248,7 +248,8 @@ class GRABDOC_OT_baker_export(Operator, UILayout):
 
         # Reimport textures to render result material
         bakers_to_reimport = [baker for baker in bakers if baker.reimport]
-        reimport_baker_textures(bakers_to_reimport)
+        if bakers_to_reimport:
+            import_baker_textures(bakers_to_reimport)
 
         # Refresh all original settings
         baker_cleanup(context, saved_properties)
@@ -344,7 +345,7 @@ Rendering a second time will overwrite the internal image"""
 
         # Reimport textures to render result material
         if self.baker.reimport:
-            reimport_baker_textures([self.baker])
+            import_baker_textures([self.baker])
 
         baker_cleanup(context, saved_properties)
 
@@ -572,7 +573,7 @@ class GRABDOC_OT_baker_preview_export(Operator):
 
         GRABDOC_OT_baker_export.export(context, baker.suffix)
         if baker.reimport:
-            reimport_baker_textures([baker])
+            import_baker_textures([baker])
 
         if scale_plane:
             plane_ob.scale[0] = plane_ob.scale[1] = 1
