@@ -608,12 +608,13 @@ class GRABDOC_OT_baker_visibility(Operator):
         col = self.layout.column(align=True)
         for baker in get_bakers():
             icon = "BLENDER" if not baker.MARMOSET_COMPATIBLE else "WORLD"
-            col.prop(baker, 'visibility', text=baker.NAME, icon=icon)
+            col.prop(baker, 'visibility', icon=icon,
+                     text=f"{baker.NAME} {baker.index+1}")
 
 
 class GRABDOC_OT_baker_pack(Operator):
     """Merge previously exported bake maps into single packed texture"""
-    bl_idname = "grab_doc.baker_pack"
+    bl_idname  = "grab_doc.baker_pack"
     bl_label   = "Run Pack"
     bl_options = {'REGISTER'}
 
