@@ -16,7 +16,7 @@ def is_object_gd_valid(
     """Basic validation checks to detect if an object
     will work well within the GrabDoc environment"""
     # Default off
-    if has_prefix and not ob.name.startswith(Global.PREFIX):
+    if has_prefix and not ob.name.startswith(Global.FLAG_PREFIX):
         return False
     if is_gd_ob and not ob.gd_object:
         return False
@@ -103,7 +103,7 @@ def find_tallest_object(objects: list[Object]=None) -> float:
     depsgraph = bpy.context.evaluated_depsgraph_get()
     tallest_verts = []
     objects = [
-        ob for ob in objects if not ob.name.startswith(Global.PREFIX)
+        ob for ob in objects if not ob.name.startswith(Global.FLAG_PREFIX)
     ]
     for ob in objects:
         ob_eval = ob.evaluated_get(depsgraph)

@@ -77,7 +77,7 @@ class Baker(PropertyGroup):
     @staticmethod
     def get_node_name(name: str, idx: int=0):
         """Set node name based on given base `name` and optional `idx`."""
-        node_name = Global.PREFIX + name.replace(" ", "")
+        node_name = Global.FLAG_PREFIX + name.replace(" ", "")
         if idx:
             node_name += f"_{idx}"
         return node_name

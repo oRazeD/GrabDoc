@@ -42,7 +42,7 @@ class GRABDOC_OT_quick_id_setup(Operator):
         rendered_obs = get_rendered_objects()
         for ob in rendered_obs:
             add_mat = True
-            if ob.name.startswith(Global.PREFIX):
+            if ob.name.startswith(Global.FLAG_PREFIX):
                 continue
             for slot in ob.material_slots:
                 if slot.name.startswith(Global.ID_PREFIX):

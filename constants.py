@@ -1,12 +1,10 @@
 
 class Global:
     """A collection of constants used for global variable standardization"""
-    PREFIX               = "GD_"
     FLAG_PREFIX          = "[GrabDoc] "
     LOW_SUFFIX           = "_low_gd"
     HIGH_SUFFIX          = "_high_gd"
     NODE_GROUP_WARN_NAME = "_grabdoc_ng_warning"
-
 
     REFERENCE_NAME    = FLAG_PREFIX + "Reference"
     TRIM_CAMERA_NAME  = FLAG_PREFIX + "Trim Camera"

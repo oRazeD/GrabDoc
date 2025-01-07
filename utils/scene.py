@@ -216,7 +216,7 @@ def scene_cleanup(context: Context, hard_reset: bool=True) -> None | list:
         if Global.REFERENCE_NAME in bpy.data.materials:
             bpy.data.materials.remove(bpy.data.materials[Global.REFERENCE_NAME])
         for group in bpy.data.node_groups:
-            if group.name.startswith(Global.PREFIX):
+            if group.name.startswith(Global.FLAG_PREFIX):
                 bpy.data.node_groups.remove(group)
         return None
 
