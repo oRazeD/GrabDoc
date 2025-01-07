@@ -196,10 +196,10 @@ class Baker(PropertyGroup):
 
         col_info = col.column(align=True)
         col_info.scale_y = .9
-        if not self.MARMOSET_COMPATIBLE:
-            box = col_info.box()
-            col2 = box.column(align=True)
-            col2.label(text="Marmoset not supported", icon='INFO')
+        #if not self.MARMOSET_COMPATIBLE:
+        #    box = col_info.box()
+        #    col2 = box.column(align=True)
+        #    col2.label(text="Marmoset not supported", icon='INFO')
         if self.node_tree and self.REQUIRED_SOCKETS:
             box = col_info.box()
             col2 = box.column(align=True)

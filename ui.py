@@ -138,12 +138,12 @@ class GRABDOC_PT_output(GDPanel):
         layout.use_property_split = True
         layout.use_property_decorate = False
 
-        if gd.engine == 'marmoset':
-            self.mt_header_layout(layout)
+        #if gd.engine == 'marmoset':
+        #    self.mt_header_layout(layout)
 
         col2 = layout.column()
-        row = col2.row()
-        row.prop(gd, 'engine')
+        #row = col2.row()
+        #row.prop(gd, 'engine')
         row = col2.row()
         row.prop(gd, 'filepath', text="Path")
         row.operator("grab_doc.open_folder",
