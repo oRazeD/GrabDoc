@@ -128,7 +128,7 @@ def scene_setup(_self, context: Context) -> None:
     if gd.use_grid and gd.grid_subdivs:
         bm = bmesh.new()
         bm.from_mesh(plane_ob.data)
-        bmesh.ops.subdivide_edges(bm, bm.edges,
+        bmesh.ops.subdivide_edges(bm, edges=bm.edges,
                                   cuts=gd.grid_subdivs,
                                   use_grid_fill=True)
         bm.to_mesh(plane_ob.data)
