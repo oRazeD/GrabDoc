@@ -109,9 +109,9 @@ def link_group_to_object(ob: Object, node_tree: NodeTree) -> list[str]:
         if not ob.active_material or ob.active_material.name == '':
             ob.active_material = mat
 
-    inputs = get_group_inputs(node_tree)
-    input_names = [g_input.name for g_input in inputs]
-    unlinked_inputs: dict[str, list] = {}
+    inputs                         = get_group_inputs(node_tree)
+    input_names:         list[str] = [node_input.name for node_input in inputs]
+    unlinked: dict[str, list[str]] = {}
 
     for slot in ob.material_slots:
         material = bpy.data.materials.get(slot.name)
@@ -119,71 +119,69 @@ def link_group_to_object(ob: Object, node_tree: NodeTree) -> list[str]:
         nodes = material.node_tree.nodes
         if node_tree.name in nodes:
             continue
+        if material.name.startswith(Global.FLAG_PREFIX):
+            unlinked[material.name] = []
+        else:
+            unlinked[material.name] = input_names
 
-        output_nodes = {mat for mat in nodes if mat.type == 'OUTPUT_MATERIAL'}
-        if not output_nodes:
-            output_nodes.append(nodes.new('ShaderNodeOutputMaterial'))
-        for output in output_nodes:
-            node_group           = nodes.new('ShaderNodeGroup')
-            node_group.hide      = True
-            node_group.gd_spawn  = True
-            node_group.node_tree = node_tree
-            node_group.name      = node_tree.name
-            node_group.location  = (output.location[0], output.location[1]-160)
+        output = None
+        output_nodes = [mat for mat in nodes if mat.type == 'OUTPUT_MATERIAL']
+        for output_node in output_nodes:
+            if output_node.is_active_output:
+                output = output_node
+                break
+        if output is None:
+            output = nodes.new('ShaderNodeOutputMaterial')
 
-            if Global.GD_MATERIAL_NAME not in material.name:
-                unlinked_inputs[material.name] = inputs
+        node_group           = nodes.new('ShaderNodeGroup')
+        node_group.hide      = True
+        node_group.gd_spawn  = True
+        node_group.node_tree = node_tree
+        node_group.name      = node_tree.name
+        node_group.location  = (output.location[0], output.location[1] - 160)
 
-            frame          = nodes.new('NodeFrame')
-            frame.name     = node_tree.name
-            frame.width    = 750
-            frame.height   = 200
-            frame.gd_spawn = True
-            frame.location = (output.location[0], output.location[1]-200)
-            warning_text = bpy.data.texts.get(Global.NODE_GROUP_WARN_NAME)
-            if warning_text is None:
-                warning_text = bpy.data.texts.new(Global.NODE_GROUP_WARN_NAME)
-                warning_text.write(Global.NODE_GROUP_WARN)
-            frame.text     = warning_text
+        warning_text = bpy.data.texts.get(Global.NODE_GROUP_WARN_NAME)
+        if warning_text is None:
+            warning_text = bpy.data.texts.new(Global.NODE_GROUP_WARN_NAME)
+            warning_text.write(Global.NODE_GROUP_WARN)
+        frame          = nodes.new('NodeFrame')
+        frame.name     = node_tree.name
+        frame.width    = 750
+        frame.height   = 200
+        frame.gd_spawn = True
+        frame.location = (output.location[0], output.location[1] - 200)
+        frame.text     = warning_text
 
-            # Link identical sockets from output connected node
-            from_output_node = output.inputs[0].links[0].from_node
-            for node_input in from_output_node.inputs:
-                if node_input.name not in input_names \
-                or not node_input.links:
-                    continue
-                link = node_input.links[0]
+        # Link identical outputs from BSDF to output node
+        from_output_node = output.inputs[0].links[0].from_node
+        for node_input in from_output_node.inputs:
+            if node_input.name not in input_names or not node_input.links:
+                continue
+            link = node_input.links[0]
+            material.node_tree.links.new(
+                node_group.inputs[node_input.name],
+                link.from_node.outputs[link.from_socket.name]
+            )
+            if node_input.name in unlinked[material.name]:
+                unlinked[material.name].remove(node_input.name)
+
+        # Link matching input names from BSDF to baker
+        for node_input in output.inputs:
+            for link in node_input.links:
                 material.node_tree.links.new(
                     node_group.inputs[node_input.name],
                     link.from_node.outputs[link.from_socket.name]
                 )
+                material.node_tree.links.remove(link)
+        material.node_tree.links.new(output.inputs["Surface"],
+                                     node_group.outputs["Shader"])
 
-                sockets = unlinked_inputs.get(material.name)
-                if sockets is None:
-                    continue
-                try:
-                    sockets.remove(node_input.name)
-                except ValueError:
-                    continue
-
-            # Link original output material connections
-            for node_input in output.inputs:
-                for link in node_input.links:
-                    material.node_tree.links.new(
-                        node_group.inputs[node_input.name],
-                        link.from_node.outputs[link.from_socket.name]
-                    )
-                    material.node_tree.links.remove(link)
-
-            material.node_tree.links.new(output.inputs["Surface"], node_group.outputs["Shader"])
-
-    socket_names = []
-    for sockets in unlinked_inputs.values():
-        for socket in sockets:
-            if socket.name in socket_names:
-                continue
-            socket_names.append(socket.name)
-    return socket_names
+    # NOTE: Collapse found unlinked sockets into flat list
+    unlinked_names = set()
+    for input_names in unlinked.values():
+        for name in input_names:
+            unlinked_names.add(name)
+    return list(unlinked_names)
 
 
 def generate_shader_interface(
