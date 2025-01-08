@@ -88,7 +88,6 @@ Can also potentially fix console spam from UI elements"""
         for baker_prop in get_baker_collections():
             baker_prop.clear()
             baker = baker_prop.add()
-            baker.__init__() # pylint: disable=C2801
 
         register_baker_panels()
         scene_setup(self, context)
@@ -124,7 +123,6 @@ class GRABDOC_OT_baker_add(Operator):
     def execute(self, context: Context):
         baker_prop = getattr(context.scene.gd, self.map_type)
         baker = baker_prop.add()
-        baker.__init__()  # pylint: disable=C2801
         register_baker_panels()
         baker.node_setup()
         return {'FINISHED'}
@@ -144,7 +142,10 @@ class GRABDOC_OT_baker_remove(Operator):
         baker = get_baker_by_index(baker_prop, self.baker_index)
         if baker.node_tree:
             bpy.data.node_groups.remove(baker.node_tree)
-        baker_prop.remove(self.baker_index)
+        for idx, bake_map in enumerate(baker_prop):
+            if bake_map.index == baker.index:
+                baker_prop.remove(idx)
+                break
         register_baker_panels()
         return {'FINISHED'}
 
@@ -415,7 +416,7 @@ class GRABDOC_OT_baker_preview(Operator):
     """Preview the selected bake map type"""
     bl_idname = "grab_doc.baker_preview"
     bl_label   = ""
-    bl_options = {'REGISTER', 'INTERNAL'}
+    bl_options = {'REGISTER', 'UNDO', 'INTERNAL'}
 
     baker_index:    IntProperty()
     map_type:       StringProperty()
@@ -491,9 +492,9 @@ class GRABDOC_OT_baker_preview(Operator):
         # TODO: Necessary to save?
         self.saved_properties['bpy.context.scene.gd.engine'] = gd.engine
 
-        gd.preview_state     = True
-        gd.preview_map_type  = self.map_type
-        gd.engine            = 'grabdoc'
+        gd.preview_state    = True
+        gd.preview_map_type = self.map_type
+        gd.engine           = 'grabdoc'
 
         self.last_ob_amount = len(bpy.data.objects)
         self.disable_binds = not self.user_preferences.disable_preview_binds
@@ -549,6 +550,10 @@ class GRABDOC_OT_baker_preview_export(Operator):
 
     @classmethod
     def poll(cls, context: Context) -> bool:
+        gd = context.scene.gd
+        if gd.filepath == "//" and not bpy.data.filepath:
+            cls.poll_message_set("Relative export path but file not saved")
+            return False
         return not GRABDOC_OT_baker_export_single.poll(context)
 
     def execute(self, context: Context):

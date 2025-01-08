@@ -302,7 +302,7 @@ class BakerPanel(GDPanel):
         row2.prop(self.baker, 'enabled', text="")
         preview = row2.operator("grab_doc.baker_preview", text=text)
         preview.map_type    = self.baker.ID
-        preview.baker_index = index
+        preview.baker_index = self.baker.index
         row2.operator("grab_doc.baker_export_single",
                       text="", icon='RENDER_STILL').map_type = self.baker.ID
 
@@ -312,7 +312,7 @@ class BakerPanel(GDPanel):
             return
         remove = row.operator("grab_doc.baker_remove", text="", icon='TRASH')
         remove.map_type    = self.baker.ID
-        remove.baker_index = index
+        remove.baker_index = self.baker.index
 
     def draw(self, context: Context):
         self.baker.draw(context, self.layout)
@@ -329,13 +329,11 @@ def create_baker_panels():
     baker_classes = []
     for baker_prop in get_baker_collections():
         for baker in baker_prop:
+            if baker.index == -1:
+                baker.__init__() # pylint: disable=C2801
             class_name      = f"GRABDOC_PT_{baker.ID}_{baker.index}"
             panel_cls       = type(class_name, (BakerPanel,), {})
             panel_cls.baker = baker
-            if baker.index > 0:
-                baker.node_name = baker.get_node_name(baker.NAME, baker.index+1)
-                if not baker.suffix[-1].isdigit():
-                    baker.suffix = f"{baker.suffix}_{baker.index+1}"
             baker_classes.append(panel_cls)
     return baker_classes
 

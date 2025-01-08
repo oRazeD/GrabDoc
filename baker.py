@@ -40,8 +40,6 @@ class Baker(PropertyGroup):
         """Called when `bpy.ops.grab_doc.scene_setup` operator is ran.
 
         This method is NOT called when created via `CollectionProperty`."""
-        gd = bpy.context.scene.gd
-        self.index       = self.get_unique_index(getattr(gd, self.ID))
         self.node_input  = None
         self.node_output = None
 
@@ -62,6 +60,14 @@ class Baker(PropertyGroup):
         self.__class__.enabled = BoolProperty(
             name="Export Enabled", default=self.MARMOSET_COMPATIBLE
         )
+
+        if self.index == -1:
+            gd = bpy.context.scene.gd
+            self.index = self.get_unique_index(getattr(gd, self.ID))
+        if self.index > 0:
+            self.node_name = self.get_node_name(self.NAME, self.index+1)
+            if not self.suffix[-1].isdigit():
+                self.suffix = f"{self.suffix}_{self.index+1}"
 
     @staticmethod
     def get_unique_index(collection: CollectionProperty) -> int:
@@ -383,7 +389,7 @@ class Curvature(Baker):
     VIEW_TRANSFORM      = "Standard"
     MARMOSET_COMPATIBLE = True
     REQUIRED_SOCKETS    = ()
-    OPTIONAL_SOCKETS    = Baker.OPTIONAL_SOCKETS
+    OPTIONAL_SOCKETS    = ()
     SUPPORTED_ENGINES   = Baker.SUPPORTED_ENGINES[1:]
 
     def __init__(self):
@@ -562,7 +568,7 @@ class Height(Baker):
     VIEW_TRANSFORM      = "Raw"
     MARMOSET_COMPATIBLE = True
     REQUIRED_SOCKETS    = ()
-    OPTIONAL_SOCKETS    = Baker.OPTIONAL_SOCKETS
+    OPTIONAL_SOCKETS    = ()
     SUPPORTED_ENGINES   = Baker.SUPPORTED_ENGINES[:-1]
 
     def setup(self) -> None:
@@ -792,7 +798,7 @@ class Roughness(Baker):
     VIEW_TRANSFORM      = "Raw"
     MARMOSET_COMPATIBLE = False
     REQUIRED_SOCKETS    = (NAME,)
-    OPTIONAL_SOCKETS    = Baker.OPTIONAL_SOCKETS
+    OPTIONAL_SOCKETS    = ()
     SUPPORTED_ENGINES   = Baker.SUPPORTED_ENGINES[:-1]
 
     def node_setup(self):
@@ -832,7 +838,7 @@ class Color(Baker):
     VIEW_TRANSFORM      = "Standard"
     MARMOSET_COMPATIBLE = False
     REQUIRED_SOCKETS    = (NAME,)
-    OPTIONAL_SOCKETS    = Baker.OPTIONAL_SOCKETS
+    OPTIONAL_SOCKETS    = ()
     SUPPORTED_ENGINES   = Baker.SUPPORTED_ENGINES[:-1]
 
     def node_setup(self):
@@ -863,7 +869,7 @@ class Emissive(Baker):
     VIEW_TRANSFORM      = "Standard"
     MARMOSET_COMPATIBLE = False
     REQUIRED_SOCKETS    = ("Emission Color", "Emission Strength")
-    OPTIONAL_SOCKETS    = Baker.OPTIONAL_SOCKETS
+    OPTIONAL_SOCKETS    = ()
     SUPPORTED_ENGINES   = Baker.SUPPORTED_ENGINES[:-1]
 
     def node_setup(self):
@@ -883,6 +889,8 @@ class Emissive(Baker):
         links = self.node_tree.links
         links.new(emission.inputs["Color"],
                   self.node_input.outputs["Emission Color"])
+        links.new(emission.inputs["Strength"],
+                  self.node_input.outputs["Emission Strength"])
         links.new(self.node_output.inputs["Shader"],
                   emission.outputs["Emission"])
 
@@ -899,7 +907,7 @@ class Metallic(Baker):
     VIEW_TRANSFORM      = "Raw"
     MARMOSET_COMPATIBLE = False
     REQUIRED_SOCKETS    = (NAME,)
-    OPTIONAL_SOCKETS    = Baker.OPTIONAL_SOCKETS
+    OPTIONAL_SOCKETS    = ()
     SUPPORTED_ENGINES   = Baker.SUPPORTED_ENGINES[:-1]
 
     def node_setup(self):
