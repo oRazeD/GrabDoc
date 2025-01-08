@@ -6,7 +6,7 @@ from pathlib import Path
 
 import bpy
 from bpy.types import Context, Operator, Object
-from ..utils.io import export_plane, get_temp_path
+from ..utils.io import get_temp_path
 
 from ..constants import Global, Error
 from ..utils.generic import get_user_preferences
@@ -83,9 +83,6 @@ class GrabDoc_OT_send_to_marmo(Operator):
         json_path = os.path.join(temp_path, "mt_vars.json")
         with open(json_path, "w", encoding='utf-8') as file:
             file.write(json_properties)
-
-        if gd.export_plane:
-            export_plane(context)
 
         args = [
             executable,

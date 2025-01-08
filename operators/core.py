@@ -8,12 +8,13 @@ from bpy.props import StringProperty, IntProperty
 
 from ..constants import Global, Error
 from ..ui import register_baker_panels
+from ..utils.io import get_format, get_temp_path
 from ..utils.render import get_rendered_objects
 from ..utils.generic import get_user_preferences
 from ..utils.node import link_group_to_object, node_cleanup
-from ..utils.io import export_plane, get_format, get_temp_path
 from ..utils.scene import (
-    camera_in_3d_view, is_scene_valid, scene_setup, scene_cleanup, validate_scene
+    camera_in_3d_view, is_scene_valid,
+    scene_setup, scene_cleanup, validate_scene
 )
 from ..utils.baker import (
     get_baker_collections, import_baker_textures, baker_setup,
@@ -256,9 +257,6 @@ class GRABDOC_OT_baker_export(Operator, UILayout):
 
         plane_ob = bpy.data.objects[Global.BG_PLANE_NAME]
         plane_ob.scale[0] = plane_ob.scale[1] = 1
-
-        if gd.export_plane:
-            export_plane(context)
 
         if active_selected:
             context.view_layer.objects.active = bpy.data.objects[activeCallback]
@@ -577,9 +575,6 @@ class GRABDOC_OT_baker_preview_export(Operator):
 
         if scale_plane:
             plane_ob.scale[0] = plane_ob.scale[1] = 1
-
-        if gd.export_plane:
-            export_plane(context)
 
         elapsed = round(time.time() - start, 2)
         self.report(

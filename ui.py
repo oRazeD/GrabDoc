@@ -191,7 +191,6 @@ class GRABDOC_PT_output(GDPanel):
 
         col = layout.column(align=True)
         col.prop(gd, "use_bake_collection", text="Bake Groups")
-        col.prop(gd, "export_plane", text='Export Plane')
         col.prop(gd, 'use_pack_maps')
         if gd.use_pack_maps:
             col.prop(gd, 'remove_original_maps')

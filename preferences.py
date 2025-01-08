@@ -73,18 +73,6 @@ class GRABDOC_PG_properties(PropertyGroup):
     def update_scale(self, context: Context):
         scene_setup(self, context)
 
-        # TODO: Validate necessity
-        #height = bpy.data.node_groups.get(Height.node_name)
-        #map_range = height.nodes.get('Map Range')
-        #camera_object_z = Global.CAMERA_DISTANCE * bpy.context.scene.gd.scale
-        #map_range.inputs[1].default_value = \
-        #    camera_object_z - self.height[0].distance
-        #map_range.inputs[2].default_value = camera_object_z
-        #alpha = bpy.data.node_groups.get(Alpha.node_name)
-        #map_range_alpha = alpha.nodes.get('Map Range')
-        #map_range_alpha.inputs[1].default_value = camera_object_z - .00001
-        #map_range_alpha.inputs[2].default_value = camera_object_z
-
     # Scene
     coll_selectable: BoolProperty(
         description="Sets the background plane selection capability",
@@ -171,9 +159,6 @@ When disabled, pixel filtering is reduced to .01px""",
     use_bake_collection: BoolProperty(
         description="Add a collection to the scene for use as bake groups",
         update=scene_setup
-    )
-    export_plane: BoolProperty(
-        description="Export the background plane as an unwrapped FBX"
     )
 
     # Bake maps
@@ -287,9 +272,9 @@ def register():
         bpy.utils.register_class(cls)
 
     Scene.gd                 = PointerProperty(type=GRABDOC_PG_properties)
-    Collection.gd_collection = BoolProperty()
-    Object.gd_object         = BoolProperty()
     Node.gd_spawn            = BoolProperty()
+    Object.gd_object         = BoolProperty()
+    Collection.gd_collection = BoolProperty()
 
 def unregister():
     for cls in classes:
