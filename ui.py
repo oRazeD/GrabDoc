@@ -17,7 +17,7 @@ class GDPanel(Panel):
 
 
 class GRABDOC_PT_grabdoc(GDPanel):
-    bl_label      = "GrabDoc " + get_version()[:-2]
+    bl_label      = "GrabDoc " + get_version()
     documentation = "https://github.com/oRazeD/GrabDoc/wiki"
 
     def draw_header_preset(self, _context: Context):
