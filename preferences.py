@@ -57,7 +57,7 @@ class GRABDOC_PG_properties(PropertyGroup):
     def update_filepath(self, _context: Context):
         if self.filepath == '//':
             return
-        if not os.path.exists(self.filepath):
+        if not os.path.exists(bpy.path.abspath(self.filepath)):
             self.filepath = '//'
 
     def update_res_x(self, context: Context):
