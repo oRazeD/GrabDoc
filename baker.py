@@ -37,13 +37,13 @@ class Baker(PropertyGroup):
                                        ('blender_workbench',  "Workbench", ""))
 
     def __init__(self):
-        """Called when `bpy.ops.grab_doc.scene_setup` operator is ran.
+        """Called in `create_baker_panels()`.
 
-        This method is NOT called when created via `CollectionProperty`."""
+        Class fails to instantiate when created via `CollectionProperty`."""
         self.node_input  = None
         self.node_output = None
 
-        # NOTE: For properties using constants as defaults
+        # Assign properties using constants as defaults
         self.__class__.suffix = StringProperty(
             description="The suffix of the exported bake map",
             name="Suffix", default=self.ID
@@ -61,13 +61,15 @@ class Baker(PropertyGroup):
             name="Export Enabled", default=self.MARMOSET_COMPATIBLE
         )
 
+        # Assign "absolute" index
         if self.index == -1:
             gd = bpy.context.scene.gd
             self.index = self.get_unique_index(getattr(gd, self.ID))
-        if self.index > 0:
-            self.node_name = self.get_node_name(self.NAME, self.index+1)
-            if not self.suffix[-1].isdigit():
-                self.suffix = f"{self.suffix}_{self.index+1}"
+        if self.index == 0:
+            return
+        self.node_name = self.get_node_name(self.NAME, self.index+1)
+        if not self.suffix[-1].isdigit():
+            self.suffix = f"{self.suffix}_{self.index+1}"
 
     @staticmethod
     def get_unique_index(collection: CollectionProperty) -> int:
@@ -170,19 +172,18 @@ class Baker(PropertyGroup):
         col = layout.column()
 
         box = col.box()
-        box.label(text="Properties", icon="PROPERTIES")
-        row = box.row(align=True)
-        if len(self.SUPPORTED_ENGINES) < 2:
-            row.enabled = False
-        row.prop(self, 'engine')
-
+        box.label(text="Properties", icon='PROPERTIES')
         self.draw_properties(context, box)
 
         box = col.box()
-        box.label(text="Settings", icon="SETTINGS")
+        box.label(text="Settings", icon='SETTINGS')
         col_set = box.column()
         gd = context.scene.gd
         if gd.engine == 'grabdoc':
+            row = col_set.row(align=True)
+            if len(self.SUPPORTED_ENGINES) < 2:
+                row.enabled = False
+            row.prop(self, 'engine')
             col_set.prop(self, 'reimport')
             col_set.prop(self, 'disable_filtering')
             prop = 'samples'
