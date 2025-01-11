@@ -24,6 +24,7 @@ def load_post_handler(_dummy):
 module_names = (
     "operators.core",
     "operators.material",
+    "operators.marmoset",
     "preferences",
     "ui"
 )

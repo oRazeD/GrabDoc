@@ -1,7 +1,4 @@
-import os
-
 import bpy
-from bpy.types import Context
 
 from ..constants import Global
 
