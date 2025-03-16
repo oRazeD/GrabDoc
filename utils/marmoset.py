@@ -51,7 +51,6 @@ def create_baker(properties: dict):
     baker.ignoreTransforms = False
     baker.smoothCage = True
     baker.ignoreBackfaces = True
-    baker.multipleTextureSets = False
     baker.outputWidth = properties['resolution_x']
     baker.outputHeight = properties['resolution_y']
     # NOTE: Output samples is broken in older APIs
