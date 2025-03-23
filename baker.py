@@ -53,10 +53,6 @@ class Baker(PropertyGroup):
             items=self.SUPPORTED_ENGINES,
             update=self.__class__.apply_render_settings
         )
-        self.__class__.suffix = StringProperty(
-            description="The suffix of the exported bake map",
-            name="Suffix", default=self.ID
-        )
         self.__class__.enabled = BoolProperty(
             name="Export Enabled", default=self.MARMOSET_COMPATIBLE
         )
@@ -679,27 +675,27 @@ class Id(Baker):
         col = layout.column(align=True)
         col.separator(factor=.5)
         col.scale_y = 1.1
-        col.operator("grab_doc.quick_id_setup")
+        col.operator("grabdoc.quick_id_setup")
 
         row = col.row(align=True)
         row.scale_y = .9
         row.label(text=" Remove:")
         row.operator(
-            "grab_doc.remove_mats_by_name",
+            "grabdoc.remove_mats_by_name",
             text='All'
         ).name = Global.RANDOM_ID_PREFIX
 
         col = layout.column(align=True)
         col.separator(factor=.5)
         col.scale_y = 1.1
-        col.operator("grab_doc.quick_id_selected")
+        col.operator("grabdoc.quick_id_selected")
 
         row = col.row(align=True)
         row.scale_y = .9
         row.label(text=" Remove:")
-        row.operator("grab_doc.remove_mats_by_name",
+        row.operator("grabdoc.remove_mats_by_name",
                      text='All').name = Global.ID_PREFIX
-        row.operator("grab_doc.quick_remove_selected_mats",
+        row.operator("grabdoc.quick_remove_selected_mats",
                      text='Selected')
 
     def update_method(self, context: Context):

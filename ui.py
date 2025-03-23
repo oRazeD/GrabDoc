@@ -34,7 +34,7 @@ class GRABDOC_PT_grabdoc(GDPanel):
             return
         row = self.layout.row(align=True)
         row.scale_y = 1.5
-        row.operator("grab_doc.scene_setup",
+        row.operator("grabdoc.scene_setup",
                      text="Setup Scene", icon='TOOL_SETTINGS')
 
 
@@ -51,7 +51,7 @@ class GRABDOC_PT_scene(GDPanel):
 
     def draw_header_preset(self, _context: Context):
         row2 = self.layout.row(align=True)
-        row2.operator("grab_doc.toggle_camera_view",
+        row2.operator("grabdoc.toggle_camera_view",
                       text="Leave" if camera_in_3d_view() else "View",
                       icon="OUTLINER_OB_CAMERA")
 
@@ -61,9 +61,9 @@ class GRABDOC_PT_scene(GDPanel):
 
         row = self.layout.row(align=True)
         row.scale_x = row.scale_y = 1.25
-        row.operator("grab_doc.scene_setup",
+        row.operator("grabdoc.scene_setup",
                      text="Rebuild Scene", icon='FILE_REFRESH')
-        row.operator("grab_doc.scene_cleanup", text="", icon="CANCEL")
+        row.operator("grabdoc.scene_cleanup", text="", icon="CANCEL")
 
         box = layout.box()
         row = box.row(align=True)
@@ -87,7 +87,7 @@ class GRABDOC_PT_scene(GDPanel):
         row = col.row()
         row.enabled = not gd.preview_state
         row.prop(gd, "reference", text='Reference')
-        row.operator("grab_doc.load_reference", text="", icon='FILE_FOLDER')
+        row.operator("grabdoc.load_reference", text="", icon='FILE_FOLDER')
 
 
 class GRABDOC_PT_output(GDPanel):
@@ -107,7 +107,7 @@ class GRABDOC_PT_output(GDPanel):
         and not os.path.exists(mt_executable):
             self.layout.enabled = False
         self.layout.scale_x = 1
-        self.layout.operator("grab_doc.baker_export",
+        self.layout.operator("grabdoc.baker_export",
                              text="Export", icon="EXPORT")
 
     def mt_header_layout(self, layout: UILayout):
@@ -125,9 +125,9 @@ class GRABDOC_PT_output(GDPanel):
         row.prop(preferences, 'mt_executable', text="Executable Path")
         row = col.row(align=True)
         row.scale_y = 1.25
-        row.operator("grab_doc.bake_marmoset", text="Bake in Marmoset",
+        row.operator("grabdoc.bake_marmoset", text="Bake in Marmoset",
                      icon="EXPORT").send_type = 'open'
-        row.operator("grab_doc.bake_marmoset",
+        row.operator("grabdoc.bake_marmoset",
                      text="", icon='FILE_REFRESH').send_type = 'refresh'
 
     def draw(self, context: Context):
@@ -146,7 +146,7 @@ class GRABDOC_PT_output(GDPanel):
         row.prop(gd, 'engine')
         row = col2.row()
         row.prop(gd, 'filepath', text="Path")
-        row.operator("grab_doc.open_folder",
+        row.operator("grabdoc.open_folder",
                      text="", icon="FOLDER_REDIRECT")
         col2.prop(gd, "filename", text="Name")
         row = col2.row()
@@ -213,7 +213,7 @@ class GRABDOC_PT_bake_maps(GDPanel):
         self.layout.label(icon='SHADING_RENDERED')
 
     def draw_header_preset(self, _context: Context):
-        self.layout.operator("grab_doc.baker_visibility",
+        self.layout.operator("grabdoc.baker_visibility",
                              emboss=False, text="", icon="SETTINGS")
 
     def draw(self, context: Context):
@@ -226,15 +226,17 @@ class GRABDOC_PT_bake_maps(GDPanel):
         row = col.row(align=True)
         row.alert = True
         row.scale_y = 1.5
-        row.operator("grab_doc.baker_preview_exit", icon="CANCEL")
+        row.operator("grabdoc.baker_preview_exit", icon="CANCEL")
 
         row = col.row(align=True)
         row.scale_y = 1.1
 
         gd = context.scene.gd
         baker = getattr(gd, gd.preview_map_type)[gd.preview_index]
-        row.operator("grab_doc.baker_export_preview",
-                     text=f"Export {baker.NAME}", icon="EXPORT")
+        row.operator(
+            "grabdoc.baker_export_preview",
+            text=f"Export {baker.NAME}", icon="EXPORT"
+        ).baker_index = baker.index
         baker.draw(context, layout)
 
 
@@ -254,7 +256,7 @@ class GRABDOC_PT_pack_maps(GDPanel):
 
     def draw_header_preset(self, _context: Context):
         self.layout.scale_x = .9
-        self.layout.operator("grab_doc.baker_pack")
+        self.layout.operator("grabdoc.baker_pack")
 
     def draw(self, context: Context):
         layout = self.layout
@@ -270,7 +272,7 @@ class GRABDOC_PT_pack_maps(GDPanel):
         col.prop(gd, 'pack_name', text="Suffix")
 
 
-class BakerPanel(GDPanel):
+class GRABDOC_PT_Baker(GDPanel):
     bl_parent_id = "GRABDOC_PT_bake_maps"
     bl_options   = {'DEFAULT_CLOSED', 'HEADER_LAYOUT_EXPAND'}
 
@@ -300,17 +302,17 @@ class BakerPanel(GDPanel):
             row2.enabled = False
         row2.separator(factor=.5)
         row2.prop(self.baker, 'enabled', text="")
-        preview = row2.operator("grab_doc.baker_preview", text=text)
+        preview = row2.operator("grabdoc.baker_preview", text=text)
         preview.map_type    = self.baker.ID
         preview.baker_index = self.baker.index
-        row2.operator("grab_doc.baker_export_single",
+        row2.operator("grabdoc.baker_export_single",
                       text="", icon='RENDER_STILL').map_type = self.baker.ID
 
         if self.baker == getattr(context.scene.gd, self.baker.ID)[0]:
-            row.operator("grab_doc.baker_add",
+            row.operator("grabdoc.baker_add",
                          text="", icon='ADD').map_type = self.baker.ID
             return
-        remove = row.operator("grab_doc.baker_remove", text="", icon='TRASH')
+        remove = row.operator("grabdoc.baker_remove", text="", icon='TRASH')
         remove.map_type    = self.baker.ID
         remove.baker_index = self.baker.index
 
@@ -329,23 +331,24 @@ def create_baker_panels():
     baker_classes = []
     for baker_prop in get_baker_collections():
         for baker in baker_prop:
-            if baker.index == -1:
-                baker.__init__() # pylint: disable=C2801
+            baker.__init__() # pylint: disable=C2801
             class_name      = f"GRABDOC_PT_{baker.ID}_{baker.index}"
-            panel_cls       = type(class_name, (BakerPanel,), {})
+            panel_cls       = type(class_name, (GRABDOC_PT_Baker,), {})
             panel_cls.baker = baker
             baker_classes.append(panel_cls)
     return baker_classes
 
 
 def register_baker_panels():
-    for cls in BakerPanel.__subclasses__():
+    for cls in GRABDOC_PT_Baker.__subclasses__():
         try:
             bpy.utils.unregister_class(cls)
+            classes.remove(cls)
         except RuntimeError:
             continue
     for cls in create_baker_panels():
         bpy.utils.register_class(cls)
+        classes.append(cls)
 
 
 classes = [

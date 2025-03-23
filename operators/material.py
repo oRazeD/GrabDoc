@@ -10,7 +10,7 @@ from ..utils.render import get_rendered_objects
 
 class GRABDOC_OT_quick_id_setup(Operator):
     """Sets up materials on all objects within the cameras view frustrum"""
-    bl_idname  = "grab_doc.quick_id_setup"
+    bl_idname  = "grabdoc.quick_id_setup"
     bl_label   = "Auto ID Full Scene"
     bl_options = {'REGISTER', 'UNDO'}
 
@@ -69,7 +69,7 @@ class GRABDOC_OT_quick_id_setup(Operator):
 
 class GRABDOC_OT_quick_id_selected(UseSelectedOnly, Operator):
     """Adds a new single material with a random color to the selected objects"""
-    bl_idname  = "grab_doc.quick_id_selected"
+    bl_idname  = "grabdoc.quick_id_selected"
     bl_label   = "Add ID to Selected"
     bl_options = {'REGISTER', 'UNDO'}
 
@@ -94,7 +94,7 @@ class GRABDOC_OT_quick_id_selected(UseSelectedOnly, Operator):
 
 class GRABDOC_OT_remove_mats_by_name(Operator):
     """Remove materials based on an internal prefixed name"""
-    bl_idname  = "grab_doc.remove_mats_by_name"
+    bl_idname  = "grabdoc.remove_mats_by_name"
     bl_label   = "Remove Mats by Name"
     bl_options = {'REGISTER', 'UNDO'}
 
@@ -109,7 +109,7 @@ class GRABDOC_OT_remove_mats_by_name(Operator):
 
 class GRABDOC_OT_quick_remove_selected_mats(UseSelectedOnly, Operator):
     """Remove all GrabDoc ID materials based on the selected objects from the scene"""
-    bl_idname  = "grab_doc.quick_remove_selected_mats"
+    bl_idname  = "grabdoc.quick_remove_selected_mats"
     bl_label   = "Remove Selected Materials"
     bl_options = {'REGISTER', 'UNDO'}
 

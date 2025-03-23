@@ -17,7 +17,7 @@ from ..utils.render import set_guide_height, get_rendered_objects
 
 class GrabDoc_OT_send_to_marmo(Operator):
     """Export your models, open and bake the enabled maps in Marmoset Toolbag"""
-    bl_idname  = "grab_doc.bake_marmoset"
+    bl_idname  = "grabdoc.bake_marmoset"
     bl_label   = "Open / Refresh in Marmoset"
     bl_options = {'REGISTER', 'INTERNAL'}
 

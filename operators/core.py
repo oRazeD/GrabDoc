@@ -27,7 +27,7 @@ from ..utils.pack import (
 
 class GRABDOC_OT_load_reference(Operator):
     """Import a reference onto the background plane"""
-    bl_idname  = "grab_doc.load_reference"
+    bl_idname  = "grabdoc.load_reference"
     bl_label   = "Load Reference"
     bl_options = {'REGISTER', 'UNDO'}
 
@@ -46,7 +46,7 @@ class GRABDOC_OT_load_reference(Operator):
 
 class GRABDOC_OT_open_folder(Operator):
     """Opens up the File Explorer to the designated folder location"""
-    bl_idname  = "grab_doc.open_folder"
+    bl_idname  = "grabdoc.open_folder"
     bl_label   = "Open Export Folder"
     bl_options = {'REGISTER', 'UNDO'}
 
@@ -61,7 +61,7 @@ class GRABDOC_OT_open_folder(Operator):
 
 class GRABDOC_OT_toggle_camera_view(Operator):
     """View or leave the GrabDoc camera view"""
-    bl_idname = "grab_doc.toggle_camera_view"
+    bl_idname = "grabdoc.toggle_camera_view"
     bl_label  = "Toggle Camera View"
 
     def execute(self, context: Context):
@@ -76,7 +76,7 @@ class GRABDOC_OT_scene_setup(Operator):
 Useful for rare cases where GrabDoc isn't compatible with an existing setup.
 
 Can also potentially fix console spam from UI elements"""
-    bl_idname  = "grab_doc.scene_setup"
+    bl_idname  = "grabdoc.scene_setup"
     bl_label   = "Setup GrabDoc Scene"
     bl_options = {'REGISTER', 'INTERNAL'}
 
@@ -99,7 +99,7 @@ Can also potentially fix console spam from UI elements"""
 
 class GRABDOC_OT_scene_cleanup(Operator):
     """Remove all GrabDoc objects from the scene; keeps reimported textures"""
-    bl_idname  = "grab_doc.scene_cleanup"
+    bl_idname  = "grabdoc.scene_cleanup"
     bl_label   = "Remove GrabDoc Scene"
     bl_options = {'REGISTER', 'INTERNAL'}
 
@@ -114,7 +114,7 @@ class GRABDOC_OT_scene_cleanup(Operator):
 
 class GRABDOC_OT_baker_add(Operator):
     """Add a new baker of this type to the current scene"""
-    bl_idname  = "grab_doc.baker_add"
+    bl_idname  = "grabdoc.baker_add"
     bl_label   = "Add Bake Map"
     bl_options = {'REGISTER', 'UNDO', 'INTERNAL'}
 
@@ -130,7 +130,7 @@ class GRABDOC_OT_baker_add(Operator):
 
 class GRABDOC_OT_baker_remove(Operator):
     """Remove the current baker from the current scene"""
-    bl_idname  = "grab_doc.baker_remove"
+    bl_idname  = "grabdoc.baker_remove"
     bl_label   = "Remove Baker"
     bl_options = {'REGISTER', 'UNDO', 'INTERNAL'}
 
@@ -152,17 +152,18 @@ class GRABDOC_OT_baker_remove(Operator):
 
 class GRABDOC_OT_baker_export(Operator, UILayout):
     """Bake and export all enabled bake maps"""
-    bl_idname = "grab_doc.baker_export"
+    bl_idname = "grabdoc.baker_export"
     bl_label   = "Export Maps"
     bl_options = {'REGISTER', 'INTERNAL'}
 
     progress_factor = 0.0
+    map_type = ''
 
     @classmethod
     def poll(cls, context: Context) -> bool:
         gd = context.scene.gd
         if gd.filepath == "//" and not bpy.data.filepath:
-            cls.poll_message_set("Relative export path but file not saved")
+            cls.poll_message_set("Relative export path set but file not saved")
             return False
         if gd.preview_state:
             cls.poll_message_set("Cannot run while in Map Preview")
@@ -271,7 +272,7 @@ class GRABDOC_OT_baker_export(Operator, UILayout):
         context.window_manager.progress_end()
 
         if gd.use_pack_maps is True:
-            bpy.ops.grab_doc.baker_pack()
+            bpy.ops.grabdoc.baker_pack()
         return {'FINISHED'}
 
 
@@ -279,7 +280,7 @@ class GRABDOC_OT_baker_export_single(Operator):
     """Render the selected bake map and preview it within Blender.
 
 Rendering a second time will overwrite the internal image"""
-    bl_idname  = "grab_doc.baker_export_single"
+    bl_idname  = "grabdoc.baker_export_single"
     bl_label   = ""
     bl_options = {'REGISTER', 'INTERNAL'}
 
@@ -366,7 +367,7 @@ Rendering a second time will overwrite the internal image"""
 
 class GRABDOC_OT_baker_preview_exit(Operator):
     """Exit the current Map Preview"""
-    bl_idname  = "grab_doc.baker_preview_exit"
+    bl_idname  = "grabdoc.baker_preview_exit"
     bl_label   = "Exit Map Preview"
     bl_options = {'REGISTER', 'INTERNAL'}
 
@@ -414,7 +415,7 @@ def draw_callback_px(self, context: Context) -> None:
 
 class GRABDOC_OT_baker_preview(Operator):
     """Preview the selected bake map type"""
-    bl_idname = "grab_doc.baker_preview"
+    bl_idname = "grabdoc.baker_preview"
     bl_label   = ""
     bl_options = {'REGISTER', 'UNDO', 'INTERNAL'}
 
@@ -542,7 +543,7 @@ class GRABDOC_OT_baker_preview(Operator):
 
 class GRABDOC_OT_baker_preview_export(Operator):
     """Export the currently previewed material"""
-    bl_idname  = "grab_doc.baker_export_preview"
+    bl_idname  = "grabdoc.baker_export_preview"
     bl_label   = "Export Preview"
     bl_options = {'REGISTER'}
 
@@ -552,7 +553,7 @@ class GRABDOC_OT_baker_preview_export(Operator):
     def poll(cls, context: Context) -> bool:
         gd = context.scene.gd
         if gd.filepath == "//" and not bpy.data.filepath:
-            cls.poll_message_set("Relative export path but file not saved")
+            cls.poll_message_set("Relative export path set but file not saved")
             return False
         return not GRABDOC_OT_baker_export_single.poll(context)
 
@@ -590,7 +591,7 @@ class GRABDOC_OT_baker_preview_export(Operator):
 
 class GRABDOC_OT_baker_visibility(Operator):
     """Configure bake map UI visibility, will also disable baking"""
-    bl_idname  = "grab_doc.baker_visibility"
+    bl_idname  = "grabdoc.baker_visibility"
     bl_label   = "Configure Baker Visibility"
     bl_options = {'REGISTER'}
 
@@ -614,7 +615,7 @@ class GRABDOC_OT_baker_visibility(Operator):
 
 class GRABDOC_OT_baker_pack(Operator):
     """Merge previously exported bake maps into single packed texture"""
-    bl_idname  = "grab_doc.baker_pack"
+    bl_idname  = "grabdoc.baker_pack"
     bl_label   = "Run Pack"
     bl_options = {'REGISTER'}
 

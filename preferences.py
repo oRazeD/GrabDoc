@@ -227,11 +227,11 @@ class GRABDOC_PT_presets(PresetPanel, Panel):
     bl_label            = 'Bake Presets'
     preset_subdir       = 'grab_doc'
     preset_operator     = 'script.execute_preset'
-    preset_add_operator = 'grab_doc.preset_add'
+    preset_add_operator = 'grabdoc.preset_add'
 
 
 class GRABDOC_OT_add_preset(AddPresetBase, Operator):
-    bl_idname   = "grab_doc.preset_add"
+    bl_idname   = "grabdoc.preset_add"
     bl_label    = "Add a new preset"
     preset_menu = "GRABDOC_MT_presets"
 
