@@ -36,14 +36,14 @@ class Baker(PropertyGroup):
                                        ('cycles',             "Cycles",    ""),
                                        ('blender_workbench',  "Workbench", ""))
 
-    def __init__(self):
-        """Called in `create_baker_panels()`.
+    def __init__(self, *args, **kwargs):
+        PropertyGroup.__init__(self, *args, **kwargs)
 
-        Class fails to instantiate when created via `CollectionProperty`."""
         self.node_input  = None
         self.node_output = None
 
         # Assign properties using constants as defaults
+        # NOTE: Class fails to instantiate when created via `CollectionProperty`
         self.__class__.suffix = StringProperty(
             description="The suffix of the exported bake map",
             name="Suffix", default=self.ID
@@ -59,8 +59,9 @@ class Baker(PropertyGroup):
 
         # Assign "absolute" index
         if self.index == -1:
-            gd = bpy.context.scene.gd
-            self.index = self.get_unique_index(getattr(gd, self.ID))
+            #gd = bpy.context.scene.gd
+            #self.index = self.get_unique_index(getattr(gd, self.ID))
+            self.index = len(getattr(bpy.context.scene.gd, self.ID))-1
         if self.index == 0:
             return
         self.node_name = self.get_node_name(self.NAME, self.index+1)
@@ -85,6 +86,14 @@ class Baker(PropertyGroup):
         if idx:
             node_name += f"_{idx}"
         return node_name
+
+    def get_display_name(self) -> str:
+        baker_name = self.NAME
+        if self.ID == 'custom':
+            baker_name = self.suffix.replace("_", " ").capitalize()
+        elif self.index > 0:
+            baker_name += f" {self.index+1}"
+        return baker_name
 
     def setup(self):
         """General operations to run before bake export."""
@@ -389,9 +398,14 @@ class Curvature(Baker):
     OPTIONAL_SOCKETS    = ()
     SUPPORTED_ENGINES   = Baker.SUPPORTED_ENGINES[1:]
 
-    def __init__(self):
-        super().__init__()
-        self.engine = self.SUPPORTED_ENGINES[-1][0]
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.__class__.engine = EnumProperty(
+            name='Render Engine',
+            items=self.SUPPORTED_ENGINES,
+            default=self.SUPPORTED_ENGINES[-1][0],
+            update=self.__class__.apply_render_settings
+        )
 
     def setup(self) -> None:
         super().setup()
@@ -652,9 +666,7 @@ class Id(Baker):
     OPTIONAL_SOCKETS    = ()
     SUPPORTED_ENGINES   = (Baker.SUPPORTED_ENGINES[-1],)
 
-    def __init__(self):
-        super().__init__()
-        self.disable_filtering = True
+    # TODO: self.disable_filtering = True
 
     def setup(self) -> None:
         super().setup()

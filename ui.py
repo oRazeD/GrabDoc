@@ -217,7 +217,8 @@ class GRABDOC_PT_bake_maps(GDPanel):
                              emboss=False, text="", icon="SETTINGS")
 
     def draw(self, context: Context):
-        if not context.scene.gd.preview_state:
+        gd = context.scene.gd
+        if not gd.preview_state:
             return
 
         layout = self.layout
@@ -230,9 +231,7 @@ class GRABDOC_PT_bake_maps(GDPanel):
 
         row = col.row(align=True)
         row.scale_y = 1.1
-
-        gd = context.scene.gd
-        baker = getattr(gd, gd.preview_map_type)[gd.preview_index]
+        baker = getattr(gd, gd.preview_map_type)[0]
         row.operator(
             "grabdoc.baker_export_preview",
             text=f"Export {baker.NAME}", icon="EXPORT"
@@ -254,9 +253,10 @@ class GRABDOC_PT_pack_maps(GDPanel):
     def draw_header(self, _context: Context):
         self.layout.label(icon='RENDERLAYERS')
 
-    def draw_header_preset(self, _context: Context):
-        self.layout.scale_x = .9
-        self.layout.operator("grabdoc.baker_pack")
+    # TODO: Idk if I like this from a UX persp anymore
+    #def draw_header_preset(self, _context: Context):
+    #    self.layout.scale_x = .9
+    #    self.layout.operator("grabdoc.baker_pack")
 
     def draw(self, context: Context):
         layout = self.layout
@@ -284,31 +284,22 @@ class GRABDOC_PT_Baker(GDPanel):
             return False
         return not context.scene.gd.preview_state and cls.baker.visibility
 
-    def draw_header(self, context: Context):
+    def draw_header(self, _context: Context):
         row = self.layout.row(align=True)
-
-        baker_name = self.baker.NAME
-        if self.baker.ID == 'custom':
-            baker_name = self.baker.suffix.capitalize()
-
-        index = self.baker.index
-        if index > 0 and not self.baker.ID == 'custom':
-            baker_name = f"{self.baker.NAME} {index+1}"
-        text = f"{baker_name} Preview".replace("_", " ")
-
         row2 = row.row(align=True)
         if self.baker.ID == 'custom' \
         and not isinstance(self.baker.node_tree, NodeTree):
             row2.enabled = False
         row2.separator(factor=.5)
         row2.prop(self.baker, 'enabled', text="")
+        text = f"{self.baker.get_display_name()} Preview"
         preview = row2.operator("grabdoc.baker_preview", text=text)
         preview.map_type    = self.baker.ID
         preview.baker_index = self.baker.index
         row2.operator("grabdoc.baker_export_single",
                       text="", icon='RENDER_STILL').map_type = self.baker.ID
 
-        if self.baker == getattr(context.scene.gd, self.baker.ID)[0]:
+        if self.baker.index == 0:
             row.operator("grabdoc.baker_add",
                          text="", icon='ADD').map_type = self.baker.ID
             return
@@ -325,30 +316,31 @@ class GRABDOC_PT_Baker(GDPanel):
 ################################################
 
 
-def create_baker_panels():
-    """Creates panels for every item in the baker
-    `CollectionProperty`s utilizing dynamic subclassing."""
-    baker_classes = []
-    for baker_prop in get_baker_collections():
-        for baker in baker_prop:
-            baker.__init__() # pylint: disable=C2801
-            class_name      = f"GRABDOC_PT_{baker.ID}_{baker.index}"
-            panel_cls       = type(class_name, (GRABDOC_PT_Baker,), {})
-            panel_cls.baker = baker
-            baker_classes.append(panel_cls)
-    return baker_classes
-
-
 def register_baker_panels():
+    """Unregister and re-register all baker panels."""
     for cls in GRABDOC_PT_Baker.__subclasses__():
         try:
             bpy.utils.unregister_class(cls)
             classes.remove(cls)
         except RuntimeError:
             continue
-    for cls in create_baker_panels():
+    for cls in subclass_panels():
         bpy.utils.register_class(cls)
         classes.append(cls)
+
+def subclass_panels():
+    """Creates panels for every item in the baker
+    `CollectionProperty`s via dynamic subclassing."""
+    baker_classes = []
+    for baker_prop in get_baker_collections():
+        for baker in baker_prop:
+            if bpy.app.version < (4, 4, 0):
+                baker.__init__() # pylint: disable=C2801
+            class_name = f"GRABDOC_PT_{baker.ID}_{baker.index}"
+            panel_cls = type(class_name, (GRABDOC_PT_Baker,), {})
+            panel_cls.baker = baker
+            baker_classes.append(panel_cls)
+    return baker_classes
 
 
 classes = [
