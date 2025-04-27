@@ -33,7 +33,7 @@ def scene_setup(_self, context: Context) -> None:
         if bpy.ops.object.mode_set.poll():
             bpy.ops.object.mode_set(mode='OBJECT')
 
-    for ob in context.selected_objects:
+    for ob in context.selected_objects[:]:
         ob.select_set(False)
 
     saved_plane_loc, saved_plane_rot, \
@@ -185,7 +185,7 @@ def scene_cleanup(context: Context, hard_reset: bool=True) -> None | list:
     saved_bake_group_obs = []
     bake_group_coll = bpy.data.collections.get(Global.COLL_GROUP_NAME)
     if bake_group_coll is not None:
-        for ob in bake_group_coll.all_objects:
+        for ob in bake_group_coll.all_objects[:]:
             if hard_reset or not context.scene.gd.use_bake_collection:
                 context.scene.collection.objects.link(ob)
             else:
@@ -196,7 +196,7 @@ def scene_cleanup(context: Context, hard_reset: bool=True) -> None | list:
     # NOTE: Compensate for objects accidentally placed in the core collection
     gd_coll = bpy.data.collections.get(Global.COLL_CORE_NAME)
     if gd_coll is not None:
-        for ob in gd_coll.all_objects:
+        for ob in gd_coll.all_objects[:]:
             if ob.name not in (Global.BG_PLANE_NAME,
                                Global.ORIENT_GUIDE_NAME,
                                Global.HEIGHT_GUIDE_NAME,

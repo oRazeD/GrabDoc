@@ -39,8 +39,7 @@ class GRABDOC_OT_quick_id_setup(Operator):
             if mat.name.startswith(Global.RANDOM_ID_PREFIX):
                 bpy.data.materials.remove(mat)
 
-        rendered_obs = get_rendered_objects()
-        for ob in rendered_obs:
+        for ob in get_rendered_objects():
             add_mat = True
             if ob.name.startswith(Global.FLAG_PREFIX):
                 continue
@@ -83,7 +82,7 @@ class GRABDOC_OT_quick_id_selected(UseSelectedOnly, Operator):
         bsdf = mat.node_tree.nodes.get('Principled BSDF')
         bsdf.inputs[0].default_value = mat.diffuse_color
 
-        for ob in context.selected_objects:
+        for ob in context.selected_objects[:]:
             if ob.type not in ('MESH', 'CURVE'):
                 continue
             ob.active_material_index = 0

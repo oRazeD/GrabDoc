@@ -334,6 +334,7 @@ def subclass_panels():
     baker_classes = []
     for baker_prop in get_baker_collections():
         for baker in baker_prop:
+            # NOTE: Old versions don't init correctly
             if bpy.app.version < (4, 4, 0):
                 baker.__init__() # pylint: disable=C2801
             class_name = f"GRABDOC_PT_{baker.ID}_{baker.index}"

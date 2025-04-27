@@ -159,7 +159,7 @@ class GrabDoc_OT_send_to_marmo(Operator):
         )
 
         # Cleanup
-        for ob in context.view_layer.objects:
+        for ob in context.view_layer.objects[:]:
             ob.select_set(False)
             if ob.name.endswith(Global.LOW_SUFFIX):
                 ob.name = ob.name.replace(Global.LOW_SUFFIX, "")
