@@ -15,6 +15,7 @@ from bpy.props import (
 )
 
 from .baker import Baker
+from .utils.baker import get_bakers
 from .utils.scene import scene_setup
 
 
@@ -47,6 +48,20 @@ This can get in the way of other modal operators, causing some friction""",
     def draw(self, _context: Context):
         for prop in self.__annotations__.keys():
             self.layout.prop(self, prop)
+
+
+def generate_channel_pack_enums() -> None:
+    map_types = [('none', "None", "")]
+    for baker in get_bakers():
+        map_types.append((baker.ID, baker.get_display_name(), ""))
+    GRABDOC_PG_properties.channel_r = \
+        EnumProperty(items=map_types[1:], default="occlusion", name='R')
+    GRABDOC_PG_properties.channel_g = \
+        EnumProperty(items=map_types[1:], default="roughness", name='G')
+    GRABDOC_PG_properties.channel_b = \
+        EnumProperty(items=map_types[1:], default="metallic",  name='B')
+    GRABDOC_PG_properties.channel_a = \
+        EnumProperty(items=map_types,     default="none",      name='A')
 
 
 class GRABDOC_PG_properties(PropertyGroup):
@@ -205,10 +220,6 @@ When disabled, pixel filtering is reduced to .01px""",
         name="Remove Original", default=False
     )
     pack_name: StringProperty(name="Packed Map Name", default="ORM")
-    channel_r: EnumProperty(items=MAP_TYPES[1:], default="occlusion", name='R')
-    channel_g: EnumProperty(items=MAP_TYPES[1:], default="roughness", name='G')
-    channel_b: EnumProperty(items=MAP_TYPES[1:], default="metallic",  name='B')
-    channel_a: EnumProperty(items=MAP_TYPES,     default="none",      name='A')
 
 
 ################################################
@@ -247,7 +258,7 @@ class GRABDOC_OT_add_preset(AddPresetBase, Operator):
             continue
         preset_values.append(f"gd.{name}")
 
-    # TODO: Figure out a way to run register_baker_panels
+    # TODO: Figure out a way to run refresh_baker_dependencies
     #       in order to support multi-baker presets
     #def execute(self, context: Context):
     #    super().execute(context)
