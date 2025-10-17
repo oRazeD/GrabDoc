@@ -7,7 +7,7 @@ from bpy.types import SpaceView3D, Event, Context, Operator, UILayout
 from bpy.props import StringProperty, IntProperty
 
 from ..constants import Global, Error
-from ..ui import register_baker_panels
+from ..__init__ import refresh_baker_dependencies
 from ..utils.io import get_format, get_temp_path
 from ..utils.render import get_rendered_objects
 from ..utils.generic import get_user_preferences
@@ -21,7 +21,7 @@ from ..utils.baker import (
     baker_cleanup, get_bakers, get_baker_by_index
 )
 from ..utils.pack import (
-    get_channel_path, pack_image_channels, is_pack_maps_enabled
+    get_channel_paths, pack_image_channels, is_pack_maps_enabled
 )
 
 
@@ -89,7 +89,7 @@ Can also potentially fix console spam from UI elements"""
             baker_prop.clear()
             baker = baker_prop.add()
 
-        register_baker_panels()
+        refresh_baker_dependencies()
         scene_setup(self, context)
 
         for baker in get_bakers():
@@ -123,7 +123,7 @@ class GRABDOC_OT_baker_add(Operator):
     def execute(self, context: Context):
         baker_prop = getattr(context.scene.gd, self.map_type)
         baker = baker_prop.add()
-        register_baker_panels()
+        refresh_baker_dependencies()
         baker.node_setup()
         return {'FINISHED'}
 
@@ -146,7 +146,7 @@ class GRABDOC_OT_baker_remove(Operator):
             if bake_map.index == baker.index:
                 baker_prop.remove(idx)
                 break
-        register_baker_panels()
+        refresh_baker_dependencies()
         return {'FINISHED'}
 
 
@@ -352,7 +352,7 @@ Rendering a second time will overwrite the internal image"""
         plane_ob = bpy.data.objects[Global.BG_PLANE_NAME]
         plane_ob.scale[0] = plane_ob.scale[1] = 1
 
-        if activeCallback:
+        if activeCallback is not None:
             context.view_layer.objects.active = bpy.data.objects[activeCallback]
             # NOTE: Also helps refresh viewport
             if bpy.ops.object.mode_set.poll():
@@ -573,7 +573,8 @@ class GRABDOC_OT_baker_preview_export(Operator):
             plane_ob.scale[0] = plane_ob.scale[1] = 3
 
         gd = context.scene.gd
-        baker = getattr(gd, gd.preview_map_type)[self.baker_index]
+        baker_prop = getattr(gd, gd.preview_map_type)
+        baker = get_baker_by_index(baker_prop, gd.preview_index)
 
         GRABDOC_OT_baker_export.export(context, baker.suffix)
         if baker.reimport:
@@ -617,46 +618,30 @@ class GRABDOC_OT_baker_pack(Operator):
     """Merge previously exported bake maps into single packed texture"""
     bl_idname  = "grabdoc.baker_pack"
     bl_label   = "Run Pack"
-    bl_options = {'REGISTER'}
-
-    @classmethod
-    def poll(cls, context: Context) -> bool:
-        gd = context.scene.gd
-        r = get_channel_path(gd.channel_r)
-        g = get_channel_path(gd.channel_g)
-        b = get_channel_path(gd.channel_b)
-        a = get_channel_path(gd.channel_a)
-        if not all((r, g, b)):
-            cls.poll_message_set("No bake maps exported yet")
-            return False
-        if gd.channel_a != 'none' and a is None:
-            cls.poll_message_set("The A channel set but texture not exported")
-            return False
-        return True
+    bl_options = {'REGISTER', 'INTERNAL'}
 
     def execute(self, context: Context):
-        gd = context.scene.gd
-        pack_name = gd.filename + "_" + gd.pack_name
-        path = gd.filepath
-
         # Loads all images into blender to avoid using a
         # separate python module to convert to np array
-        image_r = bpy.data.images.load(get_channel_path(gd.channel_r))
-        image_g = bpy.data.images.load(get_channel_path(gd.channel_g))
-        image_b = bpy.data.images.load(get_channel_path(gd.channel_b))
+        r, g, b, a = get_channel_paths()
+        image_r = bpy.data.images.load(r)
+        image_g = bpy.data.images.load(g)
+        image_b = bpy.data.images.load(b)
         pack_order = [(image_r, (0, 0)),
                       (image_g, (0, 1)),
                       (image_b, (0, 2))]
+        gd = context.scene.gd
         if gd.channel_a != 'none':
-            image_a = bpy.data.images.load(get_channel_path(gd.channel_a))
+            image_a = bpy.data.images.load(a)
             pack_order.append((image_a, (0, 3)))
 
+        pack_name = gd.filename + "_" + gd.pack_name
         dst_image = pack_image_channels(pack_order, pack_name)
-        dst_image.filepath_raw = path+"//"+pack_name+get_format()
-        dst_image.file_format = gd.format
+        dst_image.filepath_raw = gd.filepath + "//" + pack_name + get_format()
+        dst_image.file_format  = gd.format
         dst_image.save()
 
-        # Remove images from blend file to keep it clean
+        # Remove internal images
         bpy.data.images.remove(image_r)
         bpy.data.images.remove(image_g)
         bpy.data.images.remove(image_b)
@@ -664,17 +649,17 @@ class GRABDOC_OT_baker_pack(Operator):
             bpy.data.images.remove(image_a)
         bpy.data.images.remove(dst_image)
 
-        # Option to delete the extra maps through the operator panel
-        if gd.remove_original_maps is True:
-            if os.path.exists(get_channel_path(gd.channel_r)):
-                os.remove(get_channel_path(gd.channel_r))
-            if os.path.exists(get_channel_path(gd.channel_g)):
-                os.remove(get_channel_path(gd.channel_g))
-            if os.path.exists(get_channel_path(gd.channel_b)):
-                os.remove(get_channel_path(gd.channel_b))
-            if gd.channel_a != 'none' and \
-            os.path.exists(get_channel_path(gd.channel_a)):
-                os.remove(get_channel_path(gd.channel_a))
+        # Remove image files
+        if gd.remove_original_maps is False:
+            return {'FINISHED'}
+        if os.path.exists(r):
+            os.remove(r)
+        if os.path.exists(g):
+            os.remove(g)
+        if os.path.exists(b):
+            os.remove(b)
+        if gd.channel_a != 'none' and os.path.exists(a):
+            os.remove(a)
         return {'FINISHED'}
 
 
