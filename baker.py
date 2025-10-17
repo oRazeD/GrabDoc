@@ -786,41 +786,48 @@ class Alpha(Baker):
         map_range.inputs[1].default_value = camera_object_z - .00001
         map_range.inputs[2].default_value = camera_object_z
 
-        invert_mask = self.node_tree.nodes.new('ShaderNodeInvert')
-        invert_mask.name = "Invert Mask"
-        invert_mask.location = (-600, 200)
-
         invert_depth = self.node_tree.nodes.new('ShaderNodeInvert')
         invert_depth.name = "Invert Depth"
         invert_depth.location = (-600, 0)
 
-        mix = self.node_tree.nodes.new('ShaderNodeMix')
-        mix.name = "Invert Mask"
-        mix.data_type = "RGBA"
-        mix.inputs["B"].default_value = (0, 0, 0, 1)
-        mix.location = (-400, 0)
-
         emission = self.node_tree.nodes.new('ShaderNodeEmission')
-        emission.location = (-200, 0)
+        emission.location = (-400, 0)
+
+        invert = self.node_tree.nodes.new('ShaderNodeInvert')
+        invert.location = (-600, -300)
+
+        subtract = self.node_tree.nodes.new('ShaderNodeMixRGB')
+        subtract.blend_type = 'SUBTRACT'
+        subtract.inputs[0].default_value = 1
+        subtract.inputs[1].default_value = (1, 1, 1, 1)
+        subtract.location = (-400, -300)
+
+        transp_shader = self.node_tree.nodes.new('ShaderNodeBsdfTransparent')
+        transp_shader.location = (-200, -125)
+
+        mix_shader = self.node_tree.nodes.new('ShaderNodeMixShader')
+        mix_shader.location = (-200, 0)
 
         links = self.node_tree.links
-        links.new(invert_mask.inputs["Color"], self.node_input.outputs["Alpha"])
-        links.new(mix.inputs["Factor"], invert_mask.outputs["Color"])
-
         links.new(map_range.inputs["Value"], camera.outputs["View Z Depth"])
         links.new(invert_depth.inputs["Color"], map_range.outputs["Result"])
-        links.new(mix.inputs["A"], invert_depth.outputs["Color"])
+        links.new(emission.inputs["Color"], invert_depth.outputs["Color"])
 
-        links.new(emission.inputs["Color"], mix.outputs["Result"])
-        links.new(self.node_output.inputs["Shader"],
-                  emission.outputs["Emission"])
+        links.new(invert.inputs[1],   self.node_input.outputs['Alpha'])
+        links.new(subtract.inputs[2], invert.outputs[0])
+
+        links.new(mix_shader.inputs[0], subtract.outputs[0])
+        links.new(mix_shader.inputs[1], transp_shader.outputs[0])
+        links.new(mix_shader.inputs[2], emission.outputs["Emission"])
+        links.new(self.node_output.inputs['Shader'],
+                  mix_shader.outputs['Shader'])
+
 
     def draw_properties(self, context: Context, layout: UILayout):
         if context.scene.gd.engine != 'grabdoc':
             return
         col = layout.column()
         col.prop(self, 'invert_depth', text="Invert Depth")
-        col.prop(self, 'invert_mask', text="Invert Mask")
 
     def update_map_range(self, _context: Context):
         map_range = self.node_tree.nodes['Map Range']
@@ -829,14 +836,9 @@ class Alpha(Baker):
         map_range.inputs[2].default_value = camera_object_z
         invert_depth = self.node_tree.nodes['Invert Depth']
         invert_depth.inputs[0].default_value = 0 if self.invert_depth else 1
-        invert_mask = self.node_tree.nodes['Invert Mask']
-        invert_mask.inputs[0].default_value = 0 if self.invert_mask else 1
 
     invert_depth: BoolProperty(
         description="Invert the global depth mask", update=update_map_range
-    )
-    invert_mask: BoolProperty(
-        description="Invert the alpha mask", update=update_map_range
     )
 
 
