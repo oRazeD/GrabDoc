@@ -352,7 +352,7 @@ Rendering a second time will overwrite the internal image"""
         plane_ob = bpy.data.objects[Global.BG_PLANE_NAME]
         plane_ob.scale[0] = plane_ob.scale[1] = 1
 
-        if activeCallback:
+        if activeCallback is not None:
             context.view_layer.objects.active = bpy.data.objects[activeCallback]
             # NOTE: Also helps refresh viewport
             if bpy.ops.object.mode_set.poll():
@@ -573,7 +573,8 @@ class GRABDOC_OT_baker_preview_export(Operator):
             plane_ob.scale[0] = plane_ob.scale[1] = 3
 
         gd = context.scene.gd
-        baker = getattr(gd, gd.preview_map_type)[self.baker_index]
+        baker_prop = getattr(gd, gd.preview_map_type)
+        baker = get_baker_by_index(baker_prop, gd.preview_index)
 
         GRABDOC_OT_baker_export.export(context, baker.suffix)
         if baker.reimport:
@@ -618,17 +619,6 @@ class GRABDOC_OT_baker_pack(Operator):
     bl_idname  = "grabdoc.baker_pack"
     bl_label   = "Run Pack"
     bl_options = {'REGISTER', 'INTERNAL'}
-
-    #@classmethod
-    #def poll(cls, context: Context) -> bool:
-    #    r, g, b, a = get_channel_paths()
-    #    if not all((r, g, b)):
-    #        cls.poll_message_set("No bake maps exported yet")
-    #        return False
-    #    if context.scene.gd.channel_a != 'none' and a is None:
-    #        cls.poll_message_set("The A channel set but texture not exported")
-    #        return False
-    #    return True
 
     def execute(self, context: Context):
         # Loads all images into blender to avoid using a

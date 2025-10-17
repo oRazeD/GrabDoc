@@ -36,37 +36,33 @@ class Baker(PropertyGroup):
                                        ('cycles',             "Cycles",    ""),
                                        ('blender_workbench',  "Workbench", ""))
 
-    def __init__(self, *args, **kwargs):
-        PropertyGroup.__init__(self, *args, **kwargs)
-
+    def initialize(self):
+        """Initialize baker instance after creation in PropertyCollection."""
         self.node_input  = None
         self.node_output = None
-
-        # Assign properties using constants as defaults
-        # NOTE: Class fails to instantiate when created via `CollectionProperty`
-        self.__class__.suffix = StringProperty(
-            description="The suffix of the exported bake map",
-            name="Suffix", default=self.ID
-        )
+        # NOTE: Unique due to dynamic SUPPORTED_ENGINES enum
         self.__class__.engine = EnumProperty(
             name='Render Engine',
-            items=self.SUPPORTED_ENGINES,
+            items=self.__class__.SUPPORTED_ENGINES,
             update=self.__class__.apply_render_settings
         )
-        self.__class__.enabled = BoolProperty(
-            name="Export Enabled", default=self.MARMOSET_COMPATIBLE
-        )
 
-        # Assign "absolute" index
+        self.suffix = self.ID
+        if len(self.REQUIRED_SOCKETS) > 0 or self.ID == 'custom':
+            self.enabled = False
+
         if self.index == -1:
-            #gd = bpy.context.scene.gd
-            #self.index = self.get_unique_index(getattr(gd, self.ID))
-            self.index = len(getattr(bpy.context.scene.gd, self.ID))-1
-        if self.index == 0:
-            return
-        self.node_name = self.get_node_name(self.NAME, self.index+1)
-        if not self.suffix[-1].isdigit():
-            self.suffix = f"{self.suffix}_{self.index+1}"
+            try:
+                gd = bpy.context.scene.gd
+                self.index = self.get_unique_index(getattr(gd, self.ID))
+            except (AttributeError, RuntimeError):
+                # Handle cases where context or gd is not available
+                self.index = 0
+        if self.index > 0:
+            self.node_name = self.get_node_name(self.NAME, self.index+1)
+            if hasattr(self, 'suffix') and self.suffix \
+            and not self.suffix[-1].isdigit():
+                self.suffix = f"{self.suffix}_{self.index+1}"
 
     @staticmethod
     def get_unique_index(collection: CollectionProperty) -> int:
@@ -89,9 +85,7 @@ class Baker(PropertyGroup):
 
     def get_display_name(self) -> str:
         baker_name = self.NAME
-        if self.ID == 'custom':
-            baker_name = self.suffix.replace("_", " ").capitalize()
-        elif self.index > 0:
+        if self.index > 0:
             baker_name += f" {self.index+1}"
         return baker_name
 
@@ -227,6 +221,13 @@ class Baker(PropertyGroup):
     node_tree: PointerProperty(type=NodeTree)
 
     # NOTE: Default properties
+    suffix: StringProperty(
+        description="The suffix of the exported bake map",
+        name="Suffix", default=""
+    )
+    enabled: BoolProperty(
+        name="Export Enabled", default=True
+    )
     reimport: BoolProperty(
         description="Reimport bake map texture into a Blender material",
         name="Re-import"
@@ -396,16 +397,8 @@ class Curvature(Baker):
     MARMOSET_COMPATIBLE = True
     REQUIRED_SOCKETS    = ()
     OPTIONAL_SOCKETS    = ()
-    SUPPORTED_ENGINES   = Baker.SUPPORTED_ENGINES[1:]
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.__class__.engine = EnumProperty(
-            name='Render Engine',
-            items=self.SUPPORTED_ENGINES,
-            default=self.SUPPORTED_ENGINES[-1][0],
-            update=self.__class__.apply_render_settings
-        )
+    SUPPORTED_ENGINES = (('blender_workbench',  "Workbench", ""),
+                         ('cycles',             "Cycles",    ""))
 
     def setup(self) -> None:
         super().setup()
@@ -666,7 +659,9 @@ class Id(Baker):
     OPTIONAL_SOCKETS    = ()
     SUPPORTED_ENGINES   = (Baker.SUPPORTED_ENGINES[-1],)
 
-    # TODO: self.disable_filtering = True
+    def initialize(self):
+        super().initialize()
+        self.disable_filtering = True
 
     def setup(self) -> None:
         super().setup()
