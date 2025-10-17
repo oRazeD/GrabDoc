@@ -32,7 +32,7 @@ class Baker(PropertyGroup):
     MARMOSET_COMPATIBLE:       bool = True
     REQUIRED_SOCKETS:    tuple[str] = ()
     OPTIONAL_SOCKETS:    tuple[str] = ('Alpha',)
-    SUPPORTED_ENGINES               = ((Global.EEVEE_ENGINE_NAME,"EEVEE",""),
+    SUPPORTED_ENGINES               = ((Global.EEVEE_ENGINE_NAME, "EEVEE", ""),
                                        ('cycles', "Cycles", ""),
                                        ('blender_workbench', "Workbench", ""))
 
@@ -280,8 +280,24 @@ class Normals(Baker):
         self.node_tree.interface.new_socket(
             name='Normal', socket_type='NodeSocketVector'
         )
+        self.node_input.location = (-1400, -225)
+
+        geometry = self.node_tree.nodes.new('ShaderNodeNewGeometry')
+        geometry.location = (-1400, 0)
+
+        vec_mix = self.node_tree.nodes.new('ShaderNodeMix')
+        vec_mix.data_type = 'VECTOR'
+        vec_mix.location = (-1200, 0)
+
+        vec_sep = self.node_tree.nodes.new('ShaderNodeSeparateXYZ')
+        vec_sep.location = (-1200, -200)
+
+        vec_ceil = self.node_tree.nodes.new('ShaderNodeVectorMath')
+        vec_ceil.operation = 'CEIL'
+        vec_ceil.location = (-1200, -325)
 
         bevel = self.node_tree.nodes.new('ShaderNodeBevel')
+        bevel.samples = 16
         bevel.inputs[0].default_value = 0
         bevel.location = (-1000, 0)
 
@@ -304,39 +320,44 @@ class Normals(Baker):
         vec_add.location = (-400, 0)
 
         invert = self.node_tree.nodes.new('ShaderNodeInvert')
-        invert.location = (-1000, -300)
+        invert.location = (-600, -300)
 
         subtract = self.node_tree.nodes.new('ShaderNodeMixRGB')
         subtract.blend_type = 'SUBTRACT'
         subtract.inputs[0].default_value = 1
         subtract.inputs[1].default_value = (1, 1, 1, 1)
-        subtract.location = (-800, -300)
+        subtract.location = (-400, -300)
 
         transp_shader = self.node_tree.nodes.new('ShaderNodeBsdfTransparent')
-        transp_shader.location = (-400, -400)
+        transp_shader.location = (-200, -125)
 
         mix_shader = self.node_tree.nodes.new('ShaderNodeMixShader')
-        mix_shader.location = (-200, -300)
+        mix_shader.location = (-200, 0)
 
         links = self.node_tree.links
-        links.new(bevel.inputs["Normal"], self.node_input.outputs["Normal"])
-        links.new(vec_transform.inputs["Vector"], bevel.outputs["Normal"])
-        links.new(vec_mult.inputs["Vector"], vec_transform.outputs["Vector"])
-        links.new(vec_add.inputs["Vector"], vec_mult.outputs["Vector"])
+        links.new(vec_mix.inputs['Factor'], vec_sep.outputs['Z'])
+        links.new(vec_mix.inputs['A'],      geometry.outputs['Normal'])
+        links.new(vec_mix.inputs['B'],      self.node_input.outputs['Normal'])
+        links.new(vec_sep.inputs[0],        vec_ceil.outputs[0])
+        links.new(vec_ceil.inputs[0],       self.node_input.outputs['Normal'])
 
-        links.new(invert.inputs['Color'], self.node_input.outputs['Alpha'])
-        links.new(subtract.inputs['Color2'], invert.outputs['Color'])
-        links.new(mix_shader.inputs['Fac'], subtract.outputs['Color'])
-        links.new(mix_shader.inputs[1], transp_shader.outputs['BSDF'])
-        links.new(mix_shader.inputs[2], vec_add.outputs['Vector'])
+        links.new(bevel.inputs['Normal'],  vec_mix.outputs['Result'])
+        links.new(vec_transform.inputs[0], bevel.outputs[0])
+        links.new(vec_mult.inputs[0],      vec_transform.outputs[0])
+        links.new(vec_add.inputs[0],       vec_mult.outputs[0])
 
-        # NOTE: Update if use_texture default changes
-        links.new(self.node_output.inputs["Shader"],
-                  mix_shader.outputs["Shader"])
+        links.new(invert.inputs[1],   self.node_input.outputs['Alpha'])
+        links.new(subtract.inputs[2], invert.outputs[0])
+
+        links.new(mix_shader.inputs[0], subtract.outputs[0])
+        links.new(mix_shader.inputs[1], transp_shader.outputs[0])
+        links.new(mix_shader.inputs[2], vec_add.outputs[0])
+        links.new(self.node_output.inputs['Shader'],
+                  mix_shader.outputs['Shader'])
 
     def reimport_setup(self, material, image):
         bsdf   = material.node_tree.nodes['Principled BSDF']
-        normal = material.node_tree.nodes['Normal Map']
+        normal = material.node_tree.nodes.get('Normal Map')
         if normal is None:
             normal = material.node_tree.nodes.new('ShaderNodeNormalMap')
         normal.hide = True
@@ -344,31 +365,18 @@ class Normals(Baker):
         image.location  = (image.location[0] - 200, image.location[1])
         links = material.node_tree.links
         links.new(normal.inputs["Color"], image.outputs["Color"])
-        links.new(bsdf.inputs["Normal"], normal.outputs["Normal"])
+        links.new(bsdf.inputs["Normal"],  normal.outputs["Normal"])
 
     def draw_properties(self, context: Context, layout: UILayout):
         col = layout.column()
         col.prop(self, 'flip_y')
         if context.scene.gd.engine == 'grabdoc':
-            col.prop(self, 'use_texture')
             if self.engine == 'cycles':
                 col.prop(self, 'bevel_weight')
 
     def update_flip_y(self, _context: Context):
         vec_multiply = self.node_tree.nodes['Vector Math']
         vec_multiply.inputs[1].default_value[1] = -.5 if self.flip_y else .5
-
-    def update_use_texture(self, context: Context) -> None:
-        if not context.scene.gd.preview_state:
-            return
-        group_output = self.node_tree.nodes['Group Output']
-        links = self.node_tree.links
-        if self.use_texture:
-            links.new(group_output.inputs["Shader"],
-                      self.node_tree.nodes['Mix Shader'].outputs["Shader"])
-            return
-        links.new(group_output.inputs["Shader"],
-                  self.node_tree.nodes['Vector Math.001'].outputs["Vector"])
 
     def update_bevel_weight(self, _context: Context):
         bevel = self.node_tree.nodes['Bevel']
@@ -377,11 +385,6 @@ class Normals(Baker):
     flip_y: BoolProperty(
         description="Flip the normal map Y direction (DirectX format)",
         name="Invert (-Y)", options={'SKIP_SAVE'}, update=update_flip_y
-    )
-    use_texture: BoolProperty(
-        description="Use texture normals linked to the Principled BSDF",
-        name="Mix Textures", options={'SKIP_SAVE'},
-        default=True, update=update_use_texture
     )
     bevel_weight: FloatProperty(
         description="Bevel shader weight (May need to increase samples)",
@@ -500,33 +503,75 @@ class Occlusion(Baker):
 
     def node_setup(self):
         super().node_setup()
-        normal = self.node_tree.interface.new_socket(
+        self.node_tree.interface.new_socket(
             name='Normal', socket_type='NodeSocketVector'
         )
-        normal.default_value = (0.5, 0.5, 1)
+        self.node_input.location = (-1400, -225)
+
+        geometry = self.node_tree.nodes.new('ShaderNodeNewGeometry')
+        geometry.location = (-1400, 0)
+
+        vec_mix = self.node_tree.nodes.new('ShaderNodeMix')
+        vec_mix.data_type = 'VECTOR'
+        vec_mix.location = (-1200, 0)
+
+        vec_sep = self.node_tree.nodes.new('ShaderNodeSeparateXYZ')
+        vec_sep.location = (-1200, -200)
+
+        vec_ceil = self.node_tree.nodes.new('ShaderNodeVectorMath')
+        vec_ceil.operation = 'CEIL'
+        vec_ceil.location = (-1200, -325)
 
         ao = self.node_tree.nodes.new('ShaderNodeAmbientOcclusion')
         ao.samples  = 32
-        ao.location = (-800, 0)
+        ao.location = (-1000, 0)
+
+        invert = self.node_tree.nodes.new('ShaderNodeInvert')
+        invert.inputs[0].default_value = 0
+        invert.location = (-800, 0)
 
         gamma = self.node_tree.nodes.new('ShaderNodeGamma')
         gamma.inputs[1].default_value = 1
         gamma.location = (-600, 0)
 
-        invert = self.node_tree.nodes.new('ShaderNodeInvert')
-        invert.inputs[0].default_value = 0
-        invert.location = (-400, 0)
-
         emission = self.node_tree.nodes.new('ShaderNodeEmission')
-        emission.location = (-200, 0)
+        emission.location = (-400, 0)
+
+        transp_invert = self.node_tree.nodes.new('ShaderNodeInvert')
+        transp_invert.location = (-600, -300)
+
+        subtract = self.node_tree.nodes.new('ShaderNodeMixRGB')
+        subtract.blend_type = 'SUBTRACT'
+        subtract.inputs[0].default_value = 1
+        subtract.inputs[1].default_value = (1, 1, 1, 1)
+        subtract.location = (-400, -300)
+
+        transp_shader = self.node_tree.nodes.new('ShaderNodeBsdfTransparent')
+        transp_shader.location = (-200, -125)
+
+        mix_shader = self.node_tree.nodes.new('ShaderNodeMixShader')
+        mix_shader.location = (-200, 0)
 
         links = self.node_tree.links
-        links.new(ao.inputs["Normal"], self.node_input.outputs["Normal"])
-        links.new(invert.inputs["Color"], ao.outputs["Color"])
-        links.new(gamma.inputs["Color"], invert.outputs["Color"])
+        links.new(vec_mix.inputs['Factor'], vec_sep.outputs['Z'])
+        links.new(vec_mix.inputs['A'],      geometry.outputs['Normal'])
+        links.new(vec_mix.inputs['B'],      self.node_input.outputs['Normal'])
+        links.new(vec_sep.inputs[0],        vec_ceil.outputs[0])
+        links.new(vec_ceil.inputs[0],       self.node_input.outputs['Normal'])
+
+        links.new(ao.inputs["Normal"],      vec_mix.outputs['Result'])
+        links.new(invert.inputs["Color"],   ao.outputs["Color"])
+        links.new(gamma.inputs["Color"],    invert.outputs["Color"])
         links.new(emission.inputs["Color"], gamma.outputs["Color"])
-        links.new(self.node_output.inputs["Shader"],
-                  emission.outputs["Emission"])
+
+        links.new(transp_invert.inputs[1], self.node_input.outputs['Alpha'])
+        links.new(subtract.inputs[2],      transp_invert.outputs[0])
+
+        links.new(mix_shader.inputs[0], subtract.outputs[0])
+        links.new(mix_shader.inputs[1], transp_shader.outputs[0])
+        links.new(mix_shader.inputs[2], emission.outputs["Emission"])
+        links.new(self.node_output.inputs['Shader'],
+                  mix_shader.outputs['Shader'])
 
     def draw_properties(self, context: Context, layout: UILayout):
         gd = context.scene.gd

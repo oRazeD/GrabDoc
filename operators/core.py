@@ -446,7 +446,8 @@ class GRABDOC_OT_baker_preview(Operator):
 
         # Handle newly added object materials
         ob_amount = len(bpy.data.objects)
-        if ob_amount > self.last_ob_amount and self.baker.node_tree:
+        if  ob_amount > self.last_ob_amount \
+        and self.baker and self.baker.node_tree:
             link_group_to_object(context.object, self.baker.node_tree)
         self.last_ob_amount = ob_amount
 

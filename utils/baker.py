@@ -155,5 +155,7 @@ def import_baker_textures(bakers: list[Baker]) -> None:
         if not os.path.exists(filepath):
             continue
         image.image = bpy.data.images.load(filepath, check_existing=True)
+        if baker.VIEW_TRANSFORM == 'Raw':
+            image.image.colorspace_settings.name = 'Non-Color'
 
         baker.reimport_setup(mat, image)

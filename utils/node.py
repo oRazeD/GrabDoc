@@ -194,9 +194,8 @@ def generate_shader_interface(
     Generally used alongside other automation
     for creating reusable node input schemes.
 
-    Dict formatting examples:
-    - {'Displacement': 'NodeSocketVector'}
-    - {SocketName: SocketType}"""
+    Dict formatting example:
+      {'Displacement': 'NodeSocketVector'} (Name: Type)"""
     if name in tree.interface.items_tree:
         return
     saved_links = tree.interface.new_panel(name, default_closed=hidden)

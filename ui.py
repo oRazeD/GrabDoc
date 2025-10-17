@@ -276,11 +276,13 @@ class GRABDOC_PT_Baker(GDPanel):
 
     @classmethod
     def poll(cls, context: Context) -> bool:
-        if cls.baker is None:
+        if not cls.baker:
             return False
         return not context.scene.gd.preview_state and cls.baker.visibility
 
     def draw_header(self, context: Context):
+        if not self.baker:
+            return
         row = self.layout.row(align=True)
         row2 = row.row(align=True)
         if self.baker.ID == 'custom' \
