@@ -145,4 +145,3 @@ def set_color_management(
     view_settings.exposure          = 0
     view_settings.gamma             = 1
     view_settings.use_curve_mapping = False
-    view_settings.use_hdr_view      = False

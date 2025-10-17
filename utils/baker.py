@@ -43,11 +43,7 @@ def baker_setup(context: Context) -> dict:
         scene.world.use_nodes = False
 
     view_layer.use = render.use_single_layer = True
-
-    eevee.use_gtao             = False
     eevee.use_taa_reprojection = False
-    eevee.gtao_distance        = .2
-    eevee.gtao_quality         = .5
 
     cycles.pixel_filter_type = 'BLACKMAN_HARRIS'
 

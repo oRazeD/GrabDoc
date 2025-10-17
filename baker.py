@@ -32,9 +32,9 @@ class Baker(PropertyGroup):
     MARMOSET_COMPATIBLE:       bool = True
     REQUIRED_SOCKETS:    tuple[str] = ()
     OPTIONAL_SOCKETS:    tuple[str] = ('Alpha',)
-    SUPPORTED_ENGINES               = (('blender_eevee_next', "EEVEE",     ""),
-                                       ('cycles',             "Cycles",    ""),
-                                       ('blender_workbench',  "Workbench", ""))
+    SUPPORTED_ENGINES               = ((Global.EEVEE_ENGINE_NAME,"EEVEE",""),
+                                       ('cycles', "Cycles", ""),
+                                       ('blender_workbench', "Workbench", ""))
 
     def initialize(self):
         """Initialize baker instance after creation in PropertyCollection."""
@@ -143,7 +143,7 @@ class Baker(PropertyGroup):
         eevee   = scene.eevee
         display = scene.display
         render.engine = str(self.engine).upper()
-        if render.engine == "blender_eevee_next".upper():
+        if render.engine == Global.EEVEE_ENGINE_NAME.upper():
             eevee.taa_render_samples = eevee.taa_samples = self.samples
         elif render.engine == 'CYCLES':
             cycles.samples = cycles.preview_samples = self.samples_cycles
@@ -397,8 +397,8 @@ class Curvature(Baker):
     MARMOSET_COMPATIBLE = True
     REQUIRED_SOCKETS    = ()
     OPTIONAL_SOCKETS    = ()
-    SUPPORTED_ENGINES = (('blender_workbench',  "Workbench", ""),
-                         ('cycles',             "Cycles",    ""))
+    SUPPORTED_ENGINES   = (('blender_workbench',  "Workbench", ""),
+                           ('cycles',             "Cycles",    ""))
 
     def setup(self) -> None:
         super().setup()
@@ -494,8 +494,7 @@ class Occlusion(Baker):
         super().setup()
         scene = bpy.context.scene
         eevee = scene.eevee
-        if scene.render.engine == "blender_eevee_next".upper():
-            eevee.use_gtao      = True
+        if scene.render.engine == Global.EEVEE_ENGINE_NAME.upper():
             eevee.use_overscan  = True
             eevee.overscan_size = 25
 

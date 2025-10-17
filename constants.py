@@ -1,3 +1,5 @@
+import bpy
+
 
 class Global:
     """A collection of constants used for global variable standardization"""
@@ -19,6 +21,11 @@ class Global:
     COLL_GROUP_NAME   = FLAG_PREFIX + "Bake Group"
 
     CAMERA_DISTANCE = 15
+
+    # NOTE: Blender foundation forced my hand on this one
+    EEVEE_ENGINE_NAME = "blender_eevee"
+    if bpy.app.version >= (4, 2, 0) and bpy.app.version < (5, 0, 0):
+        EEVEE_ENGINE_NAME = "blender_eevee_next"
 
     INVALID_BAKE_TYPES = ('EMPTY',
                           'VOLUME',

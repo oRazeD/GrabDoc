@@ -317,12 +317,10 @@ def register_baker_panels():
     for cls in GRABDOC_PT_Baker.__subclasses__():
         try:
             bpy.utils.unregister_class(cls)
-            #classes.remove(cls)
         except RuntimeError:
             continue
     for cls in subclass_panels():
         bpy.utils.register_class(cls)
-        #classes.append(cls)
 
 def subclass_panels():
     """Creates panels for every item in the baker
@@ -330,11 +328,8 @@ def subclass_panels():
     baker_classes = []
     for baker_prop in get_baker_collections():
         for baker in baker_prop:
-            if baker.index == -1: # and hasattr(baker, 'initialize')
+            if baker.index == -1:
                 baker.initialize()
-            # NOTE: Old versions don't init correctly
-            #if bpy.app.version < (4, 4, 0):
-            #    baker.__init__() # pylint: disable=C2801
             class_name = f"GRABDOC_PT_{baker.ID}_{baker.index}"
             panel_cls = type(class_name, (GRABDOC_PT_Baker,), {})
             panel_cls.baker = baker
