@@ -171,7 +171,7 @@ def scene_setup(_self, context: Context) -> None:
 
     gd_coll.hide_select   = not gd.coll_selectable
     gd_coll.hide_viewport = not gd.coll_visible
-    gd_coll.hide_render   = not gd.coll_rendered
+    gd_coll.hide_render   = not gd.coll_rendered or gd.use_transparent
 
 
 def scene_cleanup(context: Context, hard_reset: bool=True) -> None | list:

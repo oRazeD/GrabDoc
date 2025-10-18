@@ -827,7 +827,7 @@ class Alpha(Baker):
         if context.scene.gd.engine != 'grabdoc':
             return
         col = layout.column()
-        col.prop(self, 'invert_depth', text="Invert Depth")
+        col.prop(self, 'invert_depth', text="Invert")
 
     def update_map_range(self, _context: Context):
         map_range = self.node_tree.nodes['Map Range']
@@ -838,7 +838,7 @@ class Alpha(Baker):
         invert_depth.inputs[0].default_value = 0 if self.invert_depth else 1
 
     invert_depth: BoolProperty(
-        description="Invert the global depth mask", update=update_map_range
+        description="Invert the depth mask", update=update_map_range
     )
 
 

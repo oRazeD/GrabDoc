@@ -94,13 +94,18 @@ class GRABDOC_PG_properties(PropertyGroup):
         update=scene_setup
     )
     coll_visible: BoolProperty(default=True, update=scene_setup,
-                              description="Sets the visibility in the viewport")
+                    description="Sets background visibility in the viewport")
     coll_rendered: BoolProperty(
-        description=\
-"""Sets visibility of background plane in exports.
+        description="""Sets background visibility in renders.
 
-Enables transparency and alpha channel if disabled""",
+Also enable alpha channel when baking.""",
         default=True, update=scene_setup
+    )
+    use_transparent: BoolProperty(
+        description="""Enables alpha channel when baking.
+
+Also sets background visibility in renders.""",
+        name="Transparent", default=False, update=scene_setup
     )
 
     scale: FloatProperty(
@@ -173,7 +178,7 @@ When disabled, pixel filtering is reduced to .01px""",
     )
     use_bake_collection: BoolProperty(
         description="Add a collection to the scene for use as bake groups",
-        update=scene_setup
+        name="Bake Groups", update=scene_setup
     )
 
     # Bake maps

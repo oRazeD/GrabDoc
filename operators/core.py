@@ -431,7 +431,7 @@ class GRABDOC_OT_baker_preview(Operator):
         # Format
         # NOTE: Set alpha channel if background plane not visible in render
         image_settings = scene.render.image_settings
-        if not gd.coll_rendered:
+        if not gd.coll_rendered or gd.use_transparent:
             scene.render.film_transparent = True
             image_settings.color_mode     = 'RGBA'
         else:

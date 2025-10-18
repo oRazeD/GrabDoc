@@ -56,7 +56,7 @@ def baker_setup(context: Context) -> dict:
     # Output
     # NOTE: If background plane not visible in render, create alpha channel
     image_settings.color_mode = 'RGB'
-    if not gd.coll_rendered:
+    if not gd.coll_rendered or gd.use_transparent:
         image_settings.color_mode = 'RGBA'
         render.film_transparent   = True
 
@@ -81,7 +81,7 @@ def baker_setup(context: Context) -> dict:
     # Background plane visibility
     bg_plane = bpy.data.objects.get(Global.BG_PLANE_NAME)
     bg_plane.hide_viewport = not gd.coll_visible
-    bg_plane.hide_render   = not gd.coll_rendered
+    bg_plane.hide_render   = not gd.coll_rendered or gd.use_transparent
     bg_plane.hide_set(False)
 
     return saved_properties

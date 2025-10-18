@@ -190,8 +190,9 @@ class GRABDOC_PT_output(GDPanel):
             row.prop(gd, "mt_samples", text="Samples", expand=True)
 
         col = layout.column(align=True)
-        col.prop(gd, "use_bake_collection", text="Bake Groups")
+        col.prop(gd, 'use_bake_collection')
         col.prop(gd, 'use_pack_maps')
+        col.prop(gd, 'use_transparent')
         if gd.use_pack_maps:
             col.prop(gd, 'remove_original_maps')
         if gd.engine == "marmoset":
