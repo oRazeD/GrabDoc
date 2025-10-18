@@ -27,8 +27,7 @@ class GRABDOC_AP_preferences(AddonPreferences):
         name="Marmoset EXE Path", default="", subtype="FILE_PATH"
     )
     render_within_frustrum: BoolProperty(
-        description=\
-"""Only render objects within the camera's viewing frustrum.
+        description="""Only render objects within the camera's viewing frustrum.
 
 Improves render speed but it may apply materials incorrectly (void objects)""",
         name="Render Within Frustrum", default=False

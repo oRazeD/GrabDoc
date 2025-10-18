@@ -280,13 +280,11 @@ class GRABDOC_PT_Baker(GDPanel):
         return not context.scene.gd.preview_state and cls.baker.visibility
 
     def draw_header(self, context: Context):
-        if not self.baker:
-            return
         row = self.layout.row(align=True)
         row2 = row.row(align=True)
-        if self.baker.ID == 'custom' \
-        and not isinstance(self.baker.node_tree, NodeTree):
-            row2.enabled = False
+        #if self.baker.ID == 'custom' \
+        #and not isinstance(self.baker.node_tree, NodeTree):
+        #    row2.enabled = False
         row2.separator(factor=.5)
         row2.prop(self.baker, 'enabled', text="")
         text = f"{self.baker.get_display_name()} Preview"
