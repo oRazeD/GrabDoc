@@ -124,7 +124,7 @@ def find_tallest_object(objects: list[Object]=None) -> float:
             tallest_verts.append(max_z_co)
         ob_eval.to_mesh_clear()
     if not tallest_verts:
-        bpy.context.scene.gd.height[0].method = 'MANUAL'
+        bpy.context.scene.gd.height[0].method = 'manual'
         # NOTE: Fallback to manual height value
         return bpy.context.scene.gd.height[0].distance
     return max(tallest_verts)

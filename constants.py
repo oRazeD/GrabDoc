@@ -23,9 +23,9 @@ class Global:
     CAMERA_DISTANCE = 15
 
     # NOTE: Blender foundation forced my hand on this one
-    EEVEE_ENGINE_NAME = "blender_eevee"
+    EEVEE_NAME = "blender_eevee"
     if bpy.app.version >= (4, 2, 0) and bpy.app.version < (5, 0, 0):
-        EEVEE_ENGINE_NAME = "blender_eevee_next"
+        EEVEE_NAME = "blender_eevee_next"
 
     INVALID_BAKE_TYPES = ('EMPTY',
                           'VOLUME',
@@ -59,5 +59,5 @@ class Error:
     EXPORT_COMPLETE           = "Export completed!"
     CAMERA_NOT_FOUND          = \
         "GrabDoc camera not found, please run the Refresh Scene operator"
-    MISSING_SLOT_LINKS        = \
+    MISSING_LINKS             = \
         "socket(s) found without links, bake results may appear incorrect"
