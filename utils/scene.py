@@ -155,7 +155,7 @@ def scene_setup(_self, context: Context) -> None:
         bpy.ops.view3d.view_camera()
 
     # Point cloud
-    if gd.height[0].enabled and gd.height[0].method == 'MANUAL':
+    if gd.height[0].enabled and gd.height[0].method == 'manual':
         generate_height_guide(Global.HEIGHT_GUIDE_NAME, plane_ob)
     generate_orientation_guide(Global.ORIENT_GUIDE_NAME, plane_ob)
 
