@@ -120,7 +120,7 @@ class GrabDoc_OT_send_to_marmo(Operator):
 
         rendered_obs = get_rendered_objects()
         gd = context.scene.gd
-        if gd.height[0].enabled and gd.height[0].method == 'auto':
+        if gd.height[0].enabled and gd.height[0].method == 'AUTO':
             set_guide_height(rendered_obs)
 
         # Attach _high suffix to all user assets

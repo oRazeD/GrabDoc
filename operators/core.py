@@ -50,40 +50,12 @@ class GRABDOC_OT_open_folder(Operator):
     bl_label   = "Open Export Folder"
     bl_options = {'REGISTER', 'UNDO'}
 
-    def execute(self, _context: Context):
+    def execute(self, context: Context):
         try:
             bpy.ops.wm.path_open(filepath=get_filepath())
         except RuntimeError:
             self.report({'ERROR'}, Error.NO_VALID_PATH_SET)
             return {'CANCELLED'}
-        return {'FINISHED'}
-
-
-class GRABDOC_OT_increase_resolution(Operator):
-    """Increase the current resolution by a single step (2048 -> 4096)"""
-    bl_idname  = "grabdoc.increase_resolution"
-    bl_label   = "Increase Resolution"
-    bl_options = {'REGISTER', 'UNDO'}
-
-    def execute(self, context: Context):
-        gd = context.scene.gd
-        gd.resolution_x *= 2
-        if not gd.resolution_lock:
-            gd.resolution_y *= 2
-        return {'FINISHED'}
-
-
-class GRABDOC_OT_decrease_resolution(Operator):
-    """Decrease the current resolution by a single step (4096 -> 2048)"""
-    bl_idname  = "grabdoc.decrease_resolution"
-    bl_label   = "Decrease Resolution"
-    bl_options = {'REGISTER', 'UNDO'}
-
-    def execute(self, context: Context):
-        gd = context.scene.gd
-        gd.resolution_x //= 2
-        if not gd.resolution_lock:
-            gd.resolution_y //= 2
         return {'FINISHED'}
 
 
@@ -180,7 +152,7 @@ class GRABDOC_OT_baker_remove(Operator):
 
 class GRABDOC_OT_baker_export(Operator, UILayout):
     """Bake and export all enabled bake maps"""
-    bl_idname  = "grabdoc.baker_export"
+    bl_idname = "grabdoc.baker_export"
     bl_label   = "Export Maps"
     bl_options = {'REGISTER', 'INTERNAL'}
 
@@ -252,19 +224,19 @@ class GRABDOC_OT_baker_export(Operator, UILayout):
         plane_ob = bpy.data.objects[Global.BG_PLANE_NAME]
         plane_ob.scale[0] = plane_ob.scale[1] = 3
 
+        rendered_objects = get_rendered_objects()
         for baker in bakers:
             baker.setup()
             if not baker.node_tree:
                 continue
-            # TODO: Fix StructRNA issue to avoid recalculating
-            # constantly, may need to change GD object generation
-            for ob in get_rendered_objects():
+            for ob in rendered_objects:
                 sockets = link_group_to_object(ob, baker.node_tree)
-                sockets = baker.filter_sockets(sockets)
+                sockets = baker.filter_required_sockets(sockets)
                 if not sockets:
                     continue
                 self.report(
-                    {'WARNING'}, f"{ob.name}: {sockets} {Error.MISSING_LINKS}"
+                    {'WARNING'},
+                    f"{ob.name}: {sockets} {Error.MISSING_SLOT_LINKS}"
                 )
 
             self.export(context, baker.suffix)
@@ -354,12 +326,12 @@ Rendering a second time will overwrite the internal image"""
         if self.baker.node_tree:
             for ob in get_rendered_objects():
                 sockets = link_group_to_object(ob, self.baker.node_tree)
-                sockets = self.baker.filter_sockets(sockets)
+                sockets = self.baker.filter_required_sockets(sockets)
                 if not sockets:
                     continue
                 self.report(
                     {'WARNING'},
-                    f"{ob.name}: {sockets} {Error.MISSING_LINKS}"
+                    f"{ob.name}: {sockets} {Error.MISSING_SLOT_LINKS}"
                 )
         path = GRABDOC_OT_baker_export.export(
             context, self.baker.suffix, path=get_temp_path()
@@ -558,12 +530,12 @@ class GRABDOC_OT_baker_preview(Operator):
         if self.baker.node_tree:
             for ob in get_rendered_objects():
                 sockets = link_group_to_object(ob, self.baker.node_tree)
-                sockets = self.baker.filter_sockets(sockets)
+                sockets = self.baker.filter_required_sockets(sockets)
                 if not sockets:
                     continue
                 self.report(
                     {'WARNING'},
-                    f"{ob.name}: {sockets} {Error.MISSING_LINKS}"
+                    f"{ob.name}: {sockets} {Error.MISSING_SLOT_LINKS}"
                 )
         return {'RUNNING_MODAL'}
 
@@ -698,8 +670,6 @@ class GRABDOC_OT_baker_pack(Operator):
 classes = (
     GRABDOC_OT_load_reference,
     GRABDOC_OT_open_folder,
-    GRABDOC_OT_increase_resolution,
-    GRABDOC_OT_decrease_resolution,
     GRABDOC_OT_toggle_camera_view,
     GRABDOC_OT_scene_setup,
     GRABDOC_OT_scene_cleanup,
