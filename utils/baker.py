@@ -6,7 +6,7 @@ from bpy.props import CollectionProperty
 
 from ..baker import Baker
 from ..constants import Global
-from .io import get_format
+from .io import get_filepath, get_format
 from .generic import load_properties, save_properties
 
 
@@ -151,7 +151,7 @@ def import_baker_textures(bakers: list[Baker]) -> None:
         y_offset -= 32
 
         filename = f'{gd.filename}_{baker.ID}'
-        filepath = os.path.join(gd.filepath, filename + get_format())
+        filepath = os.path.join(get_filepath(), filename + get_format())
         if not os.path.exists(filepath):
             continue
         image.image = bpy.data.images.load(filepath, check_existing=True)

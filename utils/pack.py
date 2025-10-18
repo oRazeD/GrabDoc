@@ -3,7 +3,7 @@ import numpy # pylint: disable=E0401
 
 import bpy
 
-from .io import get_format
+from .io import get_filepath, get_format
 from .baker import get_bakers
 
 
@@ -58,7 +58,7 @@ def get_channel_path(channel: str) -> str | None:
     if suffix is None:
         return None
     filename = gd.filename + '_' + suffix + get_format()
-    filepath = os.path.join(gd.filepath, filename)
+    filepath = os.path.join(get_filepath(), filename)
     if not os.path.exists(filepath):
         return None
     return filepath

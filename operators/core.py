@@ -8,7 +8,7 @@ from bpy.props import StringProperty, IntProperty
 
 from ..constants import Global, Error
 from ..__init__ import refresh_baker_dependencies
-from ..utils.io import get_format, get_temp_path
+from ..utils.io import get_format, get_temp_path, get_filepath
 from ..utils.render import get_rendered_objects
 from ..utils.generic import get_user_preferences
 from ..utils.node import link_group_to_object, node_cleanup
@@ -52,7 +52,7 @@ class GRABDOC_OT_open_folder(Operator):
 
     def execute(self, context: Context):
         try:
-            bpy.ops.wm.path_open(filepath=context.scene.gd.filepath)
+            bpy.ops.wm.path_open(filepath=get_filepath())
         except RuntimeError:
             self.report({'ERROR'}, Error.NO_VALID_PATH_SET)
             return {'CANCELLED'}
@@ -161,24 +161,22 @@ class GRABDOC_OT_baker_export(Operator, UILayout):
 
     @classmethod
     def poll(cls, context: Context) -> bool:
-        gd = context.scene.gd
-        if gd.filepath == "//" and not bpy.data.filepath:
-            cls.poll_message_set("Relative export path set but file not saved")
+        if not os.path.exists(bpy.path.abspath(get_filepath())):
+            cls.poll_message_set("Project not saved or Path not set")
             return False
-        if gd.preview_state:
+        if context.scene.gd.preview_state:
             cls.poll_message_set("Cannot run while in Map Preview")
             return False
         return True
 
     @staticmethod
     def export(context: Context, suffix: str, path: str = None) -> str:
-        gd = context.scene.gd
         render = context.scene.render
         saved_path = render.filepath
 
-        name = f"{gd.filename}_{suffix}"
+        name = f"{context.scene.gd.filename}_{suffix}"
         if path is None:
-            path = gd.filepath
+            path = get_filepath()
         path = os.path.join(path, name + get_format())
         render.filepath = path
 
@@ -552,9 +550,8 @@ class GRABDOC_OT_baker_preview_export(Operator):
 
     @classmethod
     def poll(cls, context: Context) -> bool:
-        gd = context.scene.gd
-        if gd.filepath == "//" and not bpy.data.filepath:
-            cls.poll_message_set("Relative export path set but file not saved")
+        if not os.path.exists(bpy.path.abspath(get_filepath())):
+            cls.poll_message_set("Project not saved or Path not set")
             return False
         return not GRABDOC_OT_baker_export_single.poll(context)
 
@@ -638,7 +635,8 @@ class GRABDOC_OT_baker_pack(Operator):
 
         pack_name = gd.filename + "_" + gd.pack_name
         dst_image = pack_image_channels(pack_order, pack_name)
-        dst_image.filepath_raw = gd.filepath + "//" + pack_name + get_format()
+        dst_image.filepath_raw = \
+            get_filepath() + "//" + pack_name + get_format()
         dst_image.file_format  = gd.format
         dst_image.save()
 

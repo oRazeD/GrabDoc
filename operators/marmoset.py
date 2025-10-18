@@ -6,9 +6,9 @@ from pathlib import Path
 
 import bpy
 from bpy.types import Context, Operator, Object
-from ..utils.io import get_temp_path
 
 from ..constants import Global, Error
+from ..utils.io import get_temp_path, get_filepath
 from ..utils.generic import get_user_preferences
 from ..utils.baker import get_bakers
 from ..utils.scene import validate_scene
@@ -36,9 +36,9 @@ class GrabDoc_OT_send_to_marmo(Operator):
         gd = context.scene.gd
         properties = {
             'file_path': \
-            f'{gd.filepath}{gd.filename}.{gd.mt_format.lower()}',
+            f'{get_filepath()}{gd.filename}.{gd.mt_format.lower()}',
             'format': gd.mt_format.lower(),
-            'filepath': bpy.path.abspath(gd.filepath),
+            'filepath': bpy.path.abspath(get_filepath()),
             'hdri_path': \
             f'{os.path.dirname(executable)}\\data\\sky\\Evening Clouds.tbsky',
 

@@ -4,6 +4,7 @@ import bpy
 import bmesh
 from bpy.types import Context, Object
 
+from .io import get_filepath
 from ..constants import Global, Error
 
 
@@ -272,8 +273,8 @@ def validate_scene(
         return report_value, report_string
 
     if not report_value \
-    and not gd.filepath == "//" \
-    and not os.path.exists(gd.filepath):
+    and get_filepath() \
+    and not os.path.exists(bpy.path.abspath(get_filepath())):
         report_value = True
         report_string = Error.NO_VALID_PATH_SET
     return report_value, report_string
