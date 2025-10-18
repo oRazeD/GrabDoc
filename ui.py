@@ -22,8 +22,6 @@ class GRABDOC_PT_grabdoc(GDPanel):
 
     def draw_header_preset(self, _context: Context):
         row = self.layout.row()
-        if is_scene_valid():
-            GRABDOC_PT_presets.draw_menu(row, text="Presets")
         row.operator(
             "wm.url_open", text="", icon='HELP'
         ).url = self.documentation
@@ -50,43 +48,45 @@ class GRABDOC_PT_scene(GDPanel):
         self.layout.label(icon='SCENE_DATA')
 
     def draw_header_preset(self, _context: Context):
-        row2 = self.layout.row(align=True)
-        row2.operator("grabdoc.toggle_camera_view",
-                      text="Leave" if camera_in_3d_view() else "View",
-                      icon="OUTLINER_OB_CAMERA")
+        GRABDOC_PT_presets.draw_menu(self.layout, text="Presets")
 
     def draw(self, context: Context):
         gd = context.scene.gd
         layout = self.layout
 
-        row = self.layout.row(align=True)
+        col = layout.column(align=True)
+        row = col.row(align=True)
         row.scale_x = row.scale_y = 1.25
         row.operator("grabdoc.scene_setup",
                      text="Rebuild Scene", icon='FILE_REFRESH')
         row.operator("grabdoc.scene_cleanup", text="", icon="CANCEL")
 
-        box = layout.box()
+        box = col.box()
         row = box.row(align=True)
         row.scale_y = .9
-        row.label(text="Camera Restrictions")
+        row.label(text="Camera")
         row.prop(gd, "coll_selectable", text="", emboss=False,
-    icon='RESTRICT_SELECT_OFF' if gd.coll_selectable else 'RESTRICT_SELECT_ON')
+icon='RESTRICT_SELECT_OFF' if gd.coll_selectable else 'RESTRICT_SELECT_ON')
         row.prop(gd, "coll_visible", text="", emboss=False,
-    icon='RESTRICT_VIEW_OFF' if gd.coll_visible else 'RESTRICT_VIEW_ON')
+icon='RESTRICT_VIEW_OFF' if gd.coll_visible else 'RESTRICT_VIEW_ON')
         row.prop(gd, "coll_rendered", text="", emboss=False,
-    icon='RESTRICT_RENDER_OFF' if gd.coll_rendered else 'RESTRICT_RENDER_ON')
+icon='RESTRICT_RENDER_OFF' if gd.coll_rendered else 'RESTRICT_RENDER_ON')
+        camera_in_view = camera_in_3d_view()
+        row.operator("grabdoc.toggle_camera_view",
+                     text="Exit" if camera_in_view else "View",
+icon="OUTLINER_OB_CAMERA" if camera_in_view else "OUTLINER_DATA_CAMERA")
 
         col = layout.column(align=True)
         col.use_property_split = True
         col.use_property_decorate = False
-        col.prop(gd, "scale", text='Scaling', expand=True)
+        col.prop(gd, 'scale', text="Scaling", expand=True)
         row = col.row()
-        row.prop(gd, "grid_subdivs", text="Grid")
+        row.prop(gd, 'grid_subdivs', text="Grid")
         row.separator()
-        row.prop(gd, "use_grid", text="")
+        row.prop(gd, 'use_grid', text="")
         row = col.row()
         row.enabled = not gd.preview_state
-        row.prop(gd, "reference", text='Reference')
+        row.prop(gd, 'reference', text="Reference")
         row.operator("grabdoc.load_reference", text="", icon='FILE_FOLDER')
 
 
@@ -111,12 +111,10 @@ class GRABDOC_PT_output(GDPanel):
                              text="Export", icon="EXPORT")
 
     def mt_header_layout(self, layout: UILayout):
-        preferences = get_user_preferences()
-        mt_executable = preferences.mt_executable
-
         col = layout.column(align=True)
         row = col.row()
-        if not os.path.exists(mt_executable):
+        preferences = get_user_preferences()
+        if not os.path.exists(preferences.mt_executable):
             row.alignment = 'CENTER'
             row.label(text="Marmoset Toolbag Executable Required", icon='INFO')
             row = col.row()
@@ -131,14 +129,14 @@ class GRABDOC_PT_output(GDPanel):
                      text="", icon='FILE_REFRESH').send_type = 'refresh'
 
     def draw(self, context: Context):
-        gd = context.scene.gd
-
         layout = self.layout
-        layout.activate_init = True
-        layout.use_property_split = True
+        layout.activate_init         = True
+        layout.use_property_split    = True
         layout.use_property_decorate = False
 
-        if gd.engine == 'marmoset':
+        gd = context.scene.gd
+        engine_is_marmoset = gd.engine == "marmoset"
+        if engine_is_marmoset:
             self.mt_header_layout(layout)
 
         col2 = layout.column()
@@ -148,54 +146,54 @@ class GRABDOC_PT_output(GDPanel):
         row.prop(gd, 'filepath', text="Path")
         row.operator("grabdoc.open_folder",
                      text="", icon="FOLDER_REDIRECT")
-        col2.prop(gd, "filename", text="Name")
-        row = col2.row()
-        row.prop(gd, "resolution_x", text='Resolution')
-        row.prop(gd, "resolution_y", text='')
-        row.prop(gd, 'resolution_lock', icon_only=True,
+        col2.prop(gd, 'filename', text="Name")
+        #col_res = col2.column(align=True)
+        row = col2.row(align=True)
+        row.prop(gd, 'resolution_x', text="Resolution")
+        row.prop(gd, 'resolution_y', text="")
+        #col_res = col2.column(align=True)
+        row = col2.row(align=True)
+        row.prop(gd, 'resolution_lock', icon_only=True, text=" ",
                  icon="LOCKED" if gd.resolution_lock else "UNLOCKED")
-
+        row.operator("grabdoc.increase_resolution", text="", icon="ADD")
+        row.operator("grabdoc.decrease_resolution", text="", icon="REMOVE")
         row = col2.row()
-        if gd.engine == "marmoset":
-            image_format = "mt_format"
-        else:
-            image_format = "format"
-        row.prop(gd, image_format)
+        row.prop(gd, 'mt_format' if engine_is_marmoset else 'format')
 
         row2 = row.row()
         if gd.format == "OPEN_EXR":
-            row2.prop(gd, "exr_depth", expand=True)
-        elif gd.format != "TARGA" or gd.engine == 'marmoset':
-            row2.prop(gd, "depth", expand=True)
+            row2.prop(gd, 'exr_depth', expand=True)
+        elif gd.format != "TARGA" or engine_is_marmoset:
+            row2.prop(gd, 'depth', expand=True)
         else:
             row2.enabled = False
-            row2.prop(gd, "tga_depth", expand=True)
+            row2.prop(gd, 'tga_depth', expand=True)
         if gd.format != "TARGA":
-            image_settings = bpy.context.scene.render.image_settings
+            image_settings = context.scene.render.image_settings
             row = col2.row(align=True)
             if gd.format == "PNG":
-                row.prop(gd, "png_compression", text="Compression")
+                row.prop(gd, 'png_compression', text="Compression")
             elif gd.format == "OPEN_EXR":
-                row.prop(image_settings, "exr_codec", text="Codec")
-            else:  # TIFF
-                row.prop(image_settings, "tiff_codec", text="Codec")
+                row.prop(image_settings, 'exr_codec', text="Codec")
+            else:
+                row.prop(image_settings, 'tiff_codec', text="Codec")
 
         row = col2.row()
-        row.prop(gd, "filter_width", text="Filtering")
-        row.separator()  # NOTE: Odd spacing without these
-        row.prop(gd, "use_filtering", text="")
+        row.prop(gd, 'filter_width', text="Filtering")
+        row.separator()
+        row.prop(gd, 'use_filtering', text="")
 
-        if gd.engine == "marmoset":
+        if engine_is_marmoset:
             row = col2.row(align=True)
-            row.prop(gd, "mt_samples", text="Samples", expand=True)
+            row.prop(gd, 'mt_samples', text="Samples", expand=True)
 
         col = layout.column(align=True)
         col.prop(gd, 'use_bake_collection')
         col.prop(gd, 'use_pack_maps')
-        col.prop(gd, 'use_transparent')
         if gd.use_pack_maps:
             col.prop(gd, 'remove_original_maps')
-        if gd.engine == "marmoset":
+        col.prop(gd, 'use_transparent')
+        if engine_is_marmoset:
             col.prop(gd, 'mt_auto_bake', text='Bake on Import')
             row = col.row()
             row.enabled = gd.mt_auto_bake
@@ -203,7 +201,7 @@ class GRABDOC_PT_output(GDPanel):
 
 
 class GRABDOC_PT_bake_maps(GDPanel):
-    bl_label     = 'Bake Maps'
+    bl_label     = 'Maps'
     bl_parent_id = "GRABDOC_PT_grabdoc"
 
     @classmethod
@@ -215,7 +213,7 @@ class GRABDOC_PT_bake_maps(GDPanel):
 
     def draw_header_preset(self, _context: Context):
         self.layout.operator("grabdoc.baker_visibility",
-                             emboss=False, text="", icon="SETTINGS")
+                             emboss=False, text="", icon="HIDE_OFF")
 
     def draw(self, context: Context):
         gd = context.scene.gd
@@ -242,7 +240,7 @@ class GRABDOC_PT_bake_maps(GDPanel):
 
 
 class GRABDOC_PT_pack_maps(GDPanel):
-    bl_label     = 'Pack Maps'
+    bl_label     = 'Pack'
     bl_parent_id = "GRABDOC_PT_grabdoc"
     bl_options   = {'DEFAULT_CLOSED'}
 
@@ -325,14 +323,14 @@ def register_baker_panels():
     for cls in subclass_panels():
         bpy.utils.register_class(cls)
 
+
 def subclass_panels():
     """Creates panels for every item in the baker
     `CollectionProperty`s via dynamic subclassing."""
     baker_classes = []
     for baker_prop in get_baker_collections():
         for baker in baker_prop:
-            if baker.index == -1:
-                baker.initialize()
+            baker.initialize()
             class_name = f"GRABDOC_PT_{baker.ID}_{baker.index}"
             panel_cls = type(class_name, (GRABDOC_PT_Baker,), {})
             panel_cls.baker = baker

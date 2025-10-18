@@ -1,19 +1,15 @@
 import bpy
 from bpy.types import PropertyGroup, UILayout, Context, NodeTree
-from bpy.props import (
-    BoolProperty, StringProperty, EnumProperty,
-    IntProperty, FloatProperty, PointerProperty,
-    CollectionProperty
-)
+from bpy.props import (BoolProperty, StringProperty, EnumProperty,
+                       IntProperty, FloatProperty, PointerProperty,
+                       CollectionProperty)
 
 from .constants import Global
 from .utils.scene import scene_setup
-from .utils.node import (
-    generate_shader_interface, get_group_inputs, get_material_output_sockets
-)
-from .utils.render import (
-    set_guide_height, get_rendered_objects, set_color_management
-)
+from .utils.node import (generate_shader_interface,
+                         get_group_inputs, get_material_output_sockets)
+from .utils.render import (set_guide_height, get_rendered_objects,
+                           set_color_management)
 
 
 class Baker(PropertyGroup):
@@ -32,15 +28,15 @@ class Baker(PropertyGroup):
     MARMOSET_COMPATIBLE:       bool = True
     REQUIRED_SOCKETS:    tuple[str] = ()
     OPTIONAL_SOCKETS:    tuple[str] = ('Alpha',)
-    SUPPORTED_ENGINES               = ((Global.EEVEE_ENGINE_NAME, "EEVEE", ""),
-                                       ('cycles', "Cycles", ""),
+    SUPPORTED_ENGINES               = ((Global.EEVEE_NAME,   "EEVEE",     ""),
+                                       ('cycles',            "Cycles",    ""),
                                        ('blender_workbench', "Workbench", ""))
 
     def initialize(self):
         """Initialize baker instance after creation in PropertyCollection."""
         self.node_input  = None
         self.node_output = None
-        # NOTE: Unique due to dynamic SUPPORTED_ENGINES enum
+        # NOTE: Unique due to dynamic items/enum
         self.__class__.engine = EnumProperty(
             name='Render Engine',
             items=self.__class__.SUPPORTED_ENGINES,
@@ -52,17 +48,12 @@ class Baker(PropertyGroup):
             self.enabled = False
 
         if self.index == -1:
-            try:
-                gd = bpy.context.scene.gd
-                self.index = self.get_unique_index(getattr(gd, self.ID))
-            except (AttributeError, RuntimeError):
-                # Handle cases where context or gd is not available
-                self.index = 0
+            baker_type = getattr(bpy.context.scene.gd, self.ID)
+            self.index = self.get_unique_index(baker_type)
         if self.index > 0:
             self.node_name = self.get_node_name(self.NAME, self.index+1)
-            if hasattr(self, 'suffix') and self.suffix \
-            and not self.suffix[-1].isdigit():
-                self.suffix = f"{self.suffix}_{self.index+1}"
+            if not self.suffix[-1].isdigit():
+                self.suffix += f"_{self.index+1}"
 
     @staticmethod
     def get_unique_index(collection: CollectionProperty) -> int:
@@ -143,7 +134,7 @@ class Baker(PropertyGroup):
         eevee   = scene.eevee
         display = scene.display
         render.engine = str(self.engine).upper()
-        if render.engine == Global.EEVEE_ENGINE_NAME.upper():
+        if render.engine == Global.EEVEE_NAME.upper():
             eevee.taa_render_samples = eevee.taa_samples = self.samples
         elif render.engine == 'CYCLES':
             cycles.samples = cycles.preview_samples = self.samples_cycles
@@ -153,13 +144,9 @@ class Baker(PropertyGroup):
         set_color_management(self.VIEW_TRANSFORM,
                              self.contrast.replace('_', ' '))
 
-    def filter_required_sockets(self, sockets: list[str]) -> str:
+    def filter_sockets(self, sockets: list[str]) -> str:
         """Filter out optional sockets from a list of socket names."""
-        required_sockets = []
-        for socket in sockets:
-            if socket in self.REQUIRED_SOCKETS:
-                required_sockets.append(socket)
-        return ", ".join(required_sockets)
+        return ", ".join([s for s in sockets if s in self.REQUIRED_SOCKETS])
 
     def draw_properties(self, context: Context, layout: UILayout):
         """Dedicated layout for specific bake map properties."""
@@ -168,17 +155,18 @@ class Baker(PropertyGroup):
         """Dropdown layout for bake map properties and operators."""
         layout.use_property_split    = True
         layout.use_property_decorate = False
-        col = layout.column()
 
-        box = col.box()
-        box.label(text="Properties", icon='PROPERTIES')
-        self.draw_properties(context, box)
+        col = layout.column(align=True)
+        # NOTE: Manually hide empty properties panels
+        if self.ID not in ('color', 'emissive'):
+            box = col.box()
+            box.label(text="Properties", icon='PROPERTIES')
+            self.draw_properties(context, box)
 
         box = col.box()
         box.label(text="Settings", icon='SETTINGS')
         col_set = box.column()
-        gd = context.scene.gd
-        if gd.engine == 'grabdoc':
+        if context.scene.gd.engine == 'grabdoc':
             row = col_set.row(align=True)
             if len(self.SUPPORTED_ENGINES) < 2:
                 row.enabled = False
@@ -375,7 +363,7 @@ class Normals(Baker):
                 col.prop(self, 'bevel_weight')
 
     def update_flip_y(self, _context: Context):
-        vec_multiply = self.node_tree.nodes['Vector Math']
+        vec_multiply = self.node_tree.nodes['Vector Math.001']
         vec_multiply.inputs[1].default_value[1] = -.5 if self.flip_y else .5
 
     def update_bevel_weight(self, _context: Context):
@@ -497,7 +485,7 @@ class Occlusion(Baker):
         super().setup()
         scene = bpy.context.scene
         eevee = scene.eevee
-        if scene.render.engine == Global.EEVEE_ENGINE_NAME.upper():
+        if scene.render.engine == Global.EEVEE_NAME.upper():
             eevee.use_overscan  = True
             eevee.overscan_size = 25
 
@@ -621,7 +609,7 @@ class Height(Baker):
 
     def setup(self) -> None:
         super().setup()
-        if self.method == 'AUTO':
+        if self.method == 'auto':
             rendered_obs = get_rendered_objects()
             set_guide_height(rendered_obs)
 
@@ -648,17 +636,17 @@ class Height(Baker):
     def draw_properties(self, context: Context, layout: UILayout):
         col = layout.column()
         if context.scene.gd.engine == 'grabdoc':
-            col.prop(self, 'invert', text="Invert")
+            col.prop(self, 'invert')
         row = col.row()
-        row.prop(self, 'method', text="Method", expand=True)
-        if self.method == 'MANUAL':
-            col.prop(self, 'distance', text="0-1 Range")
+        row.prop(self, 'method', expand=True)
+        if self.method == 'manual':
+            col.prop(self, 'distance')
 
     def update_method(self, context: Context):
         scene_setup(self, context)
         if not context.scene.gd.preview_state:
             return
-        if self.method == 'AUTO':
+        if self.method == 'auto':
             rendered_obs = get_rendered_objects()
             set_guide_height(rendered_obs)
 
@@ -675,22 +663,24 @@ class Height(Baker):
             (1, 1, 1, 1) if self.invert else (0, 0, 0, 1)
         ramp.location = (-400, 0)
 
-        if self.method == 'MANUAL':
+        if self.method == 'manual':
             scene_setup(self, context)
 
     invert: BoolProperty(
         description="Invert height mask, useful for sculpting negatively",
-        update=update_guide
+        name="Invert", update=update_guide
     )
     distance: FloatProperty(
-        name="", update=update_guide,
+        description="The 0-1 range",
+        name="Range", update=update_guide,
         default=1, min=.01, soft_max=100, step=.03, subtype='DISTANCE'
     )
     method: EnumProperty(
-        description="Height method, use manual if auto produces range errors",
+        description=\
+    "Method used to calculate range, use Manual if Auto isn't accurate enough",
         name="Method", update=update_method,
-        items=(('AUTO',   "Auto",   ""),
-               ('MANUAL', "Manual", ""))
+        items=(('auto',   "Auto",   ""),
+               ('manual', "Manual", ""))
     )
 
 
@@ -720,7 +710,7 @@ class Id(Baker):
         row = layout.row()
         if gd.engine != 'marmoset':
             row.prop(self, 'method')
-        if self.method != 'MATERIAL':
+        if self.method != 'material':
             return
 
         col = layout.column(align=True)
@@ -753,16 +743,16 @@ class Id(Baker):
         shading = context.scene.display.shading
         shading.show_cavity = False
         shading.light = 'FLAT'
-        shading.color_type = self.method
+        shading.color_type = str(self.method).upper()
 
     method: EnumProperty(
-        items=(('MATERIAL', 'Material', ''),
-               ('SINGLE',   'Single',   ''),
-               ('OBJECT',   'Object',   ''),
-               ('RANDOM',   'Random',   ''),
-               ('VERTEX',   'Vertex',   ''),
-               ('TEXTURE',  'Texture',  '')),
-        name="Method", update=update_method, default='RANDOM'
+        items=(('material', 'Material', ''),
+               ('single',   'Single',   ''),
+               ('object',   'Object',   ''),
+               ('random',   'Random',   ''),
+               ('vertex',   'Vertex',   ''),
+               ('texture',  'Texture',  '')),
+        name="Method", update=update_method, default='random'
     )
 
 class Alpha(Baker):
@@ -826,8 +816,7 @@ class Alpha(Baker):
     def draw_properties(self, context: Context, layout: UILayout):
         if context.scene.gd.engine != 'grabdoc':
             return
-        col = layout.column()
-        col.prop(self, 'invert_depth', text="Invert")
+        layout.prop(self, 'invert_depth', text="Invert")
 
     def update_map_range(self, _context: Context):
         map_range = self.node_tree.nodes['Map Range']
@@ -871,8 +860,7 @@ class Roughness(Baker):
                   emission.outputs["Emission"])
 
     def draw_properties(self, _context: Context, layout: UILayout):
-        col = layout.column()
-        col.prop(self, 'invert', text="Invert")
+        layout.prop(self, 'invert', text="Invert")
 
     def update_invert(self, _context: Context):
         invert = self.node_tree.nodes['Invert Color']
@@ -984,8 +972,7 @@ class Metallic(Baker):
         links.new(bsdf.inputs["Metallic"], image.outputs["Color"])
 
     def draw_properties(self, _context: Context, layout: UILayout):
-        col = layout.column()
-        col.prop(self, 'invert', text="Invert")
+        layout.prop(self, 'invert', text="Invert")
 
     def update_invert(self, _context: Context):
         invert = self.node_tree.nodes['Invert Color']
