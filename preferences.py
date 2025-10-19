@@ -52,13 +52,15 @@ This can get in the way of other modal operators, causing some friction""",
 def generate_channel_pack_enums() -> None:
     map_types = [('none', "None", "")]
     for baker in get_bakers():
-        map_types.append((baker.ID, baker.get_display_name(), ""))
+        map_types.append(
+            (baker.ID + f"_{baker.index}", baker.get_display_name(), "")
+        )
     GRABDOC_PG_properties.channel_r = \
-        EnumProperty(items=map_types[1:], default="occlusion", name='R')
+        EnumProperty(items=map_types[1:], default="occlusion_0", name='R')
     GRABDOC_PG_properties.channel_g = \
-        EnumProperty(items=map_types[1:], default="roughness", name='G')
+        EnumProperty(items=map_types[1:], default="roughness_0", name='G')
     GRABDOC_PG_properties.channel_b = \
-        EnumProperty(items=map_types[1:], default="metallic",  name='B')
+        EnumProperty(items=map_types[1:], default="metallic_0",  name='B')
     GRABDOC_PG_properties.channel_a = \
         EnumProperty(items=map_types,     default="none",      name='A')
 

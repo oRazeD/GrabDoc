@@ -32,7 +32,9 @@ def pack_image_channels(pack_order, PackName):
             dst_array[dst_chan::4] = src_array[src_chan::4]
 
     # Create image from the packed pixels
-    dst_image = bpy.data.images.new(PackName, w, h, alpha=has_alpha)
+    dst_image = bpy.data.images.new(
+        PackName, w, h, is_data=True, alpha=has_alpha
+    )
     dst_image.pixels.foreach_set(dst_array)
     return dst_image
 
@@ -53,12 +55,12 @@ def get_channel_path(channel: str) -> str | None:
     if channel == "none":
         return None
     gd = bpy.context.scene.gd
-    # TODO: Multi-baker support
-    suffix = getattr(gd, channel)[0].suffix
+    channel, idx = channel.split('_')
+    suffix = getattr(gd, channel)[int(idx)].suffix
     if suffix is None:
         return None
     filename = gd.filename + '_' + suffix + get_format()
-    filepath = os.path.join(get_filepath(), filename)
+    filepath = os.path.join(bpy.path.abspath(get_filepath()), filename)
     if not os.path.exists(filepath):
         return None
     return filepath
