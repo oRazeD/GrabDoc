@@ -151,12 +151,11 @@ def import_baker_textures(bakers: list[Baker]) -> None:
         y_offset -= 32
 
         filename = f'{bpy.context.scene.gd.filename}_{baker.ID}'
-        filepath = os.path.join(get_filepath(), filename + get_format())
+        filepath = os.path.join(
+            bpy.path.abspath(get_filepath()), filename + get_format()
+        )
         if not os.path.exists(filepath):
             continue
         image.image = bpy.data.images.load(filepath, check_existing=True)
 
         baker.reimport_setup(mat, bsdf, image)
-        # TODO: Isn't  v  supposed to be handled  ^  ?
-        if baker.VIEW_TRANSFORM == 'Raw':
-            image.image.colorspace_settings.name = 'Non-Color'

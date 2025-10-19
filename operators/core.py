@@ -254,8 +254,6 @@ class GRABDOC_OT_baker_export(Operator, UILayout):
 
         for baker in bakers:
             baker.setup()
-            if not baker.node_tree:
-                continue
             # TODO: Fix StructRNA issue to avoid recalculating
             # constantly, may need to change GD object generation
             for ob in get_rendered_objects():

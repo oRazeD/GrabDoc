@@ -349,6 +349,7 @@ class Normals(Baker):
         normal.hide = True
         normal.location = (image.location[0] + 100, image.location[1])
         image.location  = (image.location[0] - 200, image.location[1])
+        image.image.colorspace_settings.name = 'Non-Color'
         links = material.node_tree.links
         links.new(normal.inputs["Color"], image.outputs["Color"])
         links.new(bsdf.inputs["Normal"],  normal.outputs["Normal"])
@@ -813,11 +814,13 @@ class Alpha(Baker):
         links.new(self.node_output.inputs['Shader'],
                   mix_shader.outputs['Shader'])
 
-
     def draw_properties(self, context: Context, layout: UILayout):
         if context.scene.gd.engine != 'grabdoc':
             return
         layout.prop(self, 'invert_depth', text="Invert")
+
+    def reimport_setup(self, _material, _bsdf, image):
+        image.image.colorspace_settings.name = 'Non-Color'
 
     def update_map_range(self, _context: Context):
         map_range = self.node_tree.nodes['Map Range']
@@ -864,6 +867,11 @@ class Roughness(Baker):
     def draw_properties(self, _context: Context, layout: UILayout):
         layout.prop(self, 'invert', text="Invert")
 
+    def reimport_setup(self, material, bsdf, image):
+        image.image.colorspace_settings.name = 'Non-Color'
+        links = material.node_tree.links
+        links.new(bsdf.inputs["Roughness"], image.outputs["Color"])
+
     def update_invert(self, _context: Context):
         invert = self.node_tree.nodes['Invert Color']
         invert.inputs[0].default_value = 1 if self.invert else 0
@@ -897,7 +905,6 @@ class Color(Baker):
                   emission.outputs["Emission"])
 
     def reimport_setup(self, material, bsdf, image):
-        image.image.colorspace_settings.name = 'Non-Color'
         links = material.node_tree.links
         links.new(bsdf.inputs["Base Color"], image.outputs["Color"])
 
@@ -934,7 +941,6 @@ class Emissive(Baker):
                   emission.outputs["Emission"])
 
     def reimport_setup(self, material, bsdf, image):
-        image.image.colorspace_settings.name = 'Non-Color'
         links = material.node_tree.links
         links.new(bsdf.inputs["Emission Color"], image.outputs["Color"])
 
@@ -968,6 +974,7 @@ class Metallic(Baker):
                   emission.outputs["Emission"])
 
     def reimport_setup(self, material, bsdf, image):
+        image.image.colorspace_settings.name = 'Non-Color'
         links = material.node_tree.links
         links.new(bsdf.inputs["Metallic"], image.outputs["Color"])
 
@@ -1001,6 +1008,10 @@ class Custom(Baker):
             row.alert = True
         row.prop(self, 'node_tree')
         col.prop(self, 'view_transform')
+
+    def reimport_setup(self, _material, _bsdf, image):
+        if self.VIEW_TRANSFORM == 'Raw':
+            image.image.colorspace_settings.name = 'Non-Color'
 
     def node_setup(self, context: Context=bpy.context):
         if not self.node_tree:
