@@ -1,10 +1,10 @@
 import bpy
-from bpy.types import Object, NodeTree, NodeTreeInterfaceItem
+from bpy.types import Object, NodeTree, Node, NodeTreeInterfaceItem
 
 from ..constants import Global
 
 
-def node_cleanup(node_tree: NodeTree) -> None:
+def node_cleanup() -> None:
     """Remove node group and return original links if they exist"""
     inputs = get_material_output_sockets()
     for mat in bpy.data.materials:
@@ -12,16 +12,18 @@ def node_cleanup(node_tree: NodeTree) -> None:
         if mat.name == Global.GD_MATERIAL_NAME:
             bpy.data.materials.remove(mat)
             continue
-        nodes = mat.node_tree.nodes
-        if node_tree.name not in nodes:
-            continue
 
         # Get node group in material
+        nodes = mat.node_tree.nodes
         gd_nodes = [node for node in nodes if node.gd_spawn is True]
+        node = None
         for gd_node in gd_nodes:
             if gd_node.type != 'FRAME':
                 node = gd_node
                 break
+        if node is None:
+            continue
+
         output_node = None
         for output in node.outputs:
             for link in output.links:
@@ -57,8 +59,8 @@ def node_cleanup(node_tree: NodeTree) -> None:
 
 
 def get_material_output_sockets() -> dict:
-    """Create a dummy node group if none is supplied and
-    capture the default material output sockets/`inputs`."""
+    """Create a dummy node tree and capture
+    the default material output sockets/`inputs`."""
     tree = bpy.data.node_groups.new('Material Output', 'ShaderNodeTree')
     output = tree.nodes.new('ShaderNodeOutputMaterial')
     material_output_sockets = {}
@@ -72,14 +74,33 @@ def get_material_output_sockets() -> dict:
     return material_output_sockets
 
 
+def get_bsdf(node_tree: NodeTree) -> Node | None:
+    """Gets the first BSDF node connected to the active output."""
+    # TODO: Validate connection to output node that is set to active
+    for node in node_tree.nodes:
+        if 'BSDF' in node.name:
+            return node
+    return None
+
+
+def get_active_output(node_tree: NodeTree) -> Node:
+    """Get the active output node, create one if not found."""
+    output_nodes = [
+        node for node in node_tree.nodes if node.type=='OUTPUT_MATERIAL'
+    ]
+    for output_node in output_nodes:
+        if output_node.is_active_output:
+            return output_node
+    return node_tree.new('ShaderNodeOutputMaterial')
+
+
 def get_group_inputs(
         node_tree: NodeTree, remove_cache: bool=True
     ) -> list[NodeTreeInterfaceItem]:
     """Get the interface inputs of a given `NodeTree`."""
     inputs = []
     for item in node_tree.interface.items_tree:
-        if not hasattr(item, 'in_out') \
-        or item.in_out != 'INPUT':
+        if not hasattr(item, 'in_out') or item.in_out != 'INPUT':
             continue
         inputs.append(item)
     if remove_cache:
@@ -95,62 +116,59 @@ def link_group_to_object(ob: Object, node_tree: NodeTree) -> list[str]:
     Returns list of socket names without links."""
     if not ob.material_slots or "" in ob.material_slots:
         if Global.GD_MATERIAL_NAME in bpy.data.materials:
-            mat = bpy.data.materials[Global.GD_MATERIAL_NAME]
+            gd_mat = bpy.data.materials[Global.GD_MATERIAL_NAME]
         else:
-            mat = bpy.data.materials.new(name=Global.GD_MATERIAL_NAME)
-            mat.use_nodes = True
-            bsdf = mat.node_tree.nodes['Principled BSDF']
-            bsdf.inputs["Emission Color"].default_value = (0,0,0,1)
+            gd_mat = bpy.data.materials.new(name=Global.GD_MATERIAL_NAME)
+            gd_mat.use_nodes = True
+            bsdf = get_bsdf(gd_mat.node_tree)
+            bsdf.inputs["Emission Color"].default_value = (0, 0, 0, 1)
 
         # NOTE: Do not remove empty slots as they are used in geometry masking
         for slot in ob.material_slots:
             if slot.name == '':
-                ob.material_slots[slot.name].material = mat
+                ob.material_slots[slot.name].material = gd_mat
         if not ob.active_material or ob.active_material.name == '':
-            ob.active_material = mat
+            ob.active_material = gd_mat
 
-    inputs                         = get_group_inputs(node_tree)
+    inputs = [] if not node_tree else get_group_inputs(node_tree)
     input_names:         list[str] = [node_input.name for node_input in inputs]
     unlinked: dict[str, list[str]] = {}
 
     for slot in ob.material_slots:
-        material = bpy.data.materials.get(slot.name)
-        material.use_nodes = True
-        nodes = material.node_tree.nodes
-        if node_tree.name in nodes:
-            continue
-        if material.name.startswith(Global.FLAG_PREFIX):
-            unlinked[material.name] = []
-        else:
-            unlinked[material.name] = input_names
+        mat = slot.material
+        mat.use_nodes = True
+        if mat.name.startswith(Global.FLAG_PREFIX):
+            unlinked[mat.name] = []
+        elif input_names:
+            unlinked[mat.name] = input_names
 
-        output = None
-        output_nodes = [mat for mat in nodes if mat.type == 'OUTPUT_MATERIAL']
-        for output_node in output_nodes:
-            if output_node.is_active_output:
-                output = output_node
-                break
-        if output is None:
-            output = nodes.new('ShaderNodeOutputMaterial')
+        output = get_active_output(mat.node_tree)
 
-        node_group           = nodes.new('ShaderNodeGroup')
+        node_group = mat.node_tree.nodes.get('[GrabDoc]')
+        if node_group is None:
+            node_group = mat.node_tree.nodes.new('ShaderNodeGroup')
         node_group.hide      = True
         node_group.gd_spawn  = True
         node_group.node_tree = node_tree
-        node_group.name      = node_tree.name
+        node_group.name      = "[GrabDoc]"
         node_group.location  = (output.location[0], output.location[1] - 160)
 
         warning_text = bpy.data.texts.get(Global.NODE_GROUP_WARN_NAME)
         if warning_text is None:
             warning_text = bpy.data.texts.new(Global.NODE_GROUP_WARN_NAME)
             warning_text.write(Global.NODE_GROUP_WARN)
-        frame          = nodes.new('NodeFrame')
-        frame.name     = node_tree.name
+        frame = mat.node_tree.nodes.get(Global.NODE_GROUP_WARN_NAME)
+        if frame is None:
+            frame = mat.node_tree.nodes.new('NodeFrame')
         frame.width    = 750
         frame.height   = 200
+        frame.name     = Global.NODE_GROUP_WARN_NAME
+        frame.text     = warning_text
         frame.gd_spawn = True
         frame.location = (output.location[0], output.location[1] - 200)
-        frame.text     = warning_text
+
+        if not node_tree:
+            continue
 
         # Link identical outputs from BSDF to output node
         from_output_node = output.inputs[0].links[0].from_node
@@ -158,23 +176,23 @@ def link_group_to_object(ob: Object, node_tree: NodeTree) -> list[str]:
             if node_input.name not in input_names or not node_input.links:
                 continue
             link = node_input.links[0]
-            material.node_tree.links.new(
+            mat.node_tree.links.new(
                 node_group.inputs[node_input.name],
                 link.from_node.outputs[link.from_socket.name]
             )
-            if node_input.name in unlinked[material.name]:
-                unlinked[material.name].remove(node_input.name)
+            if node_input.name in unlinked[mat.name]:
+                unlinked[mat.name].remove(node_input.name)
 
         # Link matching input names from BSDF to baker
         for node_input in output.inputs:
             for link in node_input.links:
-                material.node_tree.links.new(
+                mat.node_tree.links.new(
                     node_group.inputs[node_input.name],
                     link.from_node.outputs[link.from_socket.name]
                 )
-                material.node_tree.links.remove(link)
-        material.node_tree.links.new(output.inputs["Surface"],
-                                     node_group.outputs["Shader"])
+                mat.node_tree.links.remove(link)
+        mat.node_tree.links.new(output.inputs["Surface"],
+                                node_group.outputs["Shader"])
 
     # NOTE: Collapse found unlinked sockets into flat list
     unlinked_names = set()
@@ -194,9 +212,8 @@ def generate_shader_interface(
     Generally used alongside other automation
     for creating reusable node input schemes.
 
-    Dict formatting examples:
-    - {'Displacement': 'NodeSocketVector'}
-    - {SocketName: SocketType}"""
+    Dict formatting example:
+      {'Displacement': 'NodeSocketVector'} (Name: Type)"""
     if name in tree.interface.items_tree:
         return
     saved_links = tree.interface.new_panel(name, default_closed=hidden)

@@ -1,3 +1,5 @@
+import bpy
+
 
 class Global:
     """A collection of constants used for global variable standardization"""
@@ -19,6 +21,11 @@ class Global:
     COLL_GROUP_NAME   = FLAG_PREFIX + "Bake Group"
 
     CAMERA_DISTANCE = 15
+
+    # NOTE: Blender foundation forced my hand on this one
+    EEVEE_NAME = "blender_eevee"
+    if bpy.app.version >= (4, 2, 0) and bpy.app.version < (5, 0, 0):
+        EEVEE_NAME = "blender_eevee_next"
 
     INVALID_BAKE_TYPES = ('EMPTY',
                           'VOLUME',
@@ -52,5 +59,5 @@ class Error:
     EXPORT_COMPLETE           = "Export completed!"
     CAMERA_NOT_FOUND          = \
         "GrabDoc camera not found, please run the Refresh Scene operator"
-    MISSING_SLOT_LINKS        = \
+    MISSING_LINKS             = \
         "socket(s) found without links, bake results may appear incorrect"

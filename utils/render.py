@@ -51,7 +51,7 @@ def in_viewing_frustrum(vector: Vector) -> bool:
     return True
 
 
-def get_rendered_objects() -> set | None:
+def get_rendered_objects() -> set[Object] | None:
     """Generate a list of all objects that will be rendered
     based on its origin position in world space"""
     objects = set()
@@ -124,7 +124,7 @@ def find_tallest_object(objects: list[Object]=None) -> float:
             tallest_verts.append(max_z_co)
         ob_eval.to_mesh_clear()
     if not tallest_verts:
-        bpy.context.scene.gd.height[0].method = 'MANUAL'
+        bpy.context.scene.gd.height[0].method = 'manual'
         # NOTE: Fallback to manual height value
         return bpy.context.scene.gd.height[0].distance
     return max(tallest_verts)
@@ -145,4 +145,3 @@ def set_color_management(
     view_settings.exposure          = 0
     view_settings.gamma             = 1
     view_settings.use_curve_mapping = False
-    view_settings.use_hdr_view      = False

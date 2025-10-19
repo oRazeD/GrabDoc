@@ -51,7 +51,6 @@ def create_baker(properties: dict):
     baker.ignoreTransforms = False
     baker.smoothCage = True
     baker.ignoreBackfaces = True
-    baker.multipleTextureSets = False
     baker.outputWidth = properties['resolution_x']
     baker.outputHeight = properties['resolution_y']
     # NOTE: Output samples is broken in older APIs
@@ -88,9 +87,9 @@ def baker_setup(baker, properties: dict) -> None:
     height.innerDistance = 0
     height.outerDistance = properties['cage_height'] / 2 - .02
 
-    material = baker.getMap("Material ID")
-    material.enabled = properties['export_matid']
-    material.suffix = properties['suffix_id']
+    mat_id = baker.getMap("Material ID")
+    mat_id.enabled = properties['export_matid']
+    mat_id.suffix = properties['suffix_id']
 
 def shader_setup(properties: dict) -> None:
     findDefault = mset.findMaterial("Default")
@@ -111,12 +110,14 @@ def shader_setup(properties: dict) -> None:
 
 
 def main():
-    plugin_path = Path(mset.getPluginPath()).parents[1]
+    root_path = Path(mset.getPluginPath()).parents[3]
+    plugin_path = os.path.join(root_path, ".user", "user_default", "GrabDoc")
+    if not os.path.exists(plugin_path):
+        plugin_path = plugin_path.replace("user_default", "vscode_development")
     temp_path = os.path.join(plugin_path, "temp")
     properties_path = os.path.join(temp_path, "mt_vars.json")
-
-    # Check if file location has been repopulated
     if not os.path.exists(properties_path):
+        print("GRABDOC EXPORT FILE NOT FOUND")
         return
 
     with open(properties_path, 'r', encoding='utf-8') as file:
@@ -149,8 +150,6 @@ def main():
     baker_setup(baker, properties)
     if properties['auto_bake']:
         run_auto_baker(baker, properties)
-    # NOTE: Delete FBX file to avoid temp folder bloat
-    #os.remove(model_path)
     shader_setup(properties)
 
 

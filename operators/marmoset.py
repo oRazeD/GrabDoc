@@ -6,9 +6,9 @@ from pathlib import Path
 
 import bpy
 from bpy.types import Context, Operator, Object
-from ..utils.io import get_temp_path
 
 from ..constants import Global, Error
+from ..utils.io import get_temp_path, get_filepath
 from ..utils.generic import get_user_preferences
 from ..utils.baker import get_bakers
 from ..utils.scene import validate_scene
@@ -17,7 +17,7 @@ from ..utils.render import set_guide_height, get_rendered_objects
 
 class GrabDoc_OT_send_to_marmo(Operator):
     """Export your models, open and bake the enabled maps in Marmoset Toolbag"""
-    bl_idname  = "grab_doc.bake_marmoset"
+    bl_idname  = "grabdoc.bake_marmoset"
     bl_label   = "Open / Refresh in Marmoset"
     bl_options = {'REGISTER', 'INTERNAL'}
 
@@ -36,9 +36,9 @@ class GrabDoc_OT_send_to_marmo(Operator):
         gd = context.scene.gd
         properties = {
             'file_path': \
-            f'{gd.filepath}{gd.filename}.{gd.mt_format.lower()}',
+            f'{get_filepath()}{gd.filename}.{gd.mt_format.lower()}',
             'format': gd.mt_format.lower(),
-            'filepath': bpy.path.abspath(gd.filepath),
+            'filepath': bpy.path.abspath(get_filepath()),
             'hdri_path': \
             f'{os.path.dirname(executable)}\\data\\sky\\Evening Clouds.tbsky',
 
@@ -71,10 +71,6 @@ class GrabDoc_OT_send_to_marmo(Operator):
             'export_matid': gd.id[0].enabled and gd.id[0].visibility,
             'suffix_id': gd.id[0].suffix
         }
-
-        # Flip the slashes of the first dict value
-        # NOTE: This is gross but I don't
-        # know another way to do it
         for key, value in properties.items():
             properties[key] = value.replace("\\", "/")
             break
@@ -84,17 +80,11 @@ class GrabDoc_OT_send_to_marmo(Operator):
         with open(json_path, "w", encoding='utf-8') as file:
             file.write(json_properties)
 
-        args = [
-            executable,
-            os.path.join(addon_path, "utils", "marmoset.py")
-        ]
-
+        args = [executable, os.path.join(addon_path, "utils", "marmoset.py")]
         if self.send_type == 'refresh':
-            # TODO: don't use shell=True arg
             output = subprocess.check_output('tasklist', shell=True)
-            path_ext_only = \
-                os.path.basename(os.path.normpath(executable)).encode()
-            if not path_ext_only in output:
+            path_ext = os.path.basename(os.path.normpath(executable)).encode()
+            if not path_ext in output:
                 subprocess.Popen(args)
                 self.report({'INFO'}, Error.MARMOSET_EXPORT_COMPLETE)
             else:
@@ -113,26 +103,24 @@ class GrabDoc_OT_send_to_marmo(Operator):
             self.report({'ERROR'}, Error.ALL_MAPS_DISABLED)
             return {'CANCELLED'}
 
-        saved_selected = context.view_layer.objects.selected.keys()
-
         if bpy.ops.object.mode_set.poll():
             bpy.ops.object.mode_set(mode='OBJECT')
 
         rendered_obs = get_rendered_objects()
         gd = context.scene.gd
-        if gd.height[0].enabled and gd.height[0].method == 'AUTO':
+        if gd.height[0].enabled and gd.height[0].method == 'auto':
             set_guide_height(rendered_obs)
 
         # Attach _high suffix to all user assets
         # NOTE: Only supports single bake group for now
+        saved_selected = context.view_layer.objects.selected.keys()
         for ob in context.view_layer.objects[:]:
             ob.select_set(False)
             if ob in rendered_obs \
             and Global.FLAG_PREFIX not in ob.name:
                 ob.select_set(True)
                 # NOTE: Add name to end of name for reuse later
-                ob.name = \
-                    Global.BG_PLANE_NAME + Global.HIGH_SUFFIX + ob.name
+                ob.name = Global.BG_PLANE_NAME + Global.HIGH_SUFFIX + ob.name
 
         # Get background plane low and high poly
         plane_low: Object = bpy.data.objects.get(Global.BG_PLANE_NAME)
@@ -159,7 +147,7 @@ class GrabDoc_OT_send_to_marmo(Operator):
         )
 
         # Cleanup
-        for ob in context.view_layer.objects:
+        for ob in context.view_layer.objects[:]:
             ob.select_set(False)
             if ob.name.endswith(Global.LOW_SUFFIX):
                 ob.name = ob.name.replace(Global.LOW_SUFFIX, "")

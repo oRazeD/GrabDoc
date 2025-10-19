@@ -5,12 +5,13 @@ from bpy.types import Context, Operator
 
 from ..constants import Global
 from ..utils.generic import UseSelectedOnly
+from ..utils.node import get_bsdf
 from ..utils.render import get_rendered_objects
 
 
 class GRABDOC_OT_quick_id_setup(Operator):
     """Sets up materials on all objects within the cameras view frustrum"""
-    bl_idname  = "grab_doc.quick_id_setup"
+    bl_idname  = "grabdoc.quick_id_setup"
     bl_label   = "Auto ID Full Scene"
     bl_options = {'REGISTER', 'UNDO'}
 
@@ -39,8 +40,7 @@ class GRABDOC_OT_quick_id_setup(Operator):
             if mat.name.startswith(Global.RANDOM_ID_PREFIX):
                 bpy.data.materials.remove(mat)
 
-        rendered_obs = get_rendered_objects()
-        for ob in rendered_obs:
+        for ob in get_rendered_objects():
             add_mat = True
             if ob.name.startswith(Global.FLAG_PREFIX):
                 continue
@@ -58,7 +58,7 @@ class GRABDOC_OT_quick_id_setup(Operator):
             # NOTE: Viewport color
             mat.diffuse_color = (random(), random(), random(), 1)
 
-            bsdf = mat.node_tree.nodes.get('Principled BSDF')
+            bsdf = get_bsdf(mat.node_tree)
             bsdf.inputs[0].default_value = mat.diffuse_color
 
             ob.active_material_index = 0
@@ -69,7 +69,7 @@ class GRABDOC_OT_quick_id_setup(Operator):
 
 class GRABDOC_OT_quick_id_selected(UseSelectedOnly, Operator):
     """Adds a new single material with a random color to the selected objects"""
-    bl_idname  = "grab_doc.quick_id_selected"
+    bl_idname  = "grabdoc.quick_id_selected"
     bl_label   = "Add ID to Selected"
     bl_options = {'REGISTER', 'UNDO'}
 
@@ -80,10 +80,10 @@ class GRABDOC_OT_quick_id_selected(UseSelectedOnly, Operator):
         mat.use_nodes = True
         mat.diffuse_color = (random(), random(), random(), 1)
 
-        bsdf = mat.node_tree.nodes.get('Principled BSDF')
+        bsdf = get_bsdf(mat.node_tree)
         bsdf.inputs[0].default_value = mat.diffuse_color
 
-        for ob in context.selected_objects:
+        for ob in context.selected_objects[:]:
             if ob.type not in ('MESH', 'CURVE'):
                 continue
             ob.active_material_index = 0
@@ -94,7 +94,7 @@ class GRABDOC_OT_quick_id_selected(UseSelectedOnly, Operator):
 
 class GRABDOC_OT_remove_mats_by_name(Operator):
     """Remove materials based on an internal prefixed name"""
-    bl_idname  = "grab_doc.remove_mats_by_name"
+    bl_idname  = "grabdoc.remove_mats_by_name"
     bl_label   = "Remove Mats by Name"
     bl_options = {'REGISTER', 'UNDO'}
 
@@ -109,7 +109,7 @@ class GRABDOC_OT_remove_mats_by_name(Operator):
 
 class GRABDOC_OT_quick_remove_selected_mats(UseSelectedOnly, Operator):
     """Remove all GrabDoc ID materials based on the selected objects from the scene"""
-    bl_idname  = "grab_doc.quick_remove_selected_mats"
+    bl_idname  = "grabdoc.quick_remove_selected_mats"
     bl_label   = "Remove Selected Materials"
     bl_options = {'REGISTER', 'UNDO'}
 

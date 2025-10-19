@@ -4,6 +4,8 @@ import bpy
 import bmesh
 from bpy.types import Context, Object
 
+from .io import get_filepath
+from .node import get_bsdf
 from ..constants import Global, Error
 
 
@@ -33,7 +35,7 @@ def scene_setup(_self, context: Context) -> None:
         if bpy.ops.object.mode_set.poll():
             bpy.ops.object.mode_set(mode='OBJECT')
 
-    for ob in context.selected_objects:
+    for ob in context.selected_objects[:]:
         ob.select_set(False)
 
     saved_plane_loc, saved_plane_rot, \
@@ -96,11 +98,13 @@ def scene_setup(_self, context: Context) -> None:
             mat.use_nodes = True
 
             # Get / load nodes
-            output = mat.node_tree.nodes['Material Output']
+            output = None
+            for node in mat.node_tree.nodes:
+                if node.type == "OUTPUT_MATERIAL":
+                    output = node
+                    break
             output.location = (0,0)
-            mat.node_tree.nodes.remove(
-                mat.node_tree.nodes['Principled BSDF']
-            )
+            mat.node_tree.nodes.remove(get_bsdf(mat.node_tree))
 
             image = mat.node_tree.nodes.new('ShaderNodeTexImage')
             image.image = gd.reference
@@ -154,7 +158,7 @@ def scene_setup(_self, context: Context) -> None:
         bpy.ops.view3d.view_camera()
 
     # Point cloud
-    if gd.height[0].enabled and gd.height[0].method == 'MANUAL':
+    if gd.height[0].enabled and gd.height[0].method == 'manual':
         generate_height_guide(Global.HEIGHT_GUIDE_NAME, plane_ob)
     generate_orientation_guide(Global.ORIENT_GUIDE_NAME, plane_ob)
 
@@ -171,7 +175,7 @@ def scene_setup(_self, context: Context) -> None:
 
     gd_coll.hide_select   = not gd.coll_selectable
     gd_coll.hide_viewport = not gd.coll_visible
-    gd_coll.hide_render   = not gd.coll_rendered
+    gd_coll.hide_render   = not gd.coll_rendered or gd.use_transparent
 
 
 def scene_cleanup(context: Context, hard_reset: bool=True) -> None | list:
@@ -185,7 +189,7 @@ def scene_cleanup(context: Context, hard_reset: bool=True) -> None | list:
     saved_bake_group_obs = []
     bake_group_coll = bpy.data.collections.get(Global.COLL_GROUP_NAME)
     if bake_group_coll is not None:
-        for ob in bake_group_coll.all_objects:
+        for ob in bake_group_coll.all_objects[:]:
             if hard_reset or not context.scene.gd.use_bake_collection:
                 context.scene.collection.objects.link(ob)
             else:
@@ -196,7 +200,7 @@ def scene_cleanup(context: Context, hard_reset: bool=True) -> None | list:
     # NOTE: Compensate for objects accidentally placed in the core collection
     gd_coll = bpy.data.collections.get(Global.COLL_CORE_NAME)
     if gd_coll is not None:
-        for ob in gd_coll.all_objects:
+        for ob in gd_coll.all_objects[:]:
             if ob.name not in (Global.BG_PLANE_NAME,
                                Global.ORIENT_GUIDE_NAME,
                                Global.HEIGHT_GUIDE_NAME,
@@ -272,8 +276,8 @@ def validate_scene(
         return report_value, report_string
 
     if not report_value \
-    and not gd.filepath == "//" \
-    and not os.path.exists(gd.filepath):
+    and get_filepath() \
+    and not os.path.exists(bpy.path.abspath(get_filepath())):
         report_value = True
         report_string = Error.NO_VALID_PATH_SET
     return report_value, report_string

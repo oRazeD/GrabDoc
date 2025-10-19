@@ -7,8 +7,8 @@ from bpy.types import SpaceView3D, Event, Context, Operator, UILayout
 from bpy.props import StringProperty, IntProperty
 
 from ..constants import Global, Error
-from ..ui import register_baker_panels
-from ..utils.io import get_format, get_temp_path
+from ..__init__ import refresh_baker_dependencies
+from ..utils.io import get_format, get_temp_path, get_filepath
 from ..utils.render import get_rendered_objects
 from ..utils.generic import get_user_preferences
 from ..utils.node import link_group_to_object, node_cleanup
@@ -21,13 +21,13 @@ from ..utils.baker import (
     baker_cleanup, get_bakers, get_baker_by_index
 )
 from ..utils.pack import (
-    get_channel_path, pack_image_channels, is_pack_maps_enabled
+    get_channel_paths, pack_image_channels, is_pack_maps_enabled
 )
 
 
 class GRABDOC_OT_load_reference(Operator):
     """Import a reference onto the background plane"""
-    bl_idname  = "grab_doc.load_reference"
+    bl_idname  = "grabdoc.load_reference"
     bl_label   = "Load Reference"
     bl_options = {'REGISTER', 'UNDO'}
 
@@ -46,22 +46,50 @@ class GRABDOC_OT_load_reference(Operator):
 
 class GRABDOC_OT_open_folder(Operator):
     """Opens up the File Explorer to the designated folder location"""
-    bl_idname  = "grab_doc.open_folder"
+    bl_idname  = "grabdoc.open_folder"
     bl_label   = "Open Export Folder"
     bl_options = {'REGISTER', 'UNDO'}
 
-    def execute(self, context: Context):
+    def execute(self, _context: Context):
         try:
-            bpy.ops.wm.path_open(filepath=context.scene.gd.filepath)
+            bpy.ops.wm.path_open(filepath=get_filepath())
         except RuntimeError:
             self.report({'ERROR'}, Error.NO_VALID_PATH_SET)
             return {'CANCELLED'}
         return {'FINISHED'}
 
 
+class GRABDOC_OT_increase_resolution(Operator):
+    """Increase the current resolution by a single step (2048 -> 4096)"""
+    bl_idname  = "grabdoc.increase_resolution"
+    bl_label   = "Increase Resolution"
+    bl_options = {'REGISTER', 'UNDO'}
+
+    def execute(self, context: Context):
+        gd = context.scene.gd
+        gd.resolution_x *= 2
+        if not gd.resolution_lock:
+            gd.resolution_y *= 2
+        return {'FINISHED'}
+
+
+class GRABDOC_OT_decrease_resolution(Operator):
+    """Decrease the current resolution by a single step (4096 -> 2048)"""
+    bl_idname  = "grabdoc.decrease_resolution"
+    bl_label   = "Decrease Resolution"
+    bl_options = {'REGISTER', 'UNDO'}
+
+    def execute(self, context: Context):
+        gd = context.scene.gd
+        gd.resolution_x //= 2
+        if not gd.resolution_lock:
+            gd.resolution_y //= 2
+        return {'FINISHED'}
+
+
 class GRABDOC_OT_toggle_camera_view(Operator):
     """View or leave the GrabDoc camera view"""
-    bl_idname = "grab_doc.toggle_camera_view"
+    bl_idname = "grabdoc.toggle_camera_view"
     bl_label  = "Toggle Camera View"
 
     def execute(self, context: Context):
@@ -76,7 +104,7 @@ class GRABDOC_OT_scene_setup(Operator):
 Useful for rare cases where GrabDoc isn't compatible with an existing setup.
 
 Can also potentially fix console spam from UI elements"""
-    bl_idname  = "grab_doc.scene_setup"
+    bl_idname  = "grabdoc.scene_setup"
     bl_label   = "Setup GrabDoc Scene"
     bl_options = {'REGISTER', 'INTERNAL'}
 
@@ -89,7 +117,7 @@ Can also potentially fix console spam from UI elements"""
             baker_prop.clear()
             baker = baker_prop.add()
 
-        register_baker_panels()
+        refresh_baker_dependencies()
         scene_setup(self, context)
 
         for baker in get_bakers():
@@ -99,7 +127,7 @@ Can also potentially fix console spam from UI elements"""
 
 class GRABDOC_OT_scene_cleanup(Operator):
     """Remove all GrabDoc objects from the scene; keeps reimported textures"""
-    bl_idname  = "grab_doc.scene_cleanup"
+    bl_idname  = "grabdoc.scene_cleanup"
     bl_label   = "Remove GrabDoc Scene"
     bl_options = {'REGISTER', 'INTERNAL'}
 
@@ -114,7 +142,7 @@ class GRABDOC_OT_scene_cleanup(Operator):
 
 class GRABDOC_OT_baker_add(Operator):
     """Add a new baker of this type to the current scene"""
-    bl_idname  = "grab_doc.baker_add"
+    bl_idname  = "grabdoc.baker_add"
     bl_label   = "Add Bake Map"
     bl_options = {'REGISTER', 'UNDO', 'INTERNAL'}
 
@@ -123,14 +151,14 @@ class GRABDOC_OT_baker_add(Operator):
     def execute(self, context: Context):
         baker_prop = getattr(context.scene.gd, self.map_type)
         baker = baker_prop.add()
-        register_baker_panels()
+        refresh_baker_dependencies()
         baker.node_setup()
         return {'FINISHED'}
 
 
 class GRABDOC_OT_baker_remove(Operator):
     """Remove the current baker from the current scene"""
-    bl_idname  = "grab_doc.baker_remove"
+    bl_idname  = "grabdoc.baker_remove"
     bl_label   = "Remove Baker"
     bl_options = {'REGISTER', 'UNDO', 'INTERNAL'}
 
@@ -146,38 +174,37 @@ class GRABDOC_OT_baker_remove(Operator):
             if bake_map.index == baker.index:
                 baker_prop.remove(idx)
                 break
-        register_baker_panels()
+        refresh_baker_dependencies()
         return {'FINISHED'}
 
 
 class GRABDOC_OT_baker_export(Operator, UILayout):
     """Bake and export all enabled bake maps"""
-    bl_idname = "grab_doc.baker_export"
+    bl_idname  = "grabdoc.baker_export"
     bl_label   = "Export Maps"
     bl_options = {'REGISTER', 'INTERNAL'}
 
     progress_factor = 0.0
+    map_type = ''
 
     @classmethod
     def poll(cls, context: Context) -> bool:
-        gd = context.scene.gd
-        if gd.filepath == "//" and not bpy.data.filepath:
-            cls.poll_message_set("Relative export path but file not saved")
+        if not os.path.exists(bpy.path.abspath(get_filepath())):
+            cls.poll_message_set("Project not saved or Path not set")
             return False
-        if gd.preview_state:
+        if context.scene.gd.preview_state:
             cls.poll_message_set("Cannot run while in Map Preview")
             return False
         return True
 
     @staticmethod
     def export(context: Context, suffix: str, path: str = None) -> str:
-        gd = context.scene.gd
         render = context.scene.render
         saved_path = render.filepath
 
-        name = f"{gd.filename}_{suffix}"
+        name = f"{context.scene.gd.filename}_{suffix}"
         if path is None:
-            path = gd.filepath
+            path = get_filepath()
         path = os.path.join(path, name + get_format())
         render.filepath = path
 
@@ -225,25 +252,25 @@ class GRABDOC_OT_baker_export(Operator, UILayout):
         plane_ob = bpy.data.objects[Global.BG_PLANE_NAME]
         plane_ob.scale[0] = plane_ob.scale[1] = 3
 
-        rendered_objects = get_rendered_objects()
         for baker in bakers:
             baker.setup()
             if not baker.node_tree:
                 continue
-            for ob in rendered_objects:
+            # TODO: Fix StructRNA issue to avoid recalculating
+            # constantly, may need to change GD object generation
+            for ob in get_rendered_objects():
                 sockets = link_group_to_object(ob, baker.node_tree)
-                sockets = baker.filter_required_sockets(sockets)
+                sockets = baker.filter_sockets(sockets)
                 if not sockets:
                     continue
                 self.report(
-                    {'WARNING'},
-                    f"{ob.name}: {sockets} {Error.MISSING_SLOT_LINKS}"
+                    {'WARNING'}, f"{ob.name}: {sockets} {Error.MISSING_LINKS}"
                 )
 
             self.export(context, baker.suffix)
             baker.cleanup()
             if baker.node_tree:
-                node_cleanup(baker.node_tree)
+                node_cleanup()
 
             completion_percent += completion_step
             context.window_manager.progress_update(completion_percent)
@@ -271,7 +298,7 @@ class GRABDOC_OT_baker_export(Operator, UILayout):
         context.window_manager.progress_end()
 
         if gd.use_pack_maps is True:
-            bpy.ops.grab_doc.baker_pack()
+            bpy.ops.grabdoc.baker_pack()
         return {'FINISHED'}
 
 
@@ -279,7 +306,7 @@ class GRABDOC_OT_baker_export_single(Operator):
     """Render the selected bake map and preview it within Blender.
 
 Rendering a second time will overwrite the internal image"""
-    bl_idname  = "grab_doc.baker_export_single"
+    bl_idname  = "grabdoc.baker_export_single"
     bl_label   = ""
     bl_options = {'REGISTER', 'INTERNAL'}
 
@@ -327,20 +354,18 @@ Rendering a second time will overwrite the internal image"""
         if self.baker.node_tree:
             for ob in get_rendered_objects():
                 sockets = link_group_to_object(ob, self.baker.node_tree)
-                sockets = self.baker.filter_required_sockets(sockets)
+                sockets = self.baker.filter_sockets(sockets)
                 if not sockets:
                     continue
-                self.report(
-                    {'WARNING'},
-                    f"{ob.name}: {sockets} {Error.MISSING_SLOT_LINKS}"
-                )
+                self.report({'WARNING'},
+                            f"{ob.name}: {sockets} {Error.MISSING_LINKS}")
         path = GRABDOC_OT_baker_export.export(
             context, self.baker.suffix, path=get_temp_path()
         )
         self.open_render_image(path)
         self.baker.cleanup()
         if self.baker.node_tree:
-            node_cleanup(self.baker.node_tree)
+            node_cleanup()
 
         # Reimport textures to render result material
         if self.baker.reimport:
@@ -351,7 +376,7 @@ Rendering a second time will overwrite the internal image"""
         plane_ob = bpy.data.objects[Global.BG_PLANE_NAME]
         plane_ob.scale[0] = plane_ob.scale[1] = 1
 
-        if activeCallback:
+        if activeCallback is not None:
             context.view_layer.objects.active = bpy.data.objects[activeCallback]
             # NOTE: Also helps refresh viewport
             if bpy.ops.object.mode_set.poll():
@@ -366,7 +391,7 @@ Rendering a second time will overwrite the internal image"""
 
 class GRABDOC_OT_baker_preview_exit(Operator):
     """Exit the current Map Preview"""
-    bl_idname  = "grab_doc.baker_preview_exit"
+    bl_idname  = "grabdoc.baker_preview_exit"
     bl_label   = "Exit Map Preview"
     bl_options = {'REGISTER', 'INTERNAL'}
 
@@ -414,7 +439,7 @@ def draw_callback_px(self, context: Context) -> None:
 
 class GRABDOC_OT_baker_preview(Operator):
     """Preview the selected bake map type"""
-    bl_idname = "grab_doc.baker_preview"
+    bl_idname = "grabdoc.baker_preview"
     bl_label   = ""
     bl_options = {'REGISTER', 'UNDO', 'INTERNAL'}
 
@@ -430,7 +455,7 @@ class GRABDOC_OT_baker_preview(Operator):
         # Format
         # NOTE: Set alpha channel if background plane not visible in render
         image_settings = scene.render.image_settings
-        if not gd.coll_rendered:
+        if not gd.coll_rendered or gd.use_transparent:
             scene.render.film_transparent = True
             image_settings.color_mode     = 'RGBA'
         else:
@@ -445,7 +470,8 @@ class GRABDOC_OT_baker_preview(Operator):
 
         # Handle newly added object materials
         ob_amount = len(bpy.data.objects)
-        if ob_amount > self.last_ob_amount and self.baker.node_tree:
+        if  ob_amount > self.last_ob_amount \
+        and self.baker and self.baker.node_tree:
             link_group_to_object(context.object, self.baker.node_tree)
         self.last_ob_amount = ob_amount
 
@@ -464,7 +490,7 @@ class GRABDOC_OT_baker_preview(Operator):
 
         self.baker.cleanup()
         if self.baker.node_tree:
-            node_cleanup(self.baker.node_tree)
+            node_cleanup()
         baker_cleanup(context, self.saved_properties)
 
         for screens in self.original_workspace.screens:
@@ -527,22 +553,21 @@ class GRABDOC_OT_baker_preview(Operator):
         )
         context.window_manager.modal_handler_add(self)
 
-        if self.baker.node_tree:
-            for ob in get_rendered_objects():
-                sockets = link_group_to_object(ob, self.baker.node_tree)
-                sockets = self.baker.filter_required_sockets(sockets)
-                if not sockets:
-                    continue
-                self.report(
-                    {'WARNING'},
-                    f"{ob.name}: {sockets} {Error.MISSING_SLOT_LINKS}"
-                )
+        if not self.baker.node_tree and self.baker.ID != 'custom':
+            return {'RUNNING_MODAL'}
+        for ob in get_rendered_objects():
+            sockets = link_group_to_object(ob, self.baker.node_tree)
+            sockets = self.baker.filter_sockets(sockets)
+            if not sockets:
+                continue
+            self.report({'WARNING'},
+                        f"{ob.name}: {sockets} {Error.MISSING_LINKS}")
         return {'RUNNING_MODAL'}
 
 
 class GRABDOC_OT_baker_preview_export(Operator):
     """Export the currently previewed material"""
-    bl_idname  = "grab_doc.baker_export_preview"
+    bl_idname  = "grabdoc.baker_export_preview"
     bl_label   = "Export Preview"
     bl_options = {'REGISTER'}
 
@@ -550,9 +575,8 @@ class GRABDOC_OT_baker_preview_export(Operator):
 
     @classmethod
     def poll(cls, context: Context) -> bool:
-        gd = context.scene.gd
-        if gd.filepath == "//" and not bpy.data.filepath:
-            cls.poll_message_set("Relative export path but file not saved")
+        if not os.path.exists(bpy.path.abspath(get_filepath())):
+            cls.poll_message_set("Project not saved or Path not set")
             return False
         return not GRABDOC_OT_baker_export_single.poll(context)
 
@@ -572,7 +596,8 @@ class GRABDOC_OT_baker_preview_export(Operator):
             plane_ob.scale[0] = plane_ob.scale[1] = 3
 
         gd = context.scene.gd
-        baker = getattr(gd, gd.preview_map_type)[self.baker_index]
+        baker_prop = getattr(gd, gd.preview_map_type)
+        baker = get_baker_by_index(baker_prop, gd.preview_index)
 
         GRABDOC_OT_baker_export.export(context, baker.suffix)
         if baker.reimport:
@@ -590,7 +615,7 @@ class GRABDOC_OT_baker_preview_export(Operator):
 
 class GRABDOC_OT_baker_visibility(Operator):
     """Configure bake map UI visibility, will also disable baking"""
-    bl_idname  = "grab_doc.baker_visibility"
+    bl_idname  = "grabdoc.baker_visibility"
     bl_label   = "Configure Baker Visibility"
     bl_options = {'REGISTER'}
 
@@ -614,48 +639,33 @@ class GRABDOC_OT_baker_visibility(Operator):
 
 class GRABDOC_OT_baker_pack(Operator):
     """Merge previously exported bake maps into single packed texture"""
-    bl_idname  = "grab_doc.baker_pack"
+    bl_idname  = "grabdoc.baker_pack"
     bl_label   = "Run Pack"
-    bl_options = {'REGISTER'}
-
-    @classmethod
-    def poll(cls, context: Context) -> bool:
-        gd = context.scene.gd
-        r = get_channel_path(gd.channel_r)
-        g = get_channel_path(gd.channel_g)
-        b = get_channel_path(gd.channel_b)
-        a = get_channel_path(gd.channel_a)
-        if not all((r, g, b)):
-            cls.poll_message_set("No bake maps exported yet")
-            return False
-        if gd.channel_a != 'none' and a is None:
-            cls.poll_message_set("The A channel set but texture not exported")
-            return False
-        return True
+    bl_options = {'REGISTER', 'INTERNAL'}
 
     def execute(self, context: Context):
-        gd = context.scene.gd
-        pack_name = gd.filename + "_" + gd.pack_name
-        path = gd.filepath
-
         # Loads all images into blender to avoid using a
         # separate python module to convert to np array
-        image_r = bpy.data.images.load(get_channel_path(gd.channel_r))
-        image_g = bpy.data.images.load(get_channel_path(gd.channel_g))
-        image_b = bpy.data.images.load(get_channel_path(gd.channel_b))
+        r, g, b, a = get_channel_paths()
+        image_r = bpy.data.images.load(r)
+        image_g = bpy.data.images.load(g)
+        image_b = bpy.data.images.load(b)
         pack_order = [(image_r, (0, 0)),
                       (image_g, (0, 1)),
                       (image_b, (0, 2))]
+        gd = context.scene.gd
         if gd.channel_a != 'none':
-            image_a = bpy.data.images.load(get_channel_path(gd.channel_a))
+            image_a = bpy.data.images.load(a)
             pack_order.append((image_a, (0, 3)))
 
+        pack_name = gd.filename + "_" + gd.pack_name
         dst_image = pack_image_channels(pack_order, pack_name)
-        dst_image.filepath_raw = path+"//"+pack_name+get_format()
-        dst_image.file_format = gd.format
+        dst_image.filepath_raw = \
+            get_filepath() + "//" + pack_name + get_format()
+        dst_image.file_format  = gd.format
         dst_image.save()
 
-        # Remove images from blend file to keep it clean
+        # Remove internal images
         bpy.data.images.remove(image_r)
         bpy.data.images.remove(image_g)
         bpy.data.images.remove(image_b)
@@ -663,17 +673,17 @@ class GRABDOC_OT_baker_pack(Operator):
             bpy.data.images.remove(image_a)
         bpy.data.images.remove(dst_image)
 
-        # Option to delete the extra maps through the operator panel
-        if gd.remove_original_maps is True:
-            if os.path.exists(get_channel_path(gd.channel_r)):
-                os.remove(get_channel_path(gd.channel_r))
-            if os.path.exists(get_channel_path(gd.channel_g)):
-                os.remove(get_channel_path(gd.channel_g))
-            if os.path.exists(get_channel_path(gd.channel_b)):
-                os.remove(get_channel_path(gd.channel_b))
-            if gd.channel_a != 'none' and \
-            os.path.exists(get_channel_path(gd.channel_a)):
-                os.remove(get_channel_path(gd.channel_a))
+        # Remove image files
+        if gd.remove_original_maps is False:
+            return {'FINISHED'}
+        if os.path.exists(r):
+            os.remove(r)
+        if os.path.exists(g):
+            os.remove(g)
+        if os.path.exists(b):
+            os.remove(b)
+        if gd.channel_a != 'none' and os.path.exists(a):
+            os.remove(a)
         return {'FINISHED'}
 
 
@@ -685,6 +695,8 @@ class GRABDOC_OT_baker_pack(Operator):
 classes = (
     GRABDOC_OT_load_reference,
     GRABDOC_OT_open_folder,
+    GRABDOC_OT_increase_resolution,
+    GRABDOC_OT_decrease_resolution,
     GRABDOC_OT_toggle_camera_view,
     GRABDOC_OT_scene_setup,
     GRABDOC_OT_scene_cleanup,

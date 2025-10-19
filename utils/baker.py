@@ -6,7 +6,8 @@ from bpy.props import CollectionProperty
 
 from ..baker import Baker
 from ..constants import Global
-from .io import get_format
+from .node import get_bsdf
+from .io import get_filepath, get_format
 from .generic import load_properties, save_properties
 
 
@@ -43,11 +44,7 @@ def baker_setup(context: Context) -> dict:
         scene.world.use_nodes = False
 
     view_layer.use = render.use_single_layer = True
-
-    eevee.use_gtao             = False
     eevee.use_taa_reprojection = False
-    eevee.gtao_distance        = .2
-    eevee.gtao_quality         = .5
 
     cycles.pixel_filter_type = 'BLACKMAN_HARRIS'
 
@@ -60,7 +57,7 @@ def baker_setup(context: Context) -> dict:
     # Output
     # NOTE: If background plane not visible in render, create alpha channel
     image_settings.color_mode = 'RGB'
-    if not gd.coll_rendered:
+    if not gd.coll_rendered or gd.use_transparent:
         image_settings.color_mode = 'RGBA'
         render.film_transparent   = True
 
@@ -85,7 +82,7 @@ def baker_setup(context: Context) -> dict:
     # Background plane visibility
     bg_plane = bpy.data.objects.get(Global.BG_PLANE_NAME)
     bg_plane.hide_viewport = not gd.coll_visible
-    bg_plane.hide_render   = not gd.coll_rendered
+    bg_plane.hide_render   = not gd.coll_rendered or gd.use_transparent
     bg_plane.hide_set(False)
 
     return saved_properties
@@ -139,25 +136,27 @@ def import_baker_textures(bakers: list[Baker]) -> None:
         mat = bpy.data.materials.new(Global.REIMPORT_MAT_NAME)
     mat.use_nodes = True
 
-    bsdf = mat.node_tree.nodes['Principled BSDF']
-    bsdf.inputs["Emission Color"].default_value    = (0,0,0,1)
+    bsdf = get_bsdf(mat.node_tree)
+    bsdf.inputs["Emission Color"].default_value    = (0, 0, 0, 1)
     bsdf.inputs["Emission Strength"].default_value = 1
 
-    y_offset = 256
-    gd = bpy.context.scene.gd
+    y_offset = 0
     for baker in bakers:
         image = mat.node_tree.nodes.get(baker.ID)
         if image is None:
             image = mat.node_tree.nodes.new('ShaderNodeTexImage')
         image.hide = True
         image.name = image.label = baker.ID
-        image.location = (-300, y_offset)
+        image.location = (-600, y_offset)
         y_offset -= 32
 
-        filename = f'{gd.filename}_{baker.ID}'
-        filepath = os.path.join(gd.filepath, filename + get_format())
+        filename = f'{bpy.context.scene.gd.filename}_{baker.ID}'
+        filepath = os.path.join(get_filepath(), filename + get_format())
         if not os.path.exists(filepath):
             continue
         image.image = bpy.data.images.load(filepath, check_existing=True)
 
-        baker.reimport_setup(mat, image)
+        baker.reimport_setup(mat, bsdf, image)
+        # TODO: Isn't  v  supposed to be handled  ^  ?
+        if baker.VIEW_TRANSFORM == 'Raw':
+            image.image.colorspace_settings.name = 'Non-Color'

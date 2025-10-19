@@ -38,9 +38,9 @@ def save_properties(properties: list) -> dict:
     """Store all given iterable properties."""
     saved_properties = {}
     for data in properties:
+        if data not in saved_properties:
+            saved_properties[data] = {}
         for attr in dir(data):
-            if data not in saved_properties:
-                saved_properties[data] = {}
             saved_properties[data][attr] = getattr(data, attr)
     return saved_properties
 

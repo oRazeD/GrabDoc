@@ -1,7 +1,7 @@
 schema_version = "1.0.0"
 
 id = "GrabDoc"
-version = "2.0.0"
+version = "2.0.1"
 name = "GrabDoc"
 tagline = "A trim & tileable baker for Blender"
 maintainer = "Ethan Simon-Law <ethan.simon.3d@gmail.com>"
@@ -12,7 +12,7 @@ website = "https://github.com/oRazeD/GrabDoc"
 tags = ["3D View", "Material", "Bake", "Compositing", "Render", "Import-Export"]
 
 blender_version_min = "4.2.0"
-blender_version_max = "4.7.0"
+blender_version_max = "5.5.0"
 
 license = [
   "SPDX:GPL-3.0-or-later",

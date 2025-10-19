@@ -1,19 +1,15 @@
 import bpy
 from bpy.types import PropertyGroup, UILayout, Context, NodeTree
-from bpy.props import (
-    BoolProperty, StringProperty, EnumProperty,
-    IntProperty, FloatProperty, PointerProperty,
-    CollectionProperty
-)
+from bpy.props import (BoolProperty, StringProperty, EnumProperty,
+                       IntProperty, FloatProperty, PointerProperty,
+                       CollectionProperty)
 
 from .constants import Global
 from .utils.scene import scene_setup
-from .utils.node import (
-    generate_shader_interface, get_group_inputs, get_material_output_sockets
-)
-from .utils.render import (
-    set_guide_height, get_rendered_objects, set_color_management
-)
+from .utils.node import (generate_shader_interface, link_group_to_object,
+                         get_group_inputs, get_material_output_sockets)
+from .utils.render import (set_guide_height, get_rendered_objects,
+                           set_color_management)
 
 
 class Baker(PropertyGroup):
@@ -32,42 +28,32 @@ class Baker(PropertyGroup):
     MARMOSET_COMPATIBLE:       bool = True
     REQUIRED_SOCKETS:    tuple[str] = ()
     OPTIONAL_SOCKETS:    tuple[str] = ('Alpha',)
-    SUPPORTED_ENGINES               = (('blender_eevee_next', "EEVEE",     ""),
-                                       ('cycles',             "Cycles",    ""),
-                                       ('blender_workbench',  "Workbench", ""))
+    SUPPORTED_ENGINES               = ((Global.EEVEE_NAME,   "EEVEE",     ""),
+                                       ('cycles',            "Cycles",    ""),
+                                       ('blender_workbench', "Workbench", ""))
 
-    def __init__(self):
-        """Called when `bpy.ops.grab_doc.scene_setup` operator is ran.
-
-        This method is NOT called when created via `CollectionProperty`."""
+    def initialize(self):
+        """Initialize baker instance after creation in PropertyCollection."""
         self.node_input  = None
         self.node_output = None
-
-        # NOTE: For properties using constants as defaults
-        self.__class__.suffix = StringProperty(
-            description="The suffix of the exported bake map",
-            name="Suffix", default=self.ID
-        )
+        # NOTE: Unique due to dynamic items/enum
         self.__class__.engine = EnumProperty(
             name='Render Engine',
-            items=self.SUPPORTED_ENGINES,
+            items=self.__class__.SUPPORTED_ENGINES,
             update=self.__class__.apply_render_settings
         )
-        self.__class__.suffix = StringProperty(
-            description="The suffix of the exported bake map",
-            name="Suffix", default=self.ID
-        )
-        self.__class__.enabled = BoolProperty(
-            name="Export Enabled", default=self.MARMOSET_COMPATIBLE
-        )
+
+        self.suffix = self.ID
+        if len(self.REQUIRED_SOCKETS) > 0 or self.ID == 'custom':
+            self.enabled = False
 
         if self.index == -1:
-            gd = bpy.context.scene.gd
-            self.index = self.get_unique_index(getattr(gd, self.ID))
+            baker_type = getattr(bpy.context.scene.gd, self.ID)
+            self.index = self.get_unique_index(baker_type)
         if self.index > 0:
             self.node_name = self.get_node_name(self.NAME, self.index+1)
             if not self.suffix[-1].isdigit():
-                self.suffix = f"{self.suffix}_{self.index+1}"
+                self.suffix += f"_{self.index+1}"
 
     @staticmethod
     def get_unique_index(collection: CollectionProperty) -> int:
@@ -87,6 +73,12 @@ class Baker(PropertyGroup):
         if idx:
             node_name += f"_{idx}"
         return node_name
+
+    def get_display_name(self) -> str:
+        baker_name = self.NAME
+        if self.index > 0:
+            baker_name += f" {self.index+1}"
+        return baker_name
 
     def setup(self):
         """General operations to run before bake export."""
@@ -114,10 +106,9 @@ class Baker(PropertyGroup):
         self.node_output = self.node_tree.nodes.new('NodeGroupOutput')
         generate_shader_interface(self.node_tree, get_material_output_sockets())
 
-    def reimport_setup(self, material, image):
+    def reimport_setup(self, material, bsdf, image):
         """Shader logic to link an imported image texture a generic BSDF."""
         links = material.node_tree.links
-        bsdf  = material.node_tree.nodes['Principled BSDF']
         try:
             links.new(bsdf.inputs[self.ID.capitalize()], image.outputs["Color"])
         except KeyError:
@@ -142,7 +133,7 @@ class Baker(PropertyGroup):
         eevee   = scene.eevee
         display = scene.display
         render.engine = str(self.engine).upper()
-        if render.engine == "blender_eevee_next".upper():
+        if render.engine == Global.EEVEE_NAME.upper():
             eevee.taa_render_samples = eevee.taa_samples = self.samples
         elif render.engine == 'CYCLES':
             cycles.samples = cycles.preview_samples = self.samples_cycles
@@ -152,13 +143,9 @@ class Baker(PropertyGroup):
         set_color_management(self.VIEW_TRANSFORM,
                              self.contrast.replace('_', ' '))
 
-    def filter_required_sockets(self, sockets: list[str]) -> str:
+    def filter_sockets(self, sockets: list[str]) -> str:
         """Filter out optional sockets from a list of socket names."""
-        required_sockets = []
-        for socket in sockets:
-            if socket in self.REQUIRED_SOCKETS:
-                required_sockets.append(socket)
-        return ", ".join(required_sockets)
+        return ", ".join([s for s in sockets if s in self.REQUIRED_SOCKETS])
 
     def draw_properties(self, context: Context, layout: UILayout):
         """Dedicated layout for specific bake map properties."""
@@ -167,22 +154,22 @@ class Baker(PropertyGroup):
         """Dropdown layout for bake map properties and operators."""
         layout.use_property_split    = True
         layout.use_property_decorate = False
-        col = layout.column()
+
+        col = layout.column(align=True)
+        # NOTE: Manually hide empty properties panels
+        if self.ID not in ('color', 'emissive'):
+            box = col.box()
+            box.label(text="Properties", icon='PROPERTIES')
+            self.draw_properties(context, box)
 
         box = col.box()
-        box.label(text="Properties", icon="PROPERTIES")
-        row = box.row(align=True)
-        if len(self.SUPPORTED_ENGINES) < 2:
-            row.enabled = False
-        row.prop(self, 'engine')
-
-        self.draw_properties(context, box)
-
-        box = col.box()
-        box.label(text="Settings", icon="SETTINGS")
+        box.label(text="Settings", icon='SETTINGS')
         col_set = box.column()
-        gd = context.scene.gd
-        if gd.engine == 'grabdoc':
+        if context.scene.gd.engine == 'grabdoc':
+            row = col_set.row(align=True)
+            if len(self.SUPPORTED_ENGINES) < 2:
+                row.enabled = False
+            row.prop(self, 'engine')
             col_set.prop(self, 'reimport')
             col_set.prop(self, 'disable_filtering')
             prop = 'samples'
@@ -221,6 +208,11 @@ class Baker(PropertyGroup):
     node_tree: PointerProperty(type=NodeTree)
 
     # NOTE: Default properties
+    suffix: StringProperty(
+        description="The suffix of the exported bake map",
+        name="Suffix", default=""
+    )
+    enabled: BoolProperty(name="Export Enabled", default=True)
     reimport: BoolProperty(
         description="Reimport bake map texture into a Blender material",
         name="Re-import"
@@ -230,7 +222,7 @@ class Baker(PropertyGroup):
     )
     disable_filtering: BoolProperty(
         description="Override global filtering setting and set filter to .01px",
-        name="Override Filtering", default=False, update=apply_render_settings
+        name="Disable Filter", default=False, update=apply_render_settings
     )
     samples: IntProperty(name="EEVEE Samples", update=apply_render_settings,
                          default=32, min=1, soft_max=256)
@@ -273,8 +265,25 @@ class Normals(Baker):
         self.node_tree.interface.new_socket(
             name='Normal', socket_type='NodeSocketVector'
         )
+        self.node_input.location = (-1400, -225)
+
+        geometry = self.node_tree.nodes.new('ShaderNodeNewGeometry')
+        geometry.location = (-1400, 0)
+
+        vec_mix = self.node_tree.nodes.new('ShaderNodeMix')
+        vec_mix.data_type = 'VECTOR'
+        vec_mix.location = (-1200, 0)
+
+        vec_sep = self.node_tree.nodes.new('ShaderNodeSeparateXYZ')
+        vec_sep.location = (-1200, -200)
+
+        vec_ceil = self.node_tree.nodes.new('ShaderNodeVectorMath')
+        vec_ceil.operation = 'CEIL'
+        vec_ceil.location = (-1200, -325)
 
         bevel = self.node_tree.nodes.new('ShaderNodeBevel')
+        bevel.name = "Bevel"
+        bevel.samples = 16
         bevel.inputs[0].default_value = 0
         bevel.location = (-1000, 0)
 
@@ -284,6 +293,7 @@ class Normals(Baker):
         vec_transform.location    = (-800, 0)
 
         vec_mult = self.node_tree.nodes.new('ShaderNodeVectorMath')
+        vec_mult.name = "Vector Math"
         vec_mult.operation = 'MULTIPLY'
         vec_mult.inputs[1].default_value[0] = .5
         vec_mult.inputs[1].default_value[1] = -.5 if self.flip_y else .5
@@ -297,39 +307,43 @@ class Normals(Baker):
         vec_add.location = (-400, 0)
 
         invert = self.node_tree.nodes.new('ShaderNodeInvert')
-        invert.location = (-1000, -300)
+        invert.location = (-600, -300)
 
         subtract = self.node_tree.nodes.new('ShaderNodeMixRGB')
         subtract.blend_type = 'SUBTRACT'
         subtract.inputs[0].default_value = 1
         subtract.inputs[1].default_value = (1, 1, 1, 1)
-        subtract.location = (-800, -300)
+        subtract.location = (-400, -300)
 
         transp_shader = self.node_tree.nodes.new('ShaderNodeBsdfTransparent')
-        transp_shader.location = (-400, -400)
+        transp_shader.location = (-200, -125)
 
         mix_shader = self.node_tree.nodes.new('ShaderNodeMixShader')
-        mix_shader.location = (-200, -300)
+        mix_shader.location = (-200, 0)
 
         links = self.node_tree.links
-        links.new(bevel.inputs["Normal"], self.node_input.outputs["Normal"])
-        links.new(vec_transform.inputs["Vector"], bevel.outputs["Normal"])
-        links.new(vec_mult.inputs["Vector"], vec_transform.outputs["Vector"])
-        links.new(vec_add.inputs["Vector"], vec_mult.outputs["Vector"])
+        links.new(vec_mix.inputs['Factor'], vec_sep.outputs['Z'])
+        links.new(vec_mix.inputs['A'],      geometry.outputs['Normal'])
+        links.new(vec_mix.inputs['B'],      self.node_input.outputs['Normal'])
+        links.new(vec_sep.inputs[0],        vec_ceil.outputs[0])
+        links.new(vec_ceil.inputs[0],       self.node_input.outputs['Normal'])
 
-        links.new(invert.inputs['Color'], self.node_input.outputs['Alpha'])
-        links.new(subtract.inputs['Color2'], invert.outputs['Color'])
-        links.new(mix_shader.inputs['Fac'], subtract.outputs['Color'])
-        links.new(mix_shader.inputs[1], transp_shader.outputs['BSDF'])
-        links.new(mix_shader.inputs[2], vec_add.outputs['Vector'])
+        links.new(bevel.inputs['Normal'],  vec_mix.outputs['Result'])
+        links.new(vec_transform.inputs[0], bevel.outputs[0])
+        links.new(vec_mult.inputs[0],      vec_transform.outputs[0])
+        links.new(vec_add.inputs[0],       vec_mult.outputs[0])
 
-        # NOTE: Update if use_texture default changes
-        links.new(self.node_output.inputs["Shader"],
-                  mix_shader.outputs["Shader"])
+        links.new(invert.inputs[1],   self.node_input.outputs['Alpha'])
+        links.new(subtract.inputs[2], invert.outputs[0])
 
-    def reimport_setup(self, material, image):
-        bsdf   = material.node_tree.nodes['Principled BSDF']
-        normal = material.node_tree.nodes['Normal Map']
+        links.new(mix_shader.inputs[0], subtract.outputs[0])
+        links.new(mix_shader.inputs[1], transp_shader.outputs[0])
+        links.new(mix_shader.inputs[2], vec_add.outputs[0])
+        links.new(self.node_output.inputs['Shader'],
+                  mix_shader.outputs['Shader'])
+
+    def reimport_setup(self, material, bsdf, image):
+        normal = material.node_tree.nodes.get('Normal Map')
         if normal is None:
             normal = material.node_tree.nodes.new('ShaderNodeNormalMap')
         normal.hide = True
@@ -337,44 +351,26 @@ class Normals(Baker):
         image.location  = (image.location[0] - 200, image.location[1])
         links = material.node_tree.links
         links.new(normal.inputs["Color"], image.outputs["Color"])
-        links.new(bsdf.inputs["Normal"], normal.outputs["Normal"])
+        links.new(bsdf.inputs["Normal"],  normal.outputs["Normal"])
 
     def draw_properties(self, context: Context, layout: UILayout):
         col = layout.column()
         col.prop(self, 'flip_y')
         if context.scene.gd.engine == 'grabdoc':
-            col.prop(self, 'use_texture')
             if self.engine == 'cycles':
                 col.prop(self, 'bevel_weight')
 
     def update_flip_y(self, _context: Context):
-        vec_multiply = self.node_tree.nodes['Vector Math']
-        vec_multiply.inputs[1].default_value[1] = -.5 if self.flip_y else .5
-
-    def update_use_texture(self, context: Context) -> None:
-        if not context.scene.gd.preview_state:
-            return
-        group_output = self.node_tree.nodes['Group Output']
-        links = self.node_tree.links
-        if self.use_texture:
-            links.new(group_output.inputs["Shader"],
-                      self.node_tree.nodes['Mix Shader'].outputs["Shader"])
-            return
-        links.new(group_output.inputs["Shader"],
-                  self.node_tree.nodes['Vector Math.001'].outputs["Vector"])
+        vec_mult = self.node_tree.nodes['Vector Math']
+        vec_mult.inputs[1].default_value[1] = -.5 if self.flip_y else .5
 
     def update_bevel_weight(self, _context: Context):
         bevel = self.node_tree.nodes['Bevel']
         bevel.inputs[0].default_value = self.bevel_weight
 
     flip_y: BoolProperty(
-        description="Flip the normal map Y direction (DirectX format)",
-        name="Invert (-Y)", options={'SKIP_SAVE'}, update=update_flip_y
-    )
-    use_texture: BoolProperty(
-        description="Use texture normals linked to the Principled BSDF",
-        name="Mix Textures", options={'SKIP_SAVE'},
-        default=True, update=update_use_texture
+        description="Flip the normal map Y direction (-Y / DirectX format)",
+        name="Invert", options={'SKIP_SAVE'}, update=update_flip_y
     )
     bevel_weight: FloatProperty(
         description="Bevel shader weight (May need to increase samples)",
@@ -390,11 +386,8 @@ class Curvature(Baker):
     MARMOSET_COMPATIBLE = True
     REQUIRED_SOCKETS    = ()
     OPTIONAL_SOCKETS    = ()
-    SUPPORTED_ENGINES   = Baker.SUPPORTED_ENGINES[1:]
-
-    def __init__(self):
-        super().__init__()
-        self.engine = self.SUPPORTED_ENGINES[-1][0]
+    SUPPORTED_ENGINES   = (('blender_workbench',  "Workbench", ""),
+                           ('cycles',             "Cycles",    ""))
 
     def setup(self) -> None:
         super().setup()
@@ -419,6 +412,7 @@ class Curvature(Baker):
         geometry.location = (-800, 0)
 
         color_ramp = self.node_tree.nodes.new('ShaderNodeValToRGB')
+        color_ramp.name = "Color Ramp"
         color_ramp.color_ramp.elements.new(.5)
         color_ramp.color_ramp.elements[0].position = 0.49
         color_ramp.color_ramp.elements[2].position = 0.51
@@ -489,41 +483,84 @@ class Occlusion(Baker):
     def setup(self) -> None:
         super().setup()
         scene = bpy.context.scene
-        eevee = scene.eevee
-        if scene.render.engine == "blender_eevee_next".upper():
-            eevee.use_gtao      = True
-            eevee.use_overscan  = True
-            eevee.overscan_size = 25
+        if scene.render.engine == Global.EEVEE_NAME.upper():
+            scene.eevee.use_overscan  = True
+            scene.eevee.overscan_size = 25
 
     def node_setup(self):
         super().node_setup()
-        normal = self.node_tree.interface.new_socket(
+        self.node_tree.interface.new_socket(
             name='Normal', socket_type='NodeSocketVector'
         )
-        normal.default_value = (0.5, 0.5, 1)
+        self.node_input.location = (-1400, -225)
+
+        geometry = self.node_tree.nodes.new('ShaderNodeNewGeometry')
+        geometry.location = (-1400, 0)
+
+        vec_mix = self.node_tree.nodes.new('ShaderNodeMix')
+        vec_mix.data_type = 'VECTOR'
+        vec_mix.location = (-1200, 0)
+
+        vec_sep = self.node_tree.nodes.new('ShaderNodeSeparateXYZ')
+        vec_sep.location = (-1200, -200)
+
+        vec_ceil = self.node_tree.nodes.new('ShaderNodeVectorMath')
+        vec_ceil.operation = 'CEIL'
+        vec_ceil.location = (-1200, -325)
 
         ao = self.node_tree.nodes.new('ShaderNodeAmbientOcclusion')
+        ao.name = "Ambient Occlusion"
         ao.samples  = 32
-        ao.location = (-800, 0)
+        ao.location = (-1000, 0)
+
+        invert = self.node_tree.nodes.new('ShaderNodeInvert')
+        invert.name = "Invert Color"
+        invert.inputs[0].default_value = 0
+        invert.location = (-800, 0)
 
         gamma = self.node_tree.nodes.new('ShaderNodeGamma')
+        gamma.name = "Gamma"
         gamma.inputs[1].default_value = 1
         gamma.location = (-600, 0)
 
-        invert = self.node_tree.nodes.new('ShaderNodeInvert')
-        invert.inputs[0].default_value = 0
-        invert.location = (-400, 0)
-
         emission = self.node_tree.nodes.new('ShaderNodeEmission')
-        emission.location = (-200, 0)
+        emission.location = (-400, 0)
+
+        transp_invert = self.node_tree.nodes.new('ShaderNodeInvert')
+        transp_invert.location = (-600, -300)
+
+        subtract = self.node_tree.nodes.new('ShaderNodeMixRGB')
+        subtract.blend_type = 'SUBTRACT'
+        subtract.inputs[0].default_value = 1
+        subtract.inputs[1].default_value = (1, 1, 1, 1)
+        subtract.location = (-400, -300)
+
+        transp_shader = self.node_tree.nodes.new('ShaderNodeBsdfTransparent')
+        transp_shader.location = (-200, -125)
+
+        mix_shader = self.node_tree.nodes.new('ShaderNodeMixShader')
+        mix_shader.location = (-200, 0)
 
         links = self.node_tree.links
-        links.new(ao.inputs["Normal"], self.node_input.outputs["Normal"])
-        links.new(invert.inputs["Color"], ao.outputs["Color"])
-        links.new(gamma.inputs["Color"], invert.outputs["Color"])
+        links.new(vec_mix.inputs['Factor'], vec_sep.outputs['Z'])
+        links.new(vec_mix.inputs['A'],      geometry.outputs['Normal'])
+        links.new(vec_mix.inputs['B'],      self.node_input.outputs['Normal'])
+        links.new(vec_sep.inputs[0],        vec_ceil.outputs[0])
+        links.new(vec_ceil.inputs[0],       self.node_input.outputs['Normal'])
+
+        links.new(ao.inputs["Normal"],      vec_mix.outputs['Result'])
+        links.new(invert.inputs["Color"],   ao.outputs["Color"])
+        links.new(gamma.inputs["Color"],    invert.outputs["Color"])
         links.new(emission.inputs["Color"], gamma.outputs["Color"])
-        links.new(self.node_output.inputs["Shader"],
-                  emission.outputs["Emission"])
+
+        links.new(transp_invert.inputs[1], self.node_input.outputs['Alpha'])
+        links.new(subtract.inputs[2],      transp_invert.outputs[0])
+
+        links.new(mix_shader.inputs[0], subtract.outputs[0])
+        links.new(mix_shader.inputs[1], transp_shader.outputs[0])
+        links.new(mix_shader.inputs[2], emission.outputs["Emission"])
+        links.new(self.node_output.inputs['Shader'],
+                  mix_shader.outputs['Shader'])
 
     def draw_properties(self, context: Context, layout: UILayout):
         gd = context.scene.gd
@@ -573,9 +610,8 @@ class Height(Baker):
 
     def setup(self) -> None:
         super().setup()
-        if self.method == 'AUTO':
-            rendered_obs = get_rendered_objects()
-            set_guide_height(rendered_obs)
+        if self.method == 'auto':
+            set_guide_height(get_rendered_objects())
 
     def node_setup(self):
         super().node_setup()
@@ -585,9 +621,11 @@ class Height(Baker):
 
         # NOTE: Map Range updates handled on map preview
         map_range = self.node_tree.nodes.new('ShaderNodeMapRange')
+        map_range.name = "Map Range"
         map_range.location = (-600, 0)
 
         ramp = self.node_tree.nodes.new('ShaderNodeValToRGB')
+        ramp.name = "Color Ramp"
         ramp.color_ramp.elements[0].color = (1, 1, 1, 1)
         ramp.color_ramp.elements[1].color = (0, 0, 0, 1)
         ramp.location = (-400, 0)
@@ -600,19 +638,17 @@ class Height(Baker):
     def draw_properties(self, context: Context, layout: UILayout):
         col = layout.column()
         if context.scene.gd.engine == 'grabdoc':
-            col.prop(self, 'invert', text="Invert")
+            col.prop(self, 'invert')
         row = col.row()
-        row.prop(self, 'method', text="Method", expand=True)
-        if self.method == 'MANUAL':
-            col.prop(self, 'distance', text="0-1 Range")
+        row.prop(self, 'method', expand=True)
+        if self.method == 'manual':
+            col.prop(self, 'distance')
 
     def update_method(self, context: Context):
         scene_setup(self, context)
-        if not context.scene.gd.preview_state:
+        if not context.scene.gd.preview_state or self.method != 'auto':
             return
-        if self.method == 'AUTO':
-            rendered_obs = get_rendered_objects()
-            set_guide_height(rendered_obs)
+        set_guide_height(get_rendered_objects())
 
     def update_guide(self, context: Context):
         map_range = self.node_tree.nodes['Map Range']
@@ -627,22 +663,24 @@ class Height(Baker):
             (1, 1, 1, 1) if self.invert else (0, 0, 0, 1)
         ramp.location = (-400, 0)
 
-        if self.method == 'MANUAL':
+        if self.method == 'manual':
             scene_setup(self, context)
 
     invert: BoolProperty(
         description="Invert height mask, useful for sculpting negatively",
-        update=update_guide
+        name="Invert", update=update_guide
     )
     distance: FloatProperty(
-        name="", update=update_guide,
+        description="The 0-1 range",
+        name="Range", update=update_guide,
         default=1, min=.01, soft_max=100, step=.03, subtype='DISTANCE'
     )
     method: EnumProperty(
-        description="Height method, use manual if auto produces range errors",
+        description=\
+    "Method used to calculate range, use Manual if Auto isn't accurate enough",
         name="Method", update=update_method,
-        items=(('AUTO',   "Auto",   ""),
-               ('MANUAL', "Manual", ""))
+        items=(('auto',   "Auto",   ""),
+               ('manual', "Manual", ""))
     )
 
 
@@ -655,8 +693,8 @@ class Id(Baker):
     OPTIONAL_SOCKETS    = ()
     SUPPORTED_ENGINES   = (Baker.SUPPORTED_ENGINES[-1],)
 
-    def __init__(self):
-        super().__init__()
+    def initialize(self):
+        super().initialize()
         self.disable_filtering = True
 
     def setup(self) -> None:
@@ -672,49 +710,49 @@ class Id(Baker):
         row = layout.row()
         if gd.engine != 'marmoset':
             row.prop(self, 'method')
-        if self.method != 'MATERIAL':
+        if self.method != 'material':
             return
 
         col = layout.column(align=True)
         col.separator(factor=.5)
         col.scale_y = 1.1
-        col.operator("grab_doc.quick_id_setup")
+        col.operator("grabdoc.quick_id_setup")
 
         row = col.row(align=True)
         row.scale_y = .9
         row.label(text=" Remove:")
         row.operator(
-            "grab_doc.remove_mats_by_name",
+            "grabdoc.remove_mats_by_name",
             text='All'
         ).name = Global.RANDOM_ID_PREFIX
 
         col = layout.column(align=True)
         col.separator(factor=.5)
         col.scale_y = 1.1
-        col.operator("grab_doc.quick_id_selected")
+        col.operator("grabdoc.quick_id_selected")
 
         row = col.row(align=True)
         row.scale_y = .9
         row.label(text=" Remove:")
-        row.operator("grab_doc.remove_mats_by_name",
+        row.operator("grabdoc.remove_mats_by_name",
                      text='All').name = Global.ID_PREFIX
-        row.operator("grab_doc.quick_remove_selected_mats",
+        row.operator("grabdoc.quick_remove_selected_mats",
                      text='Selected')
 
     def update_method(self, context: Context):
         shading = context.scene.display.shading
         shading.show_cavity = False
         shading.light = 'FLAT'
-        shading.color_type = self.method
+        shading.color_type = str(self.method).upper()
 
     method: EnumProperty(
-        items=(('MATERIAL', 'Material', ''),
-               ('SINGLE',   'Single',   ''),
-               ('OBJECT',   'Object',   ''),
-               ('RANDOM',   'Random',   ''),
-               ('VERTEX',   'Vertex',   ''),
-               ('TEXTURE',  'Texture',  '')),
-        name="Method", update=update_method, default='RANDOM'
+        items=(('material', 'Material', ''),
+               ('single',   'Single',   ''),
+               ('object',   'Object',   ''),
+               ('random',   'Random',   ''),
+               ('vertex',   'Vertex',   ''),
+               ('texture',  'Texture',  '')),
+        name="Method", update=update_method, default='random'
     )
 
 class Alpha(Baker):
@@ -733,46 +771,53 @@ class Alpha(Baker):
         camera.location = (-1000, 0)
 
         map_range = self.node_tree.nodes.new('ShaderNodeMapRange')
+        map_range.name = "Map Range"
         map_range.location = (-800, 0)
         camera_object_z = Global.CAMERA_DISTANCE * bpy.context.scene.gd.scale
         map_range.inputs[1].default_value = camera_object_z - .00001
         map_range.inputs[2].default_value = camera_object_z
 
-        invert_mask = self.node_tree.nodes.new('ShaderNodeInvert')
-        invert_mask.name = "Invert Mask"
-        invert_mask.location = (-600, 200)
-
         invert_depth = self.node_tree.nodes.new('ShaderNodeInvert')
         invert_depth.name = "Invert Depth"
         invert_depth.location = (-600, 0)
 
-        mix = self.node_tree.nodes.new('ShaderNodeMix')
-        mix.name = "Invert Mask"
-        mix.data_type = "RGBA"
-        mix.inputs["B"].default_value = (0, 0, 0, 1)
-        mix.location = (-400, 0)
-
         emission = self.node_tree.nodes.new('ShaderNodeEmission')
-        emission.location = (-200, 0)
+        emission.location = (-400, 0)
+
+        invert = self.node_tree.nodes.new('ShaderNodeInvert')
+        invert.location = (-600, -300)
+
+        subtract = self.node_tree.nodes.new('ShaderNodeMixRGB')
+        subtract.blend_type = 'SUBTRACT'
+        subtract.inputs[0].default_value = 1
+        subtract.inputs[1].default_value = (1, 1, 1, 1)
+        subtract.location = (-400, -300)
+
+        transp_shader = self.node_tree.nodes.new('ShaderNodeBsdfTransparent')
+        transp_shader.location = (-200, -125)
+
+        mix_shader = self.node_tree.nodes.new('ShaderNodeMixShader')
+        mix_shader.location = (-200, 0)
 
         links = self.node_tree.links
-        links.new(invert_mask.inputs["Color"], self.node_input.outputs["Alpha"])
-        links.new(mix.inputs["Factor"], invert_mask.outputs["Color"])
-
         links.new(map_range.inputs["Value"], camera.outputs["View Z Depth"])
         links.new(invert_depth.inputs["Color"], map_range.outputs["Result"])
-        links.new(mix.inputs["A"], invert_depth.outputs["Color"])
+        links.new(emission.inputs["Color"], invert_depth.outputs["Color"])
 
-        links.new(emission.inputs["Color"], mix.outputs["Result"])
-        links.new(self.node_output.inputs["Shader"],
-                  emission.outputs["Emission"])
+        links.new(invert.inputs[1],   self.node_input.outputs['Alpha'])
+        links.new(subtract.inputs[2], invert.outputs[0])
+
+        links.new(mix_shader.inputs[0], subtract.outputs[0])
+        links.new(mix_shader.inputs[1], transp_shader.outputs[0])
+        links.new(mix_shader.inputs[2], emission.outputs["Emission"])
+        links.new(self.node_output.inputs['Shader'],
+                  mix_shader.outputs['Shader'])
+
 
     def draw_properties(self, context: Context, layout: UILayout):
         if context.scene.gd.engine != 'grabdoc':
             return
-        col = layout.column()
-        col.prop(self, 'invert_depth', text="Invert Depth")
-        col.prop(self, 'invert_mask', text="Invert Mask")
+        layout.prop(self, 'invert_depth', text="Invert")
 
     def update_map_range(self, _context: Context):
         map_range = self.node_tree.nodes['Map Range']
@@ -781,14 +826,9 @@ class Alpha(Baker):
         map_range.inputs[2].default_value = camera_object_z
         invert_depth = self.node_tree.nodes['Invert Depth']
         invert_depth.inputs[0].default_value = 0 if self.invert_depth else 1
-        invert_mask = self.node_tree.nodes['Invert Mask']
-        invert_mask.inputs[0].default_value = 0 if self.invert_mask else 1
 
     invert_depth: BoolProperty(
-        description="Invert the global depth mask", update=update_map_range
-    )
-    invert_mask: BoolProperty(
-        description="Invert the alpha mask", update=update_map_range
+        description="Invert the depth mask", update=update_map_range
     )
 
 
@@ -808,6 +848,7 @@ class Roughness(Baker):
         )
 
         invert = self.node_tree.nodes.new('ShaderNodeInvert')
+        invert.name = "Invert Color"
         invert.location = (-400, 0)
         invert.inputs[0].default_value = 0
 
@@ -821,8 +862,7 @@ class Roughness(Baker):
                   emission.outputs["Emission"])
 
     def draw_properties(self, _context: Context, layout: UILayout):
-        col = layout.column()
-        col.prop(self, 'invert', text="Invert")
+        layout.prop(self, 'invert', text="Invert")
 
     def update_invert(self, _context: Context):
         invert = self.node_tree.nodes['Invert Color']
@@ -856,9 +896,8 @@ class Color(Baker):
         links.new(self.node_output.inputs["Shader"],
                   emission.outputs["Emission"])
 
-    def reimport_setup(self, material, image):
+    def reimport_setup(self, material, bsdf, image):
         image.image.colorspace_settings.name = 'Non-Color'
-        bsdf  = material.node_tree.nodes['Principled BSDF']
         links = material.node_tree.links
         links.new(bsdf.inputs["Base Color"], image.outputs["Color"])
 
@@ -894,9 +933,8 @@ class Emissive(Baker):
         links.new(self.node_output.inputs["Shader"],
                   emission.outputs["Emission"])
 
-    def reimport_setup(self, material, image):
+    def reimport_setup(self, material, bsdf, image):
         image.image.colorspace_settings.name = 'Non-Color'
-        bsdf  = material.node_tree.nodes['Principled BSDF']
         links = material.node_tree.links
         links.new(bsdf.inputs["Emission Color"], image.outputs["Color"])
 
@@ -917,6 +955,7 @@ class Metallic(Baker):
         )
 
         invert = self.node_tree.nodes.new('ShaderNodeInvert')
+        invert.name = "Invert Color"
         invert.location = (-400, 0)
         invert.inputs[0].default_value = 0
 
@@ -928,14 +967,12 @@ class Metallic(Baker):
         links.new(self.node_output.inputs["Shader"],
                   emission.outputs["Emission"])
 
-    def reimport_setup(self, material, image):
-        bsdf  = material.node_tree.nodes['Principled BSDF']
+    def reimport_setup(self, material, bsdf, image):
         links = material.node_tree.links
         links.new(bsdf.inputs["Metallic"], image.outputs["Color"])
 
     def draw_properties(self, _context: Context, layout: UILayout):
-        col = layout.column()
-        col.prop(self, 'invert', text="Invert")
+        layout.prop(self, 'invert', text="Invert")
 
     def update_invert(self, _context: Context):
         invert = self.node_tree.nodes['Invert Color']
@@ -959,22 +996,25 @@ class Custom(Baker):
 
     def draw_properties(self, context: Context, layout: UILayout):
         col = layout.column()
+        #if context.scene.gd.preview_state:
+        #    row.enabled = False
         row = col.row()
-        if context.scene.gd.preview_state:
-            row.enabled = False
         if not isinstance(self.node_tree, NodeTree):
             row.alert = True
         row.prop(self, 'node_tree')
         col.prop(self, 'view_transform')
 
-    def node_setup(self, _context: Context=bpy.context):
+    def node_setup(self, context: Context=bpy.context):
         if not isinstance(self.node_tree, NodeTree):
             self.node_name = ""
             return
         self.node_name = self.node_tree.name
-        self.__class__.REQUIRED_SOCKETS = \
+        self.REQUIRED_SOCKETS = \
             tuple(socket.name for socket in get_group_inputs(self.node_tree))
         generate_shader_interface(self.node_tree, get_material_output_sockets())
+        if context.scene.gd.preview_state:
+            for ob in get_rendered_objects():
+                link_group_to_object(ob, self.node_tree)
 
     # NOTE: Subclassed property - implement as user-facing
     node_tree: PointerProperty(

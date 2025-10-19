@@ -15,6 +15,7 @@ from bpy.props import (
 )
 
 from .baker import Baker
+from .utils.baker import get_bakers
 from .utils.scene import scene_setup
 
 
@@ -22,19 +23,18 @@ class GRABDOC_AP_preferences(AddonPreferences):
     bl_idname = __package__
 
     mt_executable: StringProperty(
-        description="Path to Marmoset Toolbag 3 / 4 executable",
+        description="Path to Marmoset Toolbag 3+ executable",
         name="Marmoset EXE Path", default="", subtype="FILE_PATH"
     )
     render_within_frustrum: BoolProperty(
-        description=\
-"""Only render objects within the camera's viewing frustrum.
+        description="""Only render objects within the camera's viewing frustrum.
 
 Improves render speed but it may apply materials incorrectly (void objects)""",
         name="Render Within Frustrum", default=False
     )
     exit_camera_preview: BoolProperty(
         description="Exit the camera when leaving Map Preview",
-        name="Auto-exit Preview Camera", default=False
+        name="Auto-exit Preview Camera", default=True
     )
     disable_preview_binds: BoolProperty(
         description=\
@@ -49,16 +49,30 @@ This can get in the way of other modal operators, causing some friction""",
             self.layout.prop(self, prop)
 
 
+def generate_channel_pack_enums() -> None:
+    map_types = [('none', "None", "")]
+    for baker in get_bakers():
+        map_types.append((baker.ID, baker.get_display_name(), ""))
+    GRABDOC_PG_properties.channel_r = \
+        EnumProperty(items=map_types[1:], default="occlusion", name='R')
+    GRABDOC_PG_properties.channel_g = \
+        EnumProperty(items=map_types[1:], default="roughness", name='G')
+    GRABDOC_PG_properties.channel_b = \
+        EnumProperty(items=map_types[1:], default="metallic",  name='B')
+    GRABDOC_PG_properties.channel_a = \
+        EnumProperty(items=map_types,     default="none",      name='A')
+
+
 class GRABDOC_PG_properties(PropertyGroup):
     def update_filename(self, _context: Context):
         if not self.filename:
             self.filename = "untitled"
 
     def update_filepath(self, _context: Context):
-        if self.filepath == '//':
+        if not self.filepath:
             return
-        if not os.path.exists(self.filepath):
-            self.filepath = '//'
+        if not os.path.exists(bpy.path.abspath(self.filepath)):
+            self.filepath = ''
 
     def update_res_x(self, context: Context):
         if self.resolution_lock and self.resolution_x != self.resolution_y:
@@ -79,13 +93,18 @@ class GRABDOC_PG_properties(PropertyGroup):
         update=scene_setup
     )
     coll_visible: BoolProperty(default=True, update=scene_setup,
-                              description="Sets the visibility in the viewport")
+                    description="Sets background visibility in the viewport")
     coll_rendered: BoolProperty(
-        description=\
-"""Sets visibility of background plane in exports.
+        description="""Sets background visibility in renders.
 
-Enables transparency and alpha channel if disabled""",
+Also enable alpha channel when baking.""",
         default=True, update=scene_setup
+    )
+    use_transparent: BoolProperty(
+        description="""Enables alpha channel when baking.
+
+Also sets background visibility in renders.""",
+        name="Transparent", default=False, update=scene_setup
     )
 
     scale: FloatProperty(
@@ -102,7 +121,7 @@ When disabled, pixel filtering is reduced to .01px""",
     )
     filter_width: FloatProperty(
         description="The width in pixels used for filtering",
-        name="Filter Amount", update=scene_setup,
+        name="Filter", update=scene_setup,
         default=1.2, min=0, soft_max=10, subtype='PIXEL'
     )
     use_grid: BoolProperty(
@@ -123,23 +142,22 @@ When disabled, pixel filtering is reduced to .01px""",
     engine: EnumProperty(
         description="The baking engine you would like to use",
         name="Engine",
-        items=(('grabdoc', "GrabDoc", "Set Baker: GrabDoc (Blender)"),
+        items=(('grabdoc',  "GrabDoc", "Set Baker: GrabDoc (Blender)"),
                ('marmoset', "Toolbag", "Set Baker: Marmoset Toolbag"))
     )
     filepath: StringProperty(
-        description="The path all textures will be exported to",
-        name="Export Filepath", default="//", subtype='DIR_PATH',
-        update=update_filepath
+        description="Export path, uses project directory if empty",
+        name="", default="", subtype='DIR_PATH', update=update_filepath
     )
     filename: StringProperty(
         description="Prefix name used for exported maps",
         name="", default="untitled", update=update_filename
     )
     resolution_x: IntProperty(name="X Resolution", update=update_res_x,
-                              default=2048, min=4, soft_max=8192)
+                              default=2048, min=4, soft_max=4096, max=16384)
     resolution_y: IntProperty(name="Y Resolution", update=update_res_y,
-                              default=2048, min=4, soft_max=8192)
-    resolution_lock: BoolProperty(name='Lock Resolution',
+                              default=2048, min=4, soft_max=4096, max=16384)
+    resolution_lock: BoolProperty(name='Lock Resolution (Square-only)',
                                   default=True, update=update_res_x)
     format: EnumProperty(name="Format",
                          items=(('PNG',      "PNG",  ""),
@@ -158,7 +176,7 @@ When disabled, pixel filtering is reduced to .01px""",
     )
     use_bake_collection: BoolProperty(
         description="Add a collection to the scene for use as bake groups",
-        update=scene_setup
+        name="Bake Groups", update=scene_setup
     )
 
     # Bake maps
@@ -198,17 +216,13 @@ When disabled, pixel filtering is reduced to .01px""",
     # Pack maps
     use_pack_maps: BoolProperty(
         description="Pack textures using the selected channels after exporting",
-        name="Pack on Export", default=False
+        name="Pack on Bake", default=False
     )
     remove_original_maps: BoolProperty(
         description="Remove the original unpacked maps after exporting",
-        name="Remove Original", default=False
+        name="Delete Unpacked", default=False
     )
     pack_name: StringProperty(name="Packed Map Name", default="ORM")
-    channel_r: EnumProperty(items=MAP_TYPES[1:], default="occlusion", name='R')
-    channel_g: EnumProperty(items=MAP_TYPES[1:], default="roughness", name='G')
-    channel_b: EnumProperty(items=MAP_TYPES[1:], default="metallic",  name='B')
-    channel_a: EnumProperty(items=MAP_TYPES,     default="none",      name='A')
 
 
 ################################################
@@ -227,11 +241,11 @@ class GRABDOC_PT_presets(PresetPanel, Panel):
     bl_label            = 'Bake Presets'
     preset_subdir       = 'grab_doc'
     preset_operator     = 'script.execute_preset'
-    preset_add_operator = 'grab_doc.preset_add'
+    preset_add_operator = 'grabdoc.preset_add'
 
 
 class GRABDOC_OT_add_preset(AddPresetBase, Operator):
-    bl_idname   = "grab_doc.preset_add"
+    bl_idname   = "grabdoc.preset_add"
     bl_label    = "Add a new preset"
     preset_menu = "GRABDOC_MT_presets"
 
@@ -247,7 +261,7 @@ class GRABDOC_OT_add_preset(AddPresetBase, Operator):
             continue
         preset_values.append(f"gd.{name}")
 
-    # TODO: Figure out a way to run register_baker_panels
+    # TODO: Figure out a way to run refresh_baker_dependencies
     #       in order to support multi-baker presets
     #def execute(self, context: Context):
     #    super().execute(context)

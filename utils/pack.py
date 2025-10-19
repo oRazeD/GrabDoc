@@ -3,7 +3,7 @@ import numpy # pylint: disable=E0401
 
 import bpy
 
-from .io import get_format
+from .io import get_filepath, get_format
 from .baker import get_bakers
 
 
@@ -37,6 +37,15 @@ def pack_image_channels(pack_order, PackName):
     return dst_image
 
 
+def get_channel_paths() -> tuple[str, str, str, str]:
+    gd = bpy.context.scene.gd
+    r = get_channel_path(gd.channel_r)
+    g = get_channel_path(gd.channel_g)
+    b = get_channel_path(gd.channel_b)
+    a = get_channel_path(gd.channel_a)
+    return r, g, b, a
+
+
 def get_channel_path(channel: str) -> str | None:
     """Get the channel path of the given channel name.
 
@@ -49,7 +58,7 @@ def get_channel_path(channel: str) -> str | None:
     if suffix is None:
         return None
     filename = gd.filename + '_' + suffix + get_format()
-    filepath = os.path.join(gd.filepath, filename)
+    filepath = os.path.join(get_filepath(), filename)
     if not os.path.exists(filepath):
         return None
     return filepath
@@ -61,20 +70,16 @@ def is_pack_maps_enabled() -> bool:
 
     This function also returns True if a required
     bake map is not enabled but the texture exists."""
-    baker_ids =  ['none']
+    baker_ids  = ['none']
     baker_ids += [baker.ID for baker in get_bakers(filter_enabled=True)]
-
+    r, g, b, a = get_channel_paths()
     gd = bpy.context.scene.gd
-    if gd.channel_r not in baker_ids \
-    and get_channel_path(gd.channel_r) is None:
+    if gd.channel_r not in baker_ids and r is None:
         return False
-    if gd.channel_g not in baker_ids \
-    and get_channel_path(gd.channel_g) is None:
+    if gd.channel_g not in baker_ids and g is None:
         return False
-    if gd.channel_b not in baker_ids \
-    and get_channel_path(gd.channel_b) is None:
+    if gd.channel_b not in baker_ids and b is None:
         return False
-    if gd.channel_a not in baker_ids \
-    and get_channel_path(gd.channel_a) is None:
+    if gd.channel_a not in baker_ids and a is None:
         return False
     return True
