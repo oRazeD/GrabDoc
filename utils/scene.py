@@ -5,6 +5,7 @@ import bmesh
 from bpy.types import Context, Object
 
 from .io import get_filepath
+from .node import get_bsdf
 from ..constants import Global, Error
 
 
@@ -97,11 +98,13 @@ def scene_setup(_self, context: Context) -> None:
             mat.use_nodes = True
 
             # Get / load nodes
-            output = mat.node_tree.nodes['Material Output']
+            output = None
+            for node in mat.node_tree.nodes:
+                if node.type == "OUTPUT_MATERIAL":
+                    output = node
+                    break
             output.location = (0,0)
-            mat.node_tree.nodes.remove(
-                mat.node_tree.nodes['Principled BSDF']
-            )
+            mat.node_tree.nodes.remove(get_bsdf(mat.node_tree))
 
             image = mat.node_tree.nodes.new('ShaderNodeTexImage')
             image.image = gd.reference

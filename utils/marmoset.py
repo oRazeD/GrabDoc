@@ -87,9 +87,9 @@ def baker_setup(baker, properties: dict) -> None:
     height.innerDistance = 0
     height.outerDistance = properties['cage_height'] / 2 - .02
 
-    material = baker.getMap("Material ID")
-    material.enabled = properties['export_matid']
-    material.suffix = properties['suffix_id']
+    mat_id = baker.getMap("Material ID")
+    mat_id.enabled = properties['export_matid']
+    mat_id.suffix = properties['suffix_id']
 
 def shader_setup(properties: dict) -> None:
     findDefault = mset.findMaterial("Default")

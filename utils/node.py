@@ -1,5 +1,5 @@
 import bpy
-from bpy.types import Object, NodeTree, NodeTreeInterfaceItem
+from bpy.types import Object, NodeTree, Node, NodeTreeInterfaceItem
 
 from ..constants import Global
 
@@ -72,6 +72,15 @@ def get_material_output_sockets() -> dict:
     return material_output_sockets
 
 
+def get_bsdf(node_tree: NodeTree) -> Node | None:
+    """Gets the first BSDF node connected to the active output."""
+    # TODO: Validate connection to output node that is set to active
+    for node in node_tree.nodes:
+        if 'BSDF' in node.name:
+            return node
+    return None
+
+
 def get_group_inputs(
         node_tree: NodeTree, remove_cache: bool=True
     ) -> list[NodeTreeInterfaceItem]:
@@ -95,37 +104,37 @@ def link_group_to_object(ob: Object, node_tree: NodeTree) -> list[str]:
     Returns list of socket names without links."""
     if not ob.material_slots or "" in ob.material_slots:
         if Global.GD_MATERIAL_NAME in bpy.data.materials:
-            mat = bpy.data.materials[Global.GD_MATERIAL_NAME]
+            gd_mat = bpy.data.materials[Global.GD_MATERIAL_NAME]
         else:
-            mat = bpy.data.materials.new(name=Global.GD_MATERIAL_NAME)
-            mat.use_nodes = True
-            bsdf = mat.node_tree.nodes['Principled BSDF']
-            bsdf.inputs["Emission Color"].default_value = (0,0,0,1)
+            gd_mat = bpy.data.materials.new(name=Global.GD_MATERIAL_NAME)
+            gd_mat.use_nodes = True
+            bsdf = get_bsdf(gd_mat.node_tree)
+            bsdf.inputs["Emission Color"].default_value = (0, 0, 0, 1)
 
         # NOTE: Do not remove empty slots as they are used in geometry masking
         for slot in ob.material_slots:
             if slot.name == '':
-                ob.material_slots[slot.name].material = mat
+                ob.material_slots[slot.name].material = gd_mat
         if not ob.active_material or ob.active_material.name == '':
-            ob.active_material = mat
+            ob.active_material = gd_mat
 
     inputs                         = get_group_inputs(node_tree)
     input_names:         list[str] = [node_input.name for node_input in inputs]
     unlinked: dict[str, list[str]] = {}
 
     for slot in ob.material_slots:
-        material = bpy.data.materials.get(slot.name)
-        material.use_nodes = True
-        nodes = material.node_tree.nodes
+        mat = bpy.data.materials.get(slot.name)
+        mat.use_nodes = True
+        nodes = mat.node_tree.nodes
         if node_tree.name in nodes:
             continue
-        if material.name.startswith(Global.FLAG_PREFIX):
-            unlinked[material.name] = []
+        if mat.name.startswith(Global.FLAG_PREFIX):
+            unlinked[mat.name] = []
         else:
-            unlinked[material.name] = input_names
+            unlinked[mat.name] = input_names
 
         output = None
-        output_nodes = [mat for mat in nodes if mat.type == 'OUTPUT_MATERIAL']
+        output_nodes =[node for node in nodes if node.type == 'OUTPUT_MATERIAL']
         for output_node in output_nodes:
             if output_node.is_active_output:
                 output = output_node
@@ -158,22 +167,22 @@ def link_group_to_object(ob: Object, node_tree: NodeTree) -> list[str]:
             if node_input.name not in input_names or not node_input.links:
                 continue
             link = node_input.links[0]
-            material.node_tree.links.new(
+            mat.node_tree.links.new(
                 node_group.inputs[node_input.name],
                 link.from_node.outputs[link.from_socket.name]
             )
-            if node_input.name in unlinked[material.name]:
-                unlinked[material.name].remove(node_input.name)
+            if node_input.name in unlinked[mat.name]:
+                unlinked[mat.name].remove(node_input.name)
 
         # Link matching input names from BSDF to baker
         for node_input in output.inputs:
             for link in node_input.links:
-                material.node_tree.links.new(
+                mat.node_tree.links.new(
                     node_group.inputs[node_input.name],
                     link.from_node.outputs[link.from_socket.name]
                 )
-                material.node_tree.links.remove(link)
-        material.node_tree.links.new(output.inputs["Surface"],
+                mat.node_tree.links.remove(link)
+        mat.node_tree.links.new(output.inputs["Surface"],
                                      node_group.outputs["Shader"])
 
     # NOTE: Collapse found unlinked sockets into flat list

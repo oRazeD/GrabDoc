@@ -5,6 +5,7 @@ from bpy.types import Context, Operator
 
 from ..constants import Global
 from ..utils.generic import UseSelectedOnly
+from ..utils.node import get_bsdf
 from ..utils.render import get_rendered_objects
 
 
@@ -57,7 +58,7 @@ class GRABDOC_OT_quick_id_setup(Operator):
             # NOTE: Viewport color
             mat.diffuse_color = (random(), random(), random(), 1)
 
-            bsdf = mat.node_tree.nodes.get('Principled BSDF')
+            bsdf = get_bsdf(mat.node_tree)
             bsdf.inputs[0].default_value = mat.diffuse_color
 
             ob.active_material_index = 0
@@ -79,7 +80,7 @@ class GRABDOC_OT_quick_id_selected(UseSelectedOnly, Operator):
         mat.use_nodes = True
         mat.diffuse_color = (random(), random(), random(), 1)
 
-        bsdf = mat.node_tree.nodes.get('Principled BSDF')
+        bsdf = get_bsdf(mat.node_tree)
         bsdf.inputs[0].default_value = mat.diffuse_color
 
         for ob in context.selected_objects[:]:

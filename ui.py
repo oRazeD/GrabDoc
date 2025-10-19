@@ -1,7 +1,7 @@
 import os
 
 import bpy
-from bpy.types import Context, Panel, UILayout, NodeTree
+from bpy.types import Context, Panel, UILayout
 
 from .preferences import GRABDOC_PT_presets
 from .utils.baker import get_baker_by_index, get_baker_collections
@@ -144,14 +144,11 @@ class GRABDOC_PT_output(GDPanel):
         row.prop(gd, 'engine')
         row = col2.row()
         row.prop(gd, 'filepath', text="Path")
-        row.operator("grabdoc.open_folder",
-                     text="", icon="FOLDER_REDIRECT")
+        row.operator("grabdoc.open_folder", text="", icon="FOLDER_REDIRECT")
         col2.prop(gd, 'filename', text="Name")
-        #col_res = col2.column(align=True)
         row = col2.row(align=True)
         row.prop(gd, 'resolution_x', text="Resolution")
         row.prop(gd, 'resolution_y', text="")
-        #col_res = col2.column(align=True)
         row = col2.row(align=True)
         row.prop(gd, 'resolution_lock', icon_only=True, text=" ",
                  icon="LOCKED" if gd.resolution_lock else "UNLOCKED")
@@ -282,9 +279,14 @@ class GRABDOC_PT_Baker(GDPanel):
     def draw_header(self, context: Context):
         row = self.layout.row(align=True)
         row2 = row.row(align=True)
+        # TODO: Causing crashes?
         #if self.baker.ID == 'custom' \
         #and not isinstance(self.baker.node_tree, NodeTree):
         #    row2.enabled = False
+        gd = context.scene.gd
+        if gd.engine == 'marmoset' \
+        and (len(self.baker.REQUIRED_SOCKETS) > 0 or self.baker.ID == 'custom'):
+            row2.active = False
         row2.separator(factor=.5)
         row2.prop(self.baker, 'enabled', text="")
         text = f"{self.baker.get_display_name()} Preview"
@@ -294,7 +296,7 @@ class GRABDOC_PT_Baker(GDPanel):
         row2.operator("grabdoc.baker_export_single",
                       text="", icon='RENDER_STILL').map_type = self.baker.ID
 
-        if self.baker == getattr(context.scene.gd, self.baker.ID)[0]:
+        if self.baker == getattr(gd, self.baker.ID)[0]:
             row.operator("grabdoc.baker_add",
                          text="", icon='ADD').map_type = self.baker.ID
             return

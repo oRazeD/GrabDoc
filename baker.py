@@ -106,10 +106,9 @@ class Baker(PropertyGroup):
         self.node_output = self.node_tree.nodes.new('NodeGroupOutput')
         generate_shader_interface(self.node_tree, get_material_output_sockets())
 
-    def reimport_setup(self, material, image):
+    def reimport_setup(self, material, bsdf, image):
         """Shader logic to link an imported image texture a generic BSDF."""
         links = material.node_tree.links
-        bsdf  = material.node_tree.nodes['Principled BSDF']
         try:
             links.new(bsdf.inputs[self.ID.capitalize()], image.outputs["Color"])
         except KeyError:
@@ -285,6 +284,7 @@ class Normals(Baker):
         vec_ceil.location = (-1200, -325)
 
         bevel = self.node_tree.nodes.new('ShaderNodeBevel')
+        bevel.name = "Bevel"
         bevel.samples = 16
         bevel.inputs[0].default_value = 0
         bevel.location = (-1000, 0)
@@ -295,6 +295,7 @@ class Normals(Baker):
         vec_transform.location    = (-800, 0)
 
         vec_mult = self.node_tree.nodes.new('ShaderNodeVectorMath')
+        vec_mult.name = "Vector Math"
         vec_mult.operation = 'MULTIPLY'
         vec_mult.inputs[1].default_value[0] = .5
         vec_mult.inputs[1].default_value[1] = -.5 if self.flip_y else .5
@@ -343,8 +344,7 @@ class Normals(Baker):
         links.new(self.node_output.inputs['Shader'],
                   mix_shader.outputs['Shader'])
 
-    def reimport_setup(self, material, image):
-        bsdf   = material.node_tree.nodes['Principled BSDF']
+    def reimport_setup(self, material, bsdf, image):
         normal = material.node_tree.nodes.get('Normal Map')
         if normal is None:
             normal = material.node_tree.nodes.new('ShaderNodeNormalMap')
@@ -363,8 +363,8 @@ class Normals(Baker):
                 col.prop(self, 'bevel_weight')
 
     def update_flip_y(self, _context: Context):
-        vec_multiply = self.node_tree.nodes['Vector Math.001']
-        vec_multiply.inputs[1].default_value[1] = -.5 if self.flip_y else .5
+        vec_mult = self.node_tree.nodes['Vector Math']
+        vec_mult.inputs[1].default_value[1] = -.5 if self.flip_y else .5
 
     def update_bevel_weight(self, _context: Context):
         bevel = self.node_tree.nodes['Bevel']
@@ -414,6 +414,7 @@ class Curvature(Baker):
         geometry.location = (-800, 0)
 
         color_ramp = self.node_tree.nodes.new('ShaderNodeValToRGB')
+        color_ramp.name = "Color Ramp"
         color_ramp.color_ramp.elements.new(.5)
         color_ramp.color_ramp.elements[0].position = 0.49
         color_ramp.color_ramp.elements[2].position = 0.51
@@ -484,10 +485,9 @@ class Occlusion(Baker):
     def setup(self) -> None:
         super().setup()
         scene = bpy.context.scene
-        eevee = scene.eevee
         if scene.render.engine == Global.EEVEE_NAME.upper():
-            eevee.use_overscan  = True
-            eevee.overscan_size = 25
+            scene.eevee.use_overscan  = True
+            scene.eevee.overscan_size = 25
 
     def node_setup(self):
         super().node_setup()
@@ -511,14 +511,17 @@ class Occlusion(Baker):
         vec_ceil.location = (-1200, -325)
 
         ao = self.node_tree.nodes.new('ShaderNodeAmbientOcclusion')
+        ao.name = "Ambient Occlusion"
         ao.samples  = 32
         ao.location = (-1000, 0)
 
         invert = self.node_tree.nodes.new('ShaderNodeInvert')
+        invert.name = "Invert Color"
         invert.inputs[0].default_value = 0
         invert.location = (-800, 0)
 
         gamma = self.node_tree.nodes.new('ShaderNodeGamma')
+        gamma.name = "Gamma"
         gamma.inputs[1].default_value = 1
         gamma.location = (-600, 0)
 
@@ -610,8 +613,7 @@ class Height(Baker):
     def setup(self) -> None:
         super().setup()
         if self.method == 'auto':
-            rendered_obs = get_rendered_objects()
-            set_guide_height(rendered_obs)
+            set_guide_height(get_rendered_objects())
 
     def node_setup(self):
         super().node_setup()
@@ -621,9 +623,11 @@ class Height(Baker):
 
         # NOTE: Map Range updates handled on map preview
         map_range = self.node_tree.nodes.new('ShaderNodeMapRange')
+        map_range.name = "Map Range"
         map_range.location = (-600, 0)
 
         ramp = self.node_tree.nodes.new('ShaderNodeValToRGB')
+        ramp.name = "Color Ramp"
         ramp.color_ramp.elements[0].color = (1, 1, 1, 1)
         ramp.color_ramp.elements[1].color = (0, 0, 0, 1)
         ramp.location = (-400, 0)
@@ -644,11 +648,9 @@ class Height(Baker):
 
     def update_method(self, context: Context):
         scene_setup(self, context)
-        if not context.scene.gd.preview_state:
+        if not context.scene.gd.preview_state or self.method != 'auto':
             return
-        if self.method == 'auto':
-            rendered_obs = get_rendered_objects()
-            set_guide_height(rendered_obs)
+        set_guide_height(get_rendered_objects())
 
     def update_guide(self, context: Context):
         map_range = self.node_tree.nodes['Map Range']
@@ -771,6 +773,7 @@ class Alpha(Baker):
         camera.location = (-1000, 0)
 
         map_range = self.node_tree.nodes.new('ShaderNodeMapRange')
+        map_range.name = "Map Range"
         map_range.location = (-800, 0)
         camera_object_z = Global.CAMERA_DISTANCE * bpy.context.scene.gd.scale
         map_range.inputs[1].default_value = camera_object_z - .00001
@@ -847,6 +850,7 @@ class Roughness(Baker):
         )
 
         invert = self.node_tree.nodes.new('ShaderNodeInvert')
+        invert.name = "Invert Color"
         invert.location = (-400, 0)
         invert.inputs[0].default_value = 0
 
@@ -894,9 +898,8 @@ class Color(Baker):
         links.new(self.node_output.inputs["Shader"],
                   emission.outputs["Emission"])
 
-    def reimport_setup(self, material, image):
+    def reimport_setup(self, material, bsdf, image):
         image.image.colorspace_settings.name = 'Non-Color'
-        bsdf  = material.node_tree.nodes['Principled BSDF']
         links = material.node_tree.links
         links.new(bsdf.inputs["Base Color"], image.outputs["Color"])
 
@@ -932,9 +935,8 @@ class Emissive(Baker):
         links.new(self.node_output.inputs["Shader"],
                   emission.outputs["Emission"])
 
-    def reimport_setup(self, material, image):
+    def reimport_setup(self, material, bsdf, image):
         image.image.colorspace_settings.name = 'Non-Color'
-        bsdf  = material.node_tree.nodes['Principled BSDF']
         links = material.node_tree.links
         links.new(bsdf.inputs["Emission Color"], image.outputs["Color"])
 
@@ -955,6 +957,7 @@ class Metallic(Baker):
         )
 
         invert = self.node_tree.nodes.new('ShaderNodeInvert')
+        invert.name = "Invert Color"
         invert.location = (-400, 0)
         invert.inputs[0].default_value = 0
 
@@ -966,8 +969,7 @@ class Metallic(Baker):
         links.new(self.node_output.inputs["Shader"],
                   emission.outputs["Emission"])
 
-    def reimport_setup(self, material, image):
-        bsdf  = material.node_tree.nodes['Principled BSDF']
+    def reimport_setup(self, material, bsdf, image):
         links = material.node_tree.links
         links.new(bsdf.inputs["Metallic"], image.outputs["Color"])
 

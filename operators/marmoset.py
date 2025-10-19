@@ -71,10 +71,6 @@ class GrabDoc_OT_send_to_marmo(Operator):
             'export_matid': gd.id[0].enabled and gd.id[0].visibility,
             'suffix_id': gd.id[0].suffix
         }
-
-        # Flip the slashes of the first dict value
-        # NOTE: This is gross but I don't
-        # know another way to do it
         for key, value in properties.items():
             properties[key] = value.replace("\\", "/")
             break
@@ -84,17 +80,11 @@ class GrabDoc_OT_send_to_marmo(Operator):
         with open(json_path, "w", encoding='utf-8') as file:
             file.write(json_properties)
 
-        args = [
-            executable,
-            os.path.join(addon_path, "utils", "marmoset.py")
-        ]
-
+        args = [executable, os.path.join(addon_path, "utils", "marmoset.py")]
         if self.send_type == 'refresh':
-            # TODO: don't use shell=True arg
             output = subprocess.check_output('tasklist', shell=True)
-            path_ext_only = \
-                os.path.basename(os.path.normpath(executable)).encode()
-            if not path_ext_only in output:
+            path_ext = os.path.basename(os.path.normpath(executable)).encode()
+            if not path_ext in output:
                 subprocess.Popen(args)
                 self.report({'INFO'}, Error.MARMOSET_EXPORT_COMPLETE)
             else:
@@ -113,8 +103,6 @@ class GrabDoc_OT_send_to_marmo(Operator):
             self.report({'ERROR'}, Error.ALL_MAPS_DISABLED)
             return {'CANCELLED'}
 
-        saved_selected = context.view_layer.objects.selected.keys()
-
         if bpy.ops.object.mode_set.poll():
             bpy.ops.object.mode_set(mode='OBJECT')
 
@@ -125,14 +113,14 @@ class GrabDoc_OT_send_to_marmo(Operator):
 
         # Attach _high suffix to all user assets
         # NOTE: Only supports single bake group for now
+        saved_selected = context.view_layer.objects.selected.keys()
         for ob in context.view_layer.objects[:]:
             ob.select_set(False)
             if ob in rendered_obs \
             and Global.FLAG_PREFIX not in ob.name:
                 ob.select_set(True)
                 # NOTE: Add name to end of name for reuse later
-                ob.name = \
-                    Global.BG_PLANE_NAME + Global.HIGH_SUFFIX + ob.name
+                ob.name = Global.BG_PLANE_NAME + Global.HIGH_SUFFIX + ob.name
 
         # Get background plane low and high poly
         plane_low: Object = bpy.data.objects.get(Global.BG_PLANE_NAME)
