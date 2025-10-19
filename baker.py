@@ -996,16 +996,14 @@ class Custom(Baker):
 
     def draw_properties(self, context: Context, layout: UILayout):
         col = layout.column()
-        #if context.scene.gd.preview_state:
-        #    row.enabled = False
         row = col.row()
-        if not isinstance(self.node_tree, NodeTree):
+        if not self.node_tree:
             row.alert = True
         row.prop(self, 'node_tree')
         col.prop(self, 'view_transform')
 
     def node_setup(self, context: Context=bpy.context):
-        if not isinstance(self.node_tree, NodeTree):
+        if not self.node_tree:
             self.node_name = ""
             return
         self.node_name = self.node_tree.name
