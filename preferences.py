@@ -121,7 +121,7 @@ When disabled, pixel filtering is reduced to .01px""",
     )
     filter_width: FloatProperty(
         description="The width in pixels used for filtering",
-        name="Filter Amount", update=scene_setup,
+        name="Filter", update=scene_setup,
         default=1.2, min=0, soft_max=10, subtype='PIXEL'
     )
     use_grid: BoolProperty(
@@ -216,7 +216,7 @@ When disabled, pixel filtering is reduced to .01px""",
     # Pack maps
     use_pack_maps: BoolProperty(
         description="Pack textures using the selected channels after exporting",
-        name="Pack on Export", default=False
+        name="Pack on Bake", default=False
     )
     remove_original_maps: BoolProperty(
         description="Remove the original unpacked maps after exporting",

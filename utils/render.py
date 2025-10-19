@@ -51,7 +51,7 @@ def in_viewing_frustrum(vector: Vector) -> bool:
     return True
 
 
-def get_rendered_objects() -> set | None:
+def get_rendered_objects() -> set[Object] | None:
     """Generate a list of all objects that will be rendered
     based on its origin position in world space"""
     objects = set()

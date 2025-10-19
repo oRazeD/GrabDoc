@@ -1,7 +1,7 @@
 import os
 
 import bpy
-from bpy.types import Context, Panel, UILayout
+from bpy.types import Context, Panel, UILayout, NodeTree
 
 from .preferences import GRABDOC_PT_presets
 from .utils.baker import get_baker_by_index, get_baker_collections
@@ -176,7 +176,7 @@ class GRABDOC_PT_output(GDPanel):
                 row.prop(image_settings, 'tiff_codec', text="Codec")
 
         row = col2.row()
-        row.prop(gd, 'filter_width', text="Filtering")
+        row.prop(gd, 'filter_width')
         row.separator()
         row.prop(gd, 'use_filtering', text="")
 
@@ -279,10 +279,6 @@ class GRABDOC_PT_Baker(GDPanel):
     def draw_header(self, context: Context):
         row = self.layout.row(align=True)
         row2 = row.row(align=True)
-        # TODO: Causing crashes?
-        #if self.baker.ID == 'custom' \
-        #and not isinstance(self.baker.node_tree, NodeTree):
-        #    row2.enabled = False
         gd = context.scene.gd
         if gd.engine == 'marmoset' \
         and (len(self.baker.REQUIRED_SOCKETS) > 0 or self.baker.ID == 'custom'):

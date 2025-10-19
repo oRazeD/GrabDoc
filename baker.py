@@ -6,7 +6,7 @@ from bpy.props import (BoolProperty, StringProperty, EnumProperty,
 
 from .constants import Global
 from .utils.scene import scene_setup
-from .utils.node import (generate_shader_interface,
+from .utils.node import (generate_shader_interface, link_group_to_object,
                          get_group_inputs, get_material_output_sockets)
 from .utils.render import (set_guide_height, get_rendered_objects,
                            set_color_management)
@@ -212,9 +212,7 @@ class Baker(PropertyGroup):
         description="The suffix of the exported bake map",
         name="Suffix", default=""
     )
-    enabled: BoolProperty(
-        name="Export Enabled", default=True
-    )
+    enabled: BoolProperty(name="Export Enabled", default=True)
     reimport: BoolProperty(
         description="Reimport bake map texture into a Blender material",
         name="Re-import"
@@ -224,7 +222,7 @@ class Baker(PropertyGroup):
     )
     disable_filtering: BoolProperty(
         description="Override global filtering setting and set filter to .01px",
-        name="Override Filtering", default=False, update=apply_render_settings
+        name="Disable Filter", default=False, update=apply_render_settings
     )
     samples: IntProperty(name="EEVEE Samples", update=apply_render_settings,
                          default=32, min=1, soft_max=256)
@@ -371,8 +369,8 @@ class Normals(Baker):
         bevel.inputs[0].default_value = self.bevel_weight
 
     flip_y: BoolProperty(
-        description="Flip the normal map Y direction (DirectX format)",
-        name="Invert (-Y)", options={'SKIP_SAVE'}, update=update_flip_y
+        description="Flip the normal map Y direction (-Y / DirectX format)",
+        name="Invert", options={'SKIP_SAVE'}, update=update_flip_y
     )
     bevel_weight: FloatProperty(
         description="Bevel shader weight (May need to increase samples)",
@@ -998,22 +996,25 @@ class Custom(Baker):
 
     def draw_properties(self, context: Context, layout: UILayout):
         col = layout.column()
+        #if context.scene.gd.preview_state:
+        #    row.enabled = False
         row = col.row()
-        if context.scene.gd.preview_state:
-            row.enabled = False
         if not isinstance(self.node_tree, NodeTree):
             row.alert = True
         row.prop(self, 'node_tree')
         col.prop(self, 'view_transform')
 
-    def node_setup(self, _context: Context=bpy.context):
+    def node_setup(self, context: Context=bpy.context):
         if not isinstance(self.node_tree, NodeTree):
             self.node_name = ""
             return
         self.node_name = self.node_tree.name
-        self.__class__.REQUIRED_SOCKETS = \
+        self.REQUIRED_SOCKETS = \
             tuple(socket.name for socket in get_group_inputs(self.node_tree))
         generate_shader_interface(self.node_tree, get_material_output_sockets())
+        if context.scene.gd.preview_state:
+            for ob in get_rendered_objects():
+                link_group_to_object(ob, self.node_tree)
 
     # NOTE: Subclassed property - implement as user-facing
     node_tree: PointerProperty(

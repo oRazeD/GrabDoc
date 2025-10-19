@@ -270,7 +270,7 @@ class GRABDOC_OT_baker_export(Operator, UILayout):
             self.export(context, baker.suffix)
             baker.cleanup()
             if baker.node_tree:
-                node_cleanup(baker.node_tree)
+                node_cleanup()
 
             completion_percent += completion_step
             context.window_manager.progress_update(completion_percent)
@@ -357,17 +357,15 @@ Rendering a second time will overwrite the internal image"""
                 sockets = self.baker.filter_sockets(sockets)
                 if not sockets:
                     continue
-                self.report(
-                    {'WARNING'},
-                    f"{ob.name}: {sockets} {Error.MISSING_LINKS}"
-                )
+                self.report({'WARNING'},
+                            f"{ob.name}: {sockets} {Error.MISSING_LINKS}")
         path = GRABDOC_OT_baker_export.export(
             context, self.baker.suffix, path=get_temp_path()
         )
         self.open_render_image(path)
         self.baker.cleanup()
         if self.baker.node_tree:
-            node_cleanup(self.baker.node_tree)
+            node_cleanup()
 
         # Reimport textures to render result material
         if self.baker.reimport:
@@ -492,7 +490,7 @@ class GRABDOC_OT_baker_preview(Operator):
 
         self.baker.cleanup()
         if self.baker.node_tree:
-            node_cleanup(self.baker.node_tree)
+            node_cleanup()
         baker_cleanup(context, self.saved_properties)
 
         for screens in self.original_workspace.screens:
@@ -555,16 +553,15 @@ class GRABDOC_OT_baker_preview(Operator):
         )
         context.window_manager.modal_handler_add(self)
 
-        if self.baker.node_tree:
-            for ob in get_rendered_objects():
-                sockets = link_group_to_object(ob, self.baker.node_tree)
-                sockets = self.baker.filter_sockets(sockets)
-                if not sockets:
-                    continue
-                self.report(
-                    {'WARNING'},
-                    f"{ob.name}: {sockets} {Error.MISSING_LINKS}"
-                )
+        if not self.baker.node_tree and self.baker.ID != 'custom':
+            return {'RUNNING_MODAL'}
+        for ob in get_rendered_objects():
+            sockets = link_group_to_object(ob, self.baker.node_tree)
+            sockets = self.baker.filter_sockets(sockets)
+            if not sockets:
+                continue
+            self.report({'WARNING'},
+                        f"{ob.name}: {sockets} {Error.MISSING_LINKS}")
         return {'RUNNING_MODAL'}
 
 
