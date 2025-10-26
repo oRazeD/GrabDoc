@@ -4,7 +4,7 @@ import bpy
 from bpy.types import Context, Panel, UILayout
 
 from .preferences import GRABDOC_PT_presets
-from .utils.baker import get_baker_by_index
+from .utils.baker import get_baker_by_index, get_baker_collections
 from .utils.generic import get_version, get_user_preferences
 from .utils.scene import camera_in_3d_view, is_scene_valid
 
@@ -305,6 +305,31 @@ class GRABDOC_PT_Baker(GDPanel):
 ################################################
 # REGISTRATION
 ################################################
+
+
+def register_bakers():
+    """Unregister and re-register all bakers and their respective panels."""
+    for cls in GRABDOC_PT_Baker.__subclasses__():
+        try:
+            bpy.utils.unregister_class(cls)
+        except RuntimeError:
+            continue
+    for cls in subclass_baker_panels():
+        bpy.utils.register_class(cls)
+
+
+def subclass_baker_panels():
+    """Creates panels for every item in the baker
+    `CollectionProperty`s via dynamic subclassing."""
+    baker_classes = []
+    for baker_prop in get_baker_collections():
+        for baker in baker_prop:
+            baker.initialize()
+            class_name = f"GRABDOC_PT_{baker.ID}_{baker.index}"
+            panel_cls = type(class_name, (GRABDOC_PT_Baker,), {})
+            panel_cls.baker = baker
+            baker_classes.append(panel_cls)
+    return baker_classes
 
 
 classes = [

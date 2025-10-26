@@ -154,7 +154,6 @@ class GRABDOC_OT_scene_cleanup(Operator):
     def execute(self, context: Context):
         for baker_prop in get_baker_collections():
             baker_prop.clear()
-
         scene_cleanup(context)
         return {'FINISHED'}
 
