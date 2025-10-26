@@ -4,15 +4,11 @@ import os
 import bpy
 from bl_operators.presets import AddPresetBase
 from bl_ui.utils import PresetPanel
-from bpy.types import (
-    Menu, Panel, Operator, AddonPreferences,
-    Context, PropertyGroup, Image, Scene,
-    Collection, Object, Node
-)
-from bpy.props import (
-    BoolProperty, PointerProperty, CollectionProperty,
-    StringProperty, EnumProperty, IntProperty, FloatProperty
-)
+from bpy.types import (Menu, Panel, Operator, AddonPreferences,
+                       Context, PropertyGroup, Image, Scene,
+                       Collection, Object, Node)
+from bpy.props import (BoolProperty, PointerProperty, CollectionProperty,
+                       StringProperty, EnumProperty, IntProperty, FloatProperty)
 
 from .baker import Baker
 from .utils.baker import get_bakers
@@ -49,11 +45,11 @@ This can get in the way of other modal operators, causing some friction""",
             self.layout.prop(self, prop)
 
 
-def generate_channel_pack_enums() -> None:
+def generate_pack_enums() -> None:
     map_types = [('none', "None", "")]
     for baker in get_bakers():
         map_types.append(
-            (baker.ID + f"_{baker.index}", baker.get_display_name(), "")
+            (f"{baker.ID}_{baker.index}", baker.get_display_name(), "")
         )
     GRABDOC_PG_properties.channel_r = \
         EnumProperty(items=map_types[1:], default="occlusion_0", name='R')
@@ -62,7 +58,7 @@ def generate_channel_pack_enums() -> None:
     GRABDOC_PG_properties.channel_b = \
         EnumProperty(items=map_types[1:], default="metallic_0",  name='B')
     GRABDOC_PG_properties.channel_a = \
-        EnumProperty(items=map_types,     default="none",      name='A')
+        EnumProperty(items=map_types,     default="none",        name='A')
 
 
 class GRABDOC_PG_properties(PropertyGroup):
@@ -263,7 +259,7 @@ class GRABDOC_OT_add_preset(AddPresetBase, Operator):
             continue
         preset_values.append(f"gd.{name}")
 
-    # TODO: Figure out a way to run refresh_baker_dependencies
+    # TODO: Figure out a way to run init_baker_dependencies
     #       in order to support multi-baker presets
     #def execute(self, context: Context):
     #    super().execute(context)

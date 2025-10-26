@@ -7,7 +7,7 @@ from bpy.types import SpaceView3D, Event, Context, Operator, UILayout
 from bpy.props import StringProperty, IntProperty
 
 from ..constants import Global, Error
-from ..__init__ import refresh_baker_dependencies
+from ..__init__ import init_baker_dependencies
 from ..utils.io import get_format, get_temp_path, get_filepath
 from ..utils.render import get_rendered_objects
 from ..utils.generic import get_user_preferences
@@ -115,13 +115,10 @@ Can also potentially fix console spam from UI elements"""
     def execute(self, context: Context):
         for baker_prop in get_baker_collections():
             baker_prop.clear()
-            baker = baker_prop.add()
+            baker_prop.add()
 
-        refresh_baker_dependencies()
+        init_baker_dependencies()
         scene_setup(self, context)
-
-        for baker in get_bakers():
-            baker.node_setup()
         return {'FINISHED'}
 
 
@@ -150,9 +147,8 @@ class GRABDOC_OT_baker_add(Operator):
 
     def execute(self, context: Context):
         baker_prop = getattr(context.scene.gd, self.map_type)
-        baker = baker_prop.add()
-        refresh_baker_dependencies()
-        baker.node_setup()
+        baker_prop.add()
+        init_baker_dependencies()
         return {'FINISHED'}
 
 
@@ -174,7 +170,7 @@ class GRABDOC_OT_baker_remove(Operator):
             if bake_map.index == baker.index:
                 baker_prop.remove(idx)
                 break
-        refresh_baker_dependencies()
+        init_baker_dependencies()
         return {'FINISHED'}
 
 

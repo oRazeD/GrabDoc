@@ -3,8 +3,9 @@ import importlib
 import bpy
 from bpy.app.handlers import persistent
 
-from .ui import register_baker_panels
-from .preferences import generate_channel_pack_enums
+from .ui import GRABDOC_PT_Baker
+from .preferences import generate_pack_enums
+from .utils.baker import get_baker_collections
 
 
 #########################
@@ -12,10 +13,36 @@ from .preferences import generate_channel_pack_enums
 #########################
 
 
-def refresh_baker_dependencies():
-    """Refresh all dynamic GrabDoc classes or properties."""
-    register_baker_panels()
-    generate_channel_pack_enums()
+def init_baker_dependencies():
+    """Refresh all dynamic GrabDoc classes or
+    properties dependent on the `UIList` structure."""
+    register_bakers()
+    generate_pack_enums()
+
+
+def register_bakers():
+    """Unregister and re-register all bakers and their respective panels."""
+    for cls in GRABDOC_PT_Baker.__subclasses__():
+        try:
+            bpy.utils.unregister_class(cls)
+        except RuntimeError:
+            continue
+    for cls in subclass_baker_panels():
+        bpy.utils.register_class(cls)
+
+
+def subclass_baker_panels():
+    """Creates panels for every item in the baker
+    `CollectionProperty`s via dynamic subclassing."""
+    baker_classes = []
+    for baker_prop in get_baker_collections():
+        for baker in baker_prop:
+            baker.initialize()
+            class_name = f"GRABDOC_PT_{baker.ID}_{baker.index}"
+            panel_cls = type(class_name, (GRABDOC_PT_Baker,), {})
+            panel_cls.baker = baker
+            baker_classes.append(panel_cls)
+    return baker_classes
 
 
 #########################
@@ -27,7 +54,7 @@ def refresh_baker_dependencies():
 def load_post_handler(_dummy) -> None:
     if not bpy.data.filepath:
         return
-    refresh_baker_dependencies()
+    init_baker_dependencies()
 
 
 @persistent

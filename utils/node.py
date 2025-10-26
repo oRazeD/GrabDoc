@@ -171,21 +171,26 @@ def link_group_to_object(ob: Object, node_tree: NodeTree) -> list[str]:
             continue
 
         # Link identical outputs from BSDF to output node
-        from_output_node = output.inputs[0].links[0].from_node
-        for node_input in from_output_node.inputs:
-            if node_input.name not in input_names or not node_input.links:
-                continue
-            link = node_input.links[0]
-            mat.node_tree.links.new(
-                node_group.inputs[node_input.name],
-                link.from_node.outputs[link.from_socket.name]
-            )
-            if node_input.name in unlinked[mat.name]:
-                unlinked[mat.name].remove(node_input.name)
+        try:
+            from_output_node = output.inputs[0].links[0].from_node
+            for node_input in from_output_node.inputs:
+                if node_input.name not in input_names or not node_input.links:
+                    continue
+                link = node_input.links[0]
+                mat.node_tree.links.new(
+                    node_group.inputs[node_input.name],
+                    link.from_node.outputs[link.from_socket.name]
+                )
+                if node_input.name in unlinked[mat.name]:
+                    unlinked[mat.name].remove(node_input.name)
+        except IndexError:
+            pass
 
         # Link matching input names from BSDF to baker
         for node_input in output.inputs:
             for link in node_input.links:
+                if link.from_node.name.startswith(Global.FLAG_PREFIX[:-1]):
+                    continue
                 mat.node_tree.links.new(
                     node_group.inputs[node_input.name],
                     link.from_node.outputs[link.from_socket.name]

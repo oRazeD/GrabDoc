@@ -1,8 +1,7 @@
 import bpy
 from bpy.types import PropertyGroup, UILayout, Context, NodeTree
 from bpy.props import (BoolProperty, StringProperty, EnumProperty,
-                       IntProperty, FloatProperty, PointerProperty,
-                       CollectionProperty)
+                       IntProperty, FloatProperty, PointerProperty)
 
 from .constants import Global
 from .utils.scene import scene_setup
@@ -34,8 +33,11 @@ class Baker(PropertyGroup):
 
     def initialize(self):
         """Initialize baker instance after creation in PropertyCollection."""
-        self.node_input  = None
-        self.node_output = None
+        if self.index != -1:
+            return
+        self.set_available_index()
+        self.node_setup()
+
         # NOTE: Unique due to dynamic items/enum
         self.__class__.engine = EnumProperty(
             name='Render Engine',
@@ -43,42 +45,29 @@ class Baker(PropertyGroup):
             update=self.__class__.apply_render_settings
         )
 
-        self.suffix = self.ID
+        self.node_input  = None
+        self.node_output = None
         if len(self.REQUIRED_SOCKETS) > 0 or self.ID == 'custom':
             self.enabled = False
+        self.suffix = self.ID
+        if self.index > 0 and not self.suffix[-1].isdigit():
+            self.suffix += f"_{self.index+1}"
 
-        if self.index == -1:
-            baker_type = getattr(bpy.context.scene.gd, self.ID)
-            self.index = self.get_unique_index(baker_type)
+    def get_display_name(self):
         if self.index > 0:
-            self.node_name = self.get_node_name(self.NAME, self.index+1)
-            if not self.suffix[-1].isdigit():
-                self.suffix += f"_{self.index+1}"
+            return self.NAME + f" {self.index+1}"
+        return self.NAME
 
-    @staticmethod
-    def get_unique_index(collection: CollectionProperty) -> int:
-        """Get a unique index value based on a given `CollectionProperty`."""
+    def set_available_index(self) -> None:
+        """Set a unique index based on the respective `CollectionProperty`."""
+        collection = getattr(bpy.context.scene.gd, self.ID)
         indices = [baker.index for baker in collection]
         index   = 0
         while True:
             if index not in indices:
                 break
             index += 1
-        return index
-
-    @staticmethod
-    def get_node_name(name: str, idx: int=0):
-        """Set node name based on given base `name` and optional `idx`."""
-        node_name = Global.FLAG_PREFIX + name.replace(" ", "")
-        if idx:
-            node_name += f"_{idx}"
-        return node_name
-
-    def get_display_name(self) -> str:
-        baker_name = self.NAME
-        if self.index > 0:
-            baker_name += f" {self.index+1}"
-        return baker_name
+        self.index = index
 
     def setup(self):
         """General operations to run before bake export."""
@@ -89,12 +78,10 @@ class Baker(PropertyGroup):
 
         Base method logic gets/creates a new group with
         valid sockets and adds I/O nodes to the tree."""
-        if not self.node_name:
-            self.node_name = self.get_node_name(self.NAME)
-        self.node_tree = bpy.data.node_groups.get(self.node_name)
+        node_name = Global.FLAG_PREFIX + self.get_display_name()
+        self.node_tree = bpy.data.node_groups.get(node_name)
         if self.node_tree is None:
-            self.node_tree = \
-                bpy.data.node_groups.new(self.node_name, 'ShaderNodeTree')
+            self.node_tree=bpy.data.node_groups.new(node_name, 'ShaderNodeTree')
             # NOTE: Default alpha socket for pre-built bakers
             self.node_tree.interface.new_socket(
                 name='Alpha', socket_type='NodeSocketFloat'
@@ -204,7 +191,6 @@ class Baker(PropertyGroup):
 
     # NOTE: Internal properties
     index:     IntProperty(default=-1)
-    node_name: StringProperty()
     node_tree: PointerProperty(type=NodeTree)
 
     # NOTE: Default properties
@@ -278,6 +264,7 @@ class Normals(Baker):
         vec_sep.location = (-1200, -200)
 
         vec_ceil = self.node_tree.nodes.new('ShaderNodeVectorMath')
+        vec_ceil.name = "Vector Ceil"
         vec_ceil.operation = 'CEIL'
         vec_ceil.location = (-1200, -325)
 
@@ -1001,7 +988,7 @@ class Custom(Baker):
         self.VIEW_TRANSFORM = self.view_transform.capitalize()
         self.apply_render_settings()
 
-    def draw_properties(self, context: Context, layout: UILayout):
+    def draw_properties(self, _context: Context, layout: UILayout):
         col = layout.column()
         row = col.row()
         if not self.node_tree:
@@ -1015,9 +1002,7 @@ class Custom(Baker):
 
     def node_setup(self, context: Context=bpy.context):
         if not self.node_tree:
-            self.node_name = ""
             return
-        self.node_name = self.node_tree.name
         self.REQUIRED_SOCKETS = \
             tuple(socket.name for socket in get_group_inputs(self.node_tree))
         generate_shader_interface(self.node_tree, get_material_output_sockets())
@@ -1025,9 +1010,9 @@ class Custom(Baker):
             for ob in get_rendered_objects():
                 link_group_to_object(ob, self.node_tree)
 
-    # NOTE: Subclassed property - implement as user-facing
+    # NOTE: Overridden property - user-facing
     node_tree: PointerProperty(
-        description="Your baking shader, MUST have shader output",
+        description="Node Group to bake with, must include shader output",
         name='Shader', type=NodeTree, update=node_setup
     )
     view_transform: EnumProperty(items=(('raw',      "Raw",      ""),
