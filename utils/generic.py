@@ -41,6 +41,9 @@ def save_properties(properties: list) -> dict:
         if data not in saved_properties:
             saved_properties[data] = {}
         for attr in dir(data):
+            # NOTE: Triggers unique editor warning
+            if attr == "wireframe_color_type":
+                continue
             saved_properties[data][attr] = getattr(data, attr)
     return saved_properties
 
