@@ -114,7 +114,8 @@ Can also potentially fix console spam from UI elements"""
 
     def execute(self, context: Context):
         for baker_prop in get_baker_collections():
-            baker_prop.clear()
+            if baker_prop:
+                continue
             baker_prop.add()
 
         init_baker_dependencies()
@@ -133,6 +134,9 @@ class GRABDOC_OT_scene_cleanup(Operator):
         return GRABDOC_OT_baker_export_single.poll(context)
 
     def execute(self, context: Context):
+        for baker_prop in get_baker_collections():
+            baker_prop.clear()
+
         scene_cleanup(context)
         return {'FINISHED'}
 
