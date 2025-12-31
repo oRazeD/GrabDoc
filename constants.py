@@ -25,15 +25,10 @@ class Global:
     # NOTE: Blender foundation forced my hand on this one
     EEVEE_NAME = "blender_eevee"
     if bpy.app.version >= (4, 2, 0) and bpy.app.version < (5, 0, 0):
-        EEVEE_NAME = "blender_eevee_next"
+        EEVEE_NAME += "_next"
 
-    INVALID_BAKE_TYPES = ('EMPTY',
-                          'VOLUME',
-                          'ARMATURE',
-                          'LATTICE',
-                          'LIGHT',
-                          'LIGHT_PROBE',
-                          'CAMERA')
+    INVALID_BAKE_TYPES = ('EMPTY', 'VOLUME', 'ARMATURE', 'LATTICE',
+                          'LIGHT', 'LIGHT_PROBE', 'CAMERA')
 
     IMAGE_FORMATS = {'TIFF':     'tif',
                      'TARGA':    'tga',
