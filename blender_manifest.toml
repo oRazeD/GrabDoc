@@ -12,7 +12,6 @@ website = "https://github.com/oRazeD/GrabDoc"
 tags = ["3D View", "Material", "Bake", "Compositing", "Render", "Import-Export"]
 
 blender_version_min = "4.2.0"
-blender_version_max = "5.5.0"
 
 license = [
   "SPDX:GPL-3.0-or-later",
