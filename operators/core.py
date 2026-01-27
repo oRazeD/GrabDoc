@@ -99,13 +99,37 @@ class GRABDOC_OT_toggle_camera_view(Operator):
 
 
 class GRABDOC_OT_scene_setup(Operator):
-    """Setup or rebuild GrabDoc in your current scene.
+    """Setup GrabDoc in your current scene.
 
 Useful for rare cases where GrabDoc isn't compatible with an existing setup.
 
 Can also potentially fix console spam from UI elements"""
     bl_idname  = "grabdoc.scene_setup"
-    bl_label   = "Setup GrabDoc Scene"
+    bl_label   = "Setup Scene"
+    bl_options = {'REGISTER', 'UNDO', 'INTERNAL'}
+
+    @classmethod
+    def poll(cls, context: Context) -> bool:
+        return GRABDOC_OT_baker_export_single.poll(context)
+
+    def execute(self, context: Context):
+        baker_refreshed = False
+        for baker_prop in get_baker_collections():
+            if baker_prop:
+                continue
+            baker_prop.add()
+            baker_refreshed = True
+
+        if baker_refreshed:
+            init_baker_dependencies()
+        scene_setup(self, context)
+        return {'FINISHED'}
+
+
+class GRABDOC_OT_refresh_setup(Operator):
+    """Rebuild GrabDoc in your current scene"""
+    bl_idname = "grabdoc.refresh_setup"
+    bl_label = "Rebuild Scene"
     bl_options = {'REGISTER', 'INTERNAL'}
 
     @classmethod
@@ -113,12 +137,6 @@ Can also potentially fix console spam from UI elements"""
         return GRABDOC_OT_baker_export_single.poll(context)
 
     def execute(self, context: Context):
-        for baker_prop in get_baker_collections():
-            if baker_prop:
-                continue
-            baker_prop.add()
-
-        init_baker_dependencies()
         scene_setup(self, context)
         return {'FINISHED'}
 
@@ -127,7 +145,7 @@ class GRABDOC_OT_scene_cleanup(Operator):
     """Remove all GrabDoc objects from the scene; keeps reimported textures"""
     bl_idname  = "grabdoc.scene_cleanup"
     bl_label   = "Remove GrabDoc Scene"
-    bl_options = {'REGISTER', 'INTERNAL'}
+    bl_options = {'REGISTER', 'UNDO', 'INTERNAL'}
 
     @classmethod
     def poll(cls, context: Context) -> bool:
@@ -642,43 +660,63 @@ class GRABDOC_OT_baker_pack(Operator):
     bl_options = {'REGISTER', 'INTERNAL'}
 
     def execute(self, context: Context):
-        # Loads all images into blender to avoid using a
-        # separate python module to convert to np array
-        r, g, b, a = get_channel_paths()
-        image_r = bpy.data.images.load(r)
-        image_g = bpy.data.images.load(g)
-        image_b = bpy.data.images.load(b)
-        pack_order = [(image_r, (0, 0)),
-                      (image_g, (0, 1)),
-                      (image_b, (0, 2))]
+        # If a channel is unused, replace with blank image
         gd = context.scene.gd
+        resolution = (gd.resolution_x, gd.resolution_y)
+        temp_image = bpy.data.images.new("_gd_pack_temp", *resolution)
+
+        # Load images in blend
+        r, g, b, a = get_channel_paths()
+        if gd.channel_r != 'none':
+            image_r = bpy.data.images.load(r)
+        else:
+            image_r = temp_image
+        if gd.channel_g != 'none':
+            image_g = bpy.data.images.load(g)
+        else:
+            image_g = temp_image
+        if gd.channel_b != 'none':
+            image_b = bpy.data.images.load(b)
+        else:
+            image_b = temp_image
         if gd.channel_a != 'none':
             image_a = bpy.data.images.load(a)
-            pack_order.append((image_a, (0, 3)))
+        else:
+            image_a = temp_image
+
+        # Pack and export
+        pack_order = [(image_r, (0, 0)),
+                      (image_g, (0, 1)),
+                      (image_b, (0, 2)),
+                      (image_a, (0, 3))]
 
         pack_name = gd.filename + "_" + gd.pack_name
-        dst_image = pack_image_channels(pack_order, pack_name)
+        dst_image = pack_image_channels(pack_order, pack_name, resolution)
         dst_image.filepath_raw = \
             get_filepath() + "//" + pack_name + get_format()
         dst_image.file_format  = gd.format
         dst_image.save()
 
         # Remove internal images
-        bpy.data.images.remove(image_r)
-        bpy.data.images.remove(image_g)
-        bpy.data.images.remove(image_b)
+        if gd.channel_r != 'none':
+            bpy.data.images.remove(image_r)
+        if gd.channel_g != 'none':
+            bpy.data.images.remove(image_g)
+        if gd.channel_b != 'none':
+            bpy.data.images.remove(image_b)
         if gd.channel_a != 'none':
             bpy.data.images.remove(image_a)
         bpy.data.images.remove(dst_image)
+        bpy.data.images.remove(temp_image)
 
-        # Remove image files
+        # Remove packed images
         if gd.remove_original_maps is False:
             return {'FINISHED'}
-        if os.path.exists(r):
+        if gd.channel_r != 'none' and os.path.exists(r):
             os.remove(r)
-        if os.path.exists(g):
+        if gd.channel_g != 'none' and os.path.exists(g):
             os.remove(g)
-        if os.path.exists(b):
+        if gd.channel_b != 'none' and os.path.exists(b):
             os.remove(b)
         if gd.channel_a != 'none' and os.path.exists(a):
             os.remove(a)
@@ -697,6 +735,7 @@ classes = (
     GRABDOC_OT_decrease_resolution,
     GRABDOC_OT_toggle_camera_view,
     GRABDOC_OT_scene_setup,
+    GRABDOC_OT_refresh_setup,
     GRABDOC_OT_scene_cleanup,
     GRABDOC_OT_baker_add,
     GRABDOC_OT_baker_remove,

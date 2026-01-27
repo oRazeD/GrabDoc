@@ -52,13 +52,13 @@ def generate_pack_enums() -> None:
             (f"{baker.ID}_{baker.index}", baker.get_display_name(), "")
         )
     GRABDOC_PG_properties.channel_r = \
-        EnumProperty(items=map_types[1:], default="occlusion_0", name='R')
+        EnumProperty(items=map_types, default="occlusion_0", name='R')
     GRABDOC_PG_properties.channel_g = \
-        EnumProperty(items=map_types[1:], default="roughness_0", name='G')
+        EnumProperty(items=map_types, default="roughness_0", name='G')
     GRABDOC_PG_properties.channel_b = \
-        EnumProperty(items=map_types[1:], default="metallic_0",  name='B')
+        EnumProperty(items=map_types, default="metallic_0",  name='B')
     GRABDOC_PG_properties.channel_a = \
-        EnumProperty(items=map_types,     default="none",        name='A')
+        EnumProperty(items=map_types, default="none",        name='A')
 
 
 class GRABDOC_PG_properties(PropertyGroup):

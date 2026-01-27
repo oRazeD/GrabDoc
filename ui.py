@@ -32,8 +32,7 @@ class GRABDOC_PT_grabdoc(GDPanel):
             return
         row = self.layout.row(align=True)
         row.scale_y = 1.5
-        row.operator("grabdoc.scene_setup",
-                     text="Setup Scene", icon='TOOL_SETTINGS')
+        row.operator("grabdoc.scene_setup", icon='TOOL_SETTINGS')
 
 
 class GRABDOC_PT_scene(GDPanel):
@@ -57,8 +56,7 @@ class GRABDOC_PT_scene(GDPanel):
         col = layout.column(align=True)
         row = col.row(align=True)
         row.scale_x = row.scale_y = 1.25
-        row.operator("grabdoc.scene_setup",
-                     text="Rebuild Scene", icon='FILE_REFRESH')
+        row.operator("grabdoc.refresh_setup", icon='FILE_REFRESH')
         row.operator("grabdoc.scene_cleanup", text="", icon="CANCEL")
 
         box = col.box()
@@ -299,7 +297,9 @@ class GRABDOC_PT_Baker(GDPanel):
         remove.baker_index = self.baker.index
 
     def draw(self, context: Context):
-        self.baker.draw(context, self.layout)
+        baker = getattr(self, 'baker', None)
+        if baker is not None:
+            baker.draw(context, self.layout)
 
 
 ################################################

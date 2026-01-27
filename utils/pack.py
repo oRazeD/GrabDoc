@@ -7,34 +7,29 @@ from .io import get_filepath, get_format
 from .baker import get_bakers
 
 
-def pack_image_channels(pack_order, PackName):
+def pack_image_channels(
+        pack_order: list, name: str, size: tuple[int, int]=None
+    ) -> bpy.types.Image:
     """NOTE: Original code sourced from:
-    https://blender.stackexchange.com/questions/274712/how-to-channel-pack-texture-in-python
-    """
-    dst_array = None
-    has_alpha = False
-
+    https://blender.stackexchange.com/questions/274712/how-to-channel-pack-texture-in-python"""
     # Build the packed pixel array
+    w, h = size
+    src_array = numpy.empty(w * h * 4, dtype=numpy.float32)
+    dst_array = numpy.ones(w * h * 4, dtype=numpy.float32)
+    has_alpha = True
+
+    # Fetch pixels from the source image and copy channels
     for pack_item in pack_order:
         image = pack_item[0]
-        # Initialize arrays on the first iteration
-        if dst_array is None:
-            w, h = image.size
-            src_array = numpy.empty(w * h * 4, dtype=numpy.float32)
-            dst_array = numpy.ones(w * h * 4, dtype=numpy.float32)
-        assert image.size[:] == (w, h), "Images must be same size"
-
-        # Fetch pixels from the source image and copy channels
         image.pixels.foreach_get(src_array)
         for src_chan, dst_chan in pack_item[1:]:
-            if dst_chan == 3:
-                has_alpha = True
+            if dst_chan == 3 and image.name == "_gd_pack_temp":
+                has_alpha = False
+                continue
             dst_array[dst_chan::4] = src_array[src_chan::4]
 
     # Create image from the packed pixels
-    dst_image = bpy.data.images.new(
-        PackName, w, h, is_data=True, alpha=has_alpha
-    )
+    dst_image = bpy.data.images.new(name, w, h, is_data=True, alpha=has_alpha)
     dst_image.pixels.foreach_set(dst_array)
     return dst_image
 
@@ -73,9 +68,11 @@ def is_pack_maps_enabled() -> bool:
     This function also returns True if a required
     bake map is not enabled but the texture exists."""
     baker_ids  = ['none']
-    baker_ids += [baker.ID for baker in get_bakers(filter_enabled=True)]
+    baker_ids += [f"{baker.ID}_{baker.index}" for baker in get_bakers(filter_enabled=True)]
     r, g, b, a = get_channel_paths()
     gd = bpy.context.scene.gd
+    print(gd.channel_r, gd.channel_g, gd.channel_b, gd.channel_a)
+    print(baker_ids)
     if gd.channel_r not in baker_ids and r is None:
         return False
     if gd.channel_g not in baker_ids and g is None:
